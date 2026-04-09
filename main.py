@@ -50,35 +50,6 @@ class ProjectorEngine:
             logger.error(f"Errore Login: {e}")
             return None
 
-    def _generate_reasoning(self, name, growth, spread, is_green, is_digital, sector):
-        """Motore di Explainable AI per Skills Intelligence."""
-        insights = []
-
-        # 1. Analisi dinamica della Crescita
-        if growth == "new_entry":
-            insights.append(f"È un requisito emergente nel mercato, non rilevato nel periodo precedente.")
-        elif isinstance(growth, (int, float)):
-            if growth > 30:
-                insights.append(f"Mostra una forte accelerazione (+{growth}%).")
-            elif growth < -20:
-                insights.append(f"È in fase di contrazione significativa.")
-
-        # 2. Analisi della Mobilità (Spread)
-        if spread > 3:
-            insights.append(
-                f"Gode di un'altissima mobilità intersettoriale, essendo richiesta in {spread} macro-settori.")
-        else:
-            insights.append(f"È una competenza altamente verticale, focalizzata principalmente nel settore {sector}.")
-
-        # 3. Tag Twin Transition
-        if is_green and is_digital:
-            insights.append("Rappresenta un driver fondamentale per la Twin Transition.")
-        elif is_green:
-            insights.append("È un asset critico per gli obiettivi di sostenibilità (Green Deal).")
-        elif is_digital:
-            insights.append("È un fattore abilitante per la trasformazione digitale.")
-
-        return " ".join(insights)
 
     # Nuovo metodo per tradurre le occupazioni (Settori)
     async def fetch_occupation_labels(self, occ_uris: List[str], page_size: int = 500):
@@ -105,6 +76,98 @@ class ProjectorEngine:
                         self.sector_map[str(o.get("id")).strip()] = str(o.get("label", ""))
             except:
                 continue
+
+    def get_regional_projections(self, jobs: List[dict], demo: bool = False):
+        """
+            Task 3.5 (i): Doppia strategia Geografica.
+            Genera proiezioni sia per Location Code grezzi che per gerarchia NUTS.
+            """
+        raw_map = {}
+        nuts_map = {"NUTS1": {}, "NUTS2": {}, "NUTS3": {}}
+        global_counts = {}
+        total_jobs = len(jobs) if jobs else 1
+        for idx, job in enumerate(jobs):
+            # Prendiamo il location_code originale (es. "IT", "SE", "FR")
+            loc_original = str(job.get("location_code", "EU")).strip()
+
+            # Estraiamo il prefisso nazione (primi 2 caratteri)
+
+            # Se il codice è solo nazionale (lungo 2), generiamo un NUTS3 dinamico
+            if demo and len(loc_original) <= 2:
+                country_prefix = loc_original[:2].upper() if len(loc_original) >= 2 else "EU"
+
+                # Creiamo una scomposizione "pseudo-reale" usando l'indice
+                # NUTS structure: [CC][Level1][Level2][Level3] -> ES: IT 1 2 1
+                l1 = (idx % 3) + 1  # Varia tra 1 e 3
+                l2 = (idx % 4) + 1  # Varia tra 1 e 4
+                l3 = (idx % 5)  # Varia tra 0 e 4
+                loc_projected = f"{country_prefix}{l1}{l2}{l3}"
+            else:
+                loc_projected = loc_original
+
+            # -----------------------
+
+            nuts_levels = {
+                "NUTS1": loc_projected[:3],  # Es: ITC
+                "NUTS2": loc_projected[:4] if len(loc_projected) >= 4 else None,  # Es: ITC4
+                "NUTS3": loc_projected if len(loc_projected) >= 5 else None  # Es: ITC4C
+
+            }
+
+            # 2. INCREMENTO JOB COUNT (Una sola volta per job!)
+            # Strategia RAW
+            if loc_original not in raw_map: raw_map[loc_original] = {"count": 0, "skills": {}}
+            raw_map[loc_original]["count"] += 1
+
+            # Strategia NUTS
+            for level, code in nuts_levels.items():
+                if code:
+                    if code not in nuts_map[level]: nuts_map[level][code] = {"count": 0, "skills": {}}
+                    nuts_map[level][code]["count"] += 1
+
+            # 3. AGGREGAZIONE SKILLS
+            for s_uri in job.get("skills", []):
+                label = self.skill_map.get(s_uri, {}).get("label", s_uri)
+
+                # Update globale per LQ
+                global_counts[label] = global_counts.get(label, 0) + 1
+
+                # Update RAW
+                raw_map[loc_original]["skills"][label] = raw_map[loc_original]["skills"].get(label, 0) + 1
+
+                # Update NUTS
+                for level, code in nuts_levels.items():
+                    if code:
+                        node_skills = nuts_map[level][code]["skills"]
+                        node_skills[label] = node_skills.get(label, 0) + 1
+
+        # --- FORMATTAZIONE FINALE (Invariata) ---
+        def format_output(source_map):
+            formatted = []
+            for code, data in source_map.items():
+                skills_list = []
+                for s_name, count in data["skills"].items():
+                    # Calcolo Location Quotient (Specializzazione)
+                    lq = (count / data["count"]) / (global_counts[s_name] / total_jobs)
+                    skills_list.append({
+                        "skill": s_name,
+                        "count": count,
+                        "specialization": round(lq, 2)
+                    })
+                formatted.append({
+                    "code": code,
+                    "total_jobs": data["count"],
+                    "market_share": round((data["count"] / total_jobs) * 100, 2),
+                    "top_skills": sorted(skills_list, key=lambda x: x["count"], reverse=True)[:10]
+                })
+            return sorted(formatted, key=lambda x: x["total_jobs"], reverse=True)
+
+        return {
+            "raw": format_output(raw_map),
+            "nuts1": format_output(nuts_map["NUTS1"]),
+            "nuts2": format_output(nuts_map["NUTS2"]),
+            "nuts3": format_output(nuts_map["NUTS3"])
+        }
 
     async def fetch_all_jobs(self, filters: dict, page_size: int=500):
         # Non resettiamo stop_requested qui, lo facciamo negli endpoint all'inizio
@@ -323,21 +386,13 @@ class ProjectorEngine:
                 growth = round(((v_b - v_a) / v_a) * 100, 2)
                 t_type = "emerging" if growth > 0 else "declining" if growth < 0 else "stable"
 
-            reasoning = self._generate_reasoning(
-                name=name,
-                growth=growth,
-                spread=info_b.get("sector_spread", 1),
-                is_green=info_b.get("is_green", False),
-                is_digital=info_b.get("is_digital", False),
-                sector=primary_sector
-            )
+
 
             trends.append({
                 "name": name,
                 "growth": growth,
                 "trend_type": t_type,
                 "primary_sector": primary_sector,
-                "reasoning": reasoning,  # <--- NUOVO CAMPO PHASE 2
                 "is_green": info_b.get("is_green", False),
                 "is_digital": info_b.get("is_digital", False)
             })
@@ -392,7 +447,8 @@ async def analyze_skills(
         min_date: str = Form(...),
         max_date: str = Form(...),
         page: int = Form(1),
-        page_size: int = Form(50)
+        page_size: int = Form(50),
+        demo: bool = Form(False)
 ):
     engine.stop_requested = False
 
@@ -418,11 +474,15 @@ async def analyze_skills(
 
     # Traduzione settori (Phase 1)
     all_occs = []
+    all_skills = []
     for j in raw:
         all_occs.extend(j.get("occupations", []))
+        all_skills.extend(j.get("skills", []))  # <--- Aggiungiamo questo!
+
     occ_uris = list(set(all_occs))  # Rimuove i duplicati
 
     await engine.fetch_occupation_labels(occ_uris)
+    await engine.fetch_skill_names(list(set(all_skills)))  # <--- Traduciamo tutto il set
 
     # Analisi globale
     analysis = await engine.analyze_market_data(raw)
@@ -430,7 +490,10 @@ async def analyze_skills(
     # Trend in memoria (Single Fetch optimization)
     trends = await engine.calculate_trends_from_data(raw, min_date, max_date)
 
+    regional_projections = engine.get_regional_projections(raw, demo=demo)
+
     start = (page - 1) * page_size
+
     return {
         "status": "completed" if not engine.stop_requested else "stopped",
         "dimension_summary": {
@@ -442,7 +505,8 @@ async def analyze_skills(
             "sectors": analysis["rankings"]["sectors"],
             "job_titles": analysis["rankings"]["job_titles"],
             "employers": analysis["rankings"]["employers"],
-            "trends": trends
+            "trends": trends,
+            "regional": regional_projections  # <--- Inserito qui
         }
     }
 @app.post("/projector/emerging-skills")

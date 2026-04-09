@@ -406,24 +406,59 @@ async def test_fetch_occupation_labels_integration_real():
     assert actual_label == expected_label, f"Ricevuto '{actual_label}' invece di '{expected_label}'"
 
 
-
 @pytest.mark.asyncio
-async def test_T35_Phase2_reasoning_logic():
-    """Verifica la logica XAI (Phase 2) con i termini esatti del codice."""
-    reasoning = engine._generate_reasoning(
-        name="Python", growth=45.0, spread=6,
-        is_green=False, is_digital=True, sector="ICT"
-    )
+async def test_regional_decomposition_logic():
+    """
+    Verifica che i job siano raggruppati correttamente sia nella
+    strategia RAW che in quella NUTS gerarchica.
+    """
+    # Mock jobs con codici che simulano NUTS (ITC4C è NUTS3, ITC4 è NUTS2, ITC è NUTS1)
+    mock_jobs = [
+        {"location_code": "ITC4C", "skills": ["s1", "s2"]}, # Milano (NUTS3)
+        {"location_code": "ITC4C", "skills": ["s1"]},      # Milano (NUTS3)
+        {"location_code": "SOUTH", "skills": ["s2"]}       # Codice non NUTS (Raw)
+    ]
 
-    assert "digitale" in reasoning.lower()
-    assert "accelerazione" in reasoning.lower()
-    assert "mobilità" in reasoning.lower()
+    # Prepariamo la skill_map minima
+    engine.skill_map = {
+        "s1": {"label": "Python"},
+        "s2": {"label": "SQL"}
+    }
 
-    # Caso: New Entry Green
-    reasoning_new = engine._generate_reasoning(
-        name="Carbon Auditing", growth="new_entry", spread=1,
-        is_green=True, is_digital=False, sector="Finance"
-    )
-    # FIX: Verifichiamo i termini reali generati dal codice italiano
-    assert "green" in reasoning_new.lower()
-    assert "emergente" in reasoning_new.lower()  # Il codice usa 'emergente', non 'nuovo'
+    # Esecuzione della nuova funzione duale
+    results = engine.get_regional_projections(mock_jobs)
+
+    # 1. VERIFICA STRATEGIA RAW (NORTH/SOUTH o codici completi)
+    raw_results = results["raw"]
+
+    # Check ITC4C (Raw)
+    milano = next(r for r in raw_results if r["code"] == "ITC4C")
+    assert milano["total_jobs"] == 2
+    # Verifichiamo Python (s1) in ITC4C
+    python_entry = next(s for s in milano["top_skills"] if s["skill"] == "Python")
+    assert python_entry["count"] == 2
+
+    # Check SOUTH (Raw)
+    south = next(r for r in raw_results if r["code"] == "SOUTH")
+    assert south["total_jobs"] == 1
+    assert south["top_skills"][0]["skill"] == "SQL"
+
+    # 2. VERIFICA STRATEGIA NUTS (Gerarchica)
+    # ITC4C deve aver popolato anche NUTS2 (ITC4) e NUTS1 (ITC)
+
+    # Check NUTS2 (Regione: ITC4 - Lombardia)
+    nuts2_results = results["nuts2"]
+    lombardia = next(r for r in nuts2_results if r["code"] == "ITC4")
+    assert lombardia["total_jobs"] == 2
+
+    # Check NUTS1 (Area: ITC - Nord-Ovest)
+    nuts1_results = results["nuts1"]
+    nord_ovest = next(r for r in nuts1_results if r["code"] == "ITC")
+    assert nord_ovest["total_jobs"] == 2
+
+    # 3. VERIFICA SPECIALIZZAZIONE (Location Quotient)
+    # In questo mock, SQL compare 2 volte su 3 job totali (66%).
+    # A SOUTH compare 1 volta su 1 job (100%).
+    # LQ = 100% / 66% = ~1.5 (Specializzazione alta)
+    sql_south = next(s for s in south["top_skills"] if s["skill"] == "SQL")
+    assert sql_south["specialization"] >= 1.0
