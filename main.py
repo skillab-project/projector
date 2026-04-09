@@ -50,15 +50,44 @@ class ProjectorEngine:
             logger.error(f"Errore Login: {e}")
             return None
 
-    # In ProjectorEngine.__init__
+    def _generate_reasoning(self, name, growth, spread, is_green, is_digital, sector):
+        """Motore di Explainable AI per Skills Intelligence."""
+        insights = []
+
+        # 1. Analisi dinamica della Crescita
+        if growth == "new_entry":
+            insights.append(f"È un requisito emergente nel mercato, non rilevato nel periodo precedente.")
+        elif isinstance(growth, (int, float)):
+            if growth > 30:
+                insights.append(f"Mostra una forte accelerazione (+{growth}%).")
+            elif growth < -20:
+                insights.append(f"È in fase di contrazione significativa.")
+
+        # 2. Analisi della Mobilità (Spread)
+        if spread > 3:
+            insights.append(
+                f"Gode di un'altissima mobilità intersettoriale, essendo richiesta in {spread} macro-settori.")
+        else:
+            insights.append(f"È una competenza altamente verticale, focalizzata principalmente nel settore {sector}.")
+
+        # 3. Tag Twin Transition
+        if is_green and is_digital:
+            insights.append("Rappresenta un driver fondamentale per la Twin Transition.")
+        elif is_green:
+            insights.append("È un asset critico per gli obiettivi di sostenibilità (Green Deal).")
+        elif is_digital:
+            insights.append("È un fattore abilitante per la trasformazione digitale.")
+
+        return " ".join(insights)
 
     # Nuovo metodo per tradurre le occupazioni (Settori)
     async def fetch_occupation_labels(self, occ_uris: List[str], page_size: int = 500):
-        uris = [u for u in occ_uris if u not in self.sector_map]
+
+        uris = [str(u).strip() for u in occ_uris if u and str(u).strip() not in self.sector_map]
+
         if not uris or self.stop_requested: return
 
-        if not self.token:
-            await self._get_token()
+        if not self.token: await self._get_token()
 
         batch_size = 40
         for i in range(0, len(uris), batch_size):
@@ -66,16 +95,14 @@ class ProjectorEngine:
             batch = uris[i:i + batch_size]
             try:
                 res = await self.client.post(
-                    f"{self.api_url}/occupations",  # Endpoint specifico per occupazioni
+                    f"{self.api_url}/occupations",
                     headers={"Authorization": f"Bearer {self.token}"},
-                    data={"ids": batch},
-                    params={"page_size": page_size}
-
-
+                    data={"ids": batch}
                 )
                 if res.status_code == 200:
                     for o in res.json().get("items", []):
-                        self.sector_map[o.get("id")] = o.get("label")
+                        # Salviamo l'ID e la label (Preferred Label)
+                        self.sector_map[str(o.get("id")).strip()] = str(o.get("label", ""))
             except:
                 continue
 
@@ -186,15 +213,20 @@ class ProjectorEngine:
             if i > 0 and i % 2000 == 0: await asyncio.sleep(0)
 
             # 1. Identificazione Settore
-            job_occs = job.get("occupations", [])
-            if job_occs:
-                # Prendiamo la prima occupazione come riferimento per il settore principale del job
-                occ_id = str(job_occs[0]).strip()
-            else:
-                occ_id = "Unclassified"
+            for i, job in enumerate(raw_jobs):
+                # 1. Identificazione Settore (Retrocompatibile)
+                job_occs = job.get("occupations", [])
+                legacy_occ = job.get("occupation_id")
 
-            sector_name = self.sector_map.get(occ_id, "Settore non specificato")
-            sec_cnt[sector_name] += 1
+                if job_occs:
+                    occ_id = str(job_occs[0]).strip()
+                elif legacy_occ:
+                    occ_id = str(legacy_occ).strip()
+                else:
+                    occ_id = "Unclassified"
+
+                sector_name = self.sector_map.get(occ_id, "Settore non specificato")
+                sec_cnt[sector_name] += 1
 
             # 2. Conteggio standard
             e_cnt[job.get("organization_name") or "N/D"] += 1
@@ -291,9 +323,21 @@ class ProjectorEngine:
                 growth = round(((v_b - v_a) / v_a) * 100, 2)
                 t_type = "emerging" if growth > 0 else "declining" if growth < 0 else "stable"
 
+            reasoning = self._generate_reasoning(
+                name=name,
+                growth=growth,
+                spread=info_b.get("sector_spread", 1),
+                is_green=info_b.get("is_green", False),
+                is_digital=info_b.get("is_digital", False),
+                sector=primary_sector
+            )
+
             trends.append({
-                "name": name, "growth": growth, "trend_type": t_type,
+                "name": name,
+                "growth": growth,
+                "trend_type": t_type,
                 "primary_sector": primary_sector,
+                "reasoning": reasoning,  # <--- NUOVO CAMPO PHASE 2
                 "is_green": info_b.get("is_green", False),
                 "is_digital": info_b.get("is_digital", False)
             })
@@ -338,6 +382,7 @@ class ProjectorEngine:
 
 
 engine = ProjectorEngine()
+
 
 
 @app.post("/projector/analyze-skills")
