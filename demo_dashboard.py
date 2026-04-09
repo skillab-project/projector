@@ -141,16 +141,22 @@ payload = {
 tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
 
 if submit_button:
-    # --- TAB 1: RANKING SKILLS (INTELLIGENCE AGGIUNTA) ---
-    with tab1:
-        st.header(T['top_skills'])
-        data = get_analysis_data(payload)
-        if data and "insights" in data:
-            ranking = data["insights"].get("ranking", [])
+    # 1. UNICA CHIAMATA AL SERVER
+    with st.spinner("🚀 Intelligence is loading..."):
+        all_data = get_analysis_data(payload)
+
+    if all_data and "insights" in all_data:
+        ins = all_data["insights"]
+        summary = all_data["dimension_summary"]
+
+        # --- TAB 1: RANKING SKILLS ---
+        with tab1:
+            st.header(T['top_skills'])
+            ranking = ins.get("ranking", [])
             if ranking:
                 df_ranking = pd.DataFrame(ranking).head(15)
 
-                # Aggiunta tag Twin Transition (Phase 1)
+                # Tag Twin Transition
                 df_ranking['Twin'] = df_ranking.apply(
                     lambda x: ("🍃" if x.get('is_green') else "") + ("💻" if x.get('is_digital') else ""), axis=1
                 )
@@ -164,55 +170,49 @@ if submit_button:
                     fig.update_layout(yaxis={'categoryorder': 'total ascending'})
                     st.plotly_chart(fig, use_container_width=True)
                 with col2:
-                    st.metric(T['jobs_analyzed'], data["dimension_summary"]["jobs_analyzed"])
+                    # FIX: Usiamo 'summary' definita sopra
+                    st.metric(T['jobs_analyzed'], summary.get("jobs_analyzed", 0))
                     st.subheader(T['intelligence_label'])
-                    # Visualizziamo i nuovi campi Phase 1 nella tabella
                     st.dataframe(df_ranking[['name', 'frequency', 'primary_sector', 'Twin']], use_container_width=True)
 
-    # --- TAB 2: TRENDS (INTELLIGENCE AGGIUNTA) ---
-    with tab2:
-        st.header(T['trends_header'])
-        trend_data = get_trends_data(payload)
-        if trend_data and "insights" in trend_data:
-            ins = trend_data["insights"]
+        # --- TAB 2: TRENDS ---
+        with tab2:
+            st.header(T['trends_header'])
+            trend_data = ins.get("trends", {})
 
-            if "market_health" in ins:
-                mh = ins["market_health"]
-                st.info(
-                    f"{T['market_status']}: **{mh['status'].upper()}** | {T['volume_var']}: **{mh['volume_growth_percentage']}%**")
+            if trend_data:
+                mh = trend_data.get("market_health", {})
+                st.info(f"{T['market_status']}: **{mh.get('status', '').upper()}** | {T['volume_var']}: **{mh.get('volume_growth_percentage', 0)}%**")
 
-            trends_list = ins.get("trends", [])
-            if trends_list:
-                df_trends = pd.DataFrame.from_records(trends_list)
-                if 'growth' in df_trends.columns:
-                    new_entries = df_trends[df_trends['growth'] == 'new_entry']
-                    df_numeric = df_trends[df_trends['growth'] != 'new_entry'].copy()
-                    df_numeric['growth'] = pd.to_numeric(df_numeric['growth'], errors='coerce')
-                    df_numeric = df_numeric.dropna(subset=['growth'])
+                trends_list = trend_data.get("trends", [])
+                if trends_list:
+                    df_trends = pd.DataFrame.from_records(trends_list)
+                    if 'growth' in df_trends.columns:
+                        new_entries = df_trends[df_trends['growth'] == 'new_entry']
+                        df_numeric = df_trends[df_trends['growth'] != 'new_entry'].copy()
+                        df_numeric['growth'] = pd.to_numeric(df_numeric['growth'], errors='coerce')
+                        df_numeric = df_numeric.dropna(subset=['growth'])
 
-                    if not df_numeric.empty:
-                        df_plot = pd.concat([df_numeric.head(10), df_numeric.tail(10)])
-                        # Aggiunta primary_sector nel grafico dei trend
-                        fig_trend = px.bar(df_plot, x='growth', y='name', orientation='h',
-                                           color='trend_type',
-                                           hover_data=["primary_sector"],  # Phase 1 info
-                                           color_discrete_map={'emerging': '#2ecc71', 'declining': '#e74c3c'},
-                                           title=T['delta_title'])
-                        st.plotly_chart(fig_trend, use_container_width=True)
+                        if not df_numeric.empty:
+                            df_plot = pd.concat([df_numeric.head(10), df_numeric.tail(10)])
+                            fig_trend = px.bar(df_plot, x='growth', y='name', orientation='h',
+                                               color='trend_type',
+                                               hover_data=["primary_sector"],
+                                               color_discrete_map={'emerging': '#2ecc71', 'declining': '#e74c3c'},
+                                               title=T['delta_title'])
+                            st.plotly_chart(fig_trend, use_container_width=True)
 
-                    if not new_entries.empty:
-                        st.subheader(T['new_entries'])
-                        st.success(", ".join(new_entries['name'].astype(str).tolist()))
+                        if not new_entries.empty:
+                            st.subheader(T['new_entries'])
+                            st.success(", ".join(new_entries['name'].astype(str).tolist()))
 
-    # --- TAB 3: GEOGRAFIA (INVARIATA) ---
-    with tab3:
-        st.header(T['geo_header'])
-        data = get_analysis_data(payload)
-        if data and "dimension_summary" in data:
-            geo = data["dimension_summary"].get("geo_breakdown", [])
+        # --- TAB 3: GEOGRAFIA ---
+        with tab3:
+            st.header(T['geo_header'])
+            geo = summary.get("geo_breakdown", [])
             if geo:
                 df_geo = pd.DataFrame(geo)
-                iso_mapping = {"IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP", "EL": "GRC"}  # ... mapping ...
+                iso_mapping = {"IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP", "GB": "GBR", "EL": "GRC"}
                 df_geo['iso_alpha_3'] = df_geo['location'].map(iso_mapping).fillna(df_geo['location'])
 
                 c_map, c_stat = st.columns([2, 1])
@@ -222,22 +222,18 @@ if submit_button:
                                             projection="natural earth", title=T['map_title'])
                     st.plotly_chart(fig_map, use_container_width=True)
                 with c_stat:
-                    st.plotly_chart(px.pie(df_geo, values='job_count', names='location', hole=0.4),
-                                    use_container_width=True)
+                    st.plotly_chart(px.pie(df_geo, values='job_count', names='location', hole=0.4), use_container_width=True)
             else:
                 st.warning(T['no_geo'])
 
-    # --- TAB 4: SETTORI, JOBS & EMPLOYERS (LAYOUT ESTESO) ---
-    with tab4:
-        st.header(T['jobs_emp_header'])
-        data = get_analysis_data(payload)
-        if data and "insights" in data:
-            # Layout a 3 colonne per includere il nuovo grafico dei settori
+        # --- TAB 4: SETTORI, JOBS & EMPLOYERS ---
+        with tab4:
+            st.header(T['jobs_emp_header'])
             c1, c2, c3 = st.columns(3)
 
             with c1:
-                st.subheader(T['top_sectors'])  # NUOVO GRAFICO PHASE 1
-                sec = data["insights"].get("sectors", [])
+                st.subheader(T['top_sectors'])
+                sec = ins.get("sectors", [])
                 if sec:
                     df_sec = pd.DataFrame(sec)
                     st.plotly_chart(px.pie(df_sec, values='count', names='name',
@@ -248,7 +244,7 @@ if submit_button:
 
             with c2:
                 st.subheader(T['top_titles'])
-                jt = data["insights"].get("job_titles", [])
+                jt = ins.get("job_titles", [])
                 if jt:
                     st.plotly_chart(px.bar(pd.DataFrame(jt), x='count', y='name', orientation='h',
                                            title=T['jt_title'], color_discrete_sequence=['#3498db']))
@@ -257,12 +253,15 @@ if submit_button:
 
             with c3:
                 st.subheader(T['top_emp'])
-                emp = data["insights"].get("employers", [])
+                emp = ins.get("employers", [])
                 if emp:
                     st.plotly_chart(px.pie(pd.DataFrame(emp), values='count', names='name',
                                            title=T['active_emp'], hole=0.3))
                 else:
                     st.write(T['no_data'])
+
+    else:
+        st.error(T['server_error'])
 
 else:
     st.info(T['welcome'])

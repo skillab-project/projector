@@ -321,3 +321,124 @@ def test_dashboard_phase1_contract():
         # Verifica dati per Grafico Settori (Nuova Tab 4)
         assert "sectors" in res_data["insights"]
         assert res_data["insights"]["sectors"][0]["name"] == "Information Technology"
+
+
+@pytest.mark.integration
+def test_endpoint_analyze_skills_single_fetch_consistency():
+    """Verifica che l'endpoint restituisca sia le skill che i trend in un'unica chiamata."""
+    form_data = {
+        "keywords": ["developer"],
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10"
+    }
+
+    # Mocking per evitare fetch reali
+    with patch.object(engine, 'fetch_all_jobs', new_callable=AsyncMock) as m_fetch:
+        m_fetch.return_value = [
+            {"upload_date": "2024-01-02", "skills": ["s1"], "occupation_id": "occ_1"},
+            {"upload_date": "2024-01-08", "skills": ["s1", "s1"], "occupation_id": "occ_1"}
+        ]
+
+        response = client.post("/projector/analyze-skills", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        # Verifica che i trend siano "dentro" la risposta di analyze-skills
+        assert "trends" in data["insights"]
+        assert data["insights"]["trends"]["market_health"]["volume_growth_percentage"] == 0.0
+
+
+import pytest
+from unittest.mock import AsyncMock, patch, MagicMock
+
+
+@pytest.mark.asyncio
+async def test_fetch_occupation_labels_specific_esco():
+    """
+    Verifica che l'ID ESCO del Sales Account Manager venga
+    correttamente tradotto e salvato nella sector_map.
+    """
+    # 1. Setup dati del test
+    target_uri = "http://data.europa.eu/esco/occupation/2eac08c2-a81a-46fc-8d75-eb0e0f3e0f6d"
+    expected_label = "sales account manager"
+
+    # Pulizia stato iniziale
+    engine.sector_map = {}
+    engine.token = "fake_token"
+    engine.stop_requested = False
+
+    # 2. Mock della risposta API
+    mock_response_data = {
+        "items": [
+            {
+                "id": target_uri,
+                "label": expected_label
+            }
+        ]
+    }
+
+    # Patchiamo il metodo post del client httpx
+    with patch.object(engine.client, 'post', new_callable=AsyncMock) as mock_post:
+        # Configuriamo il mock per restituire una risposta valida
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        mock_res.json.return_value = mock_response_data
+        mock_post.return_value = mock_res
+
+        # 3. Esecuzione
+        await engine.fetch_occupation_labels([target_uri])
+
+        # 4. Verifiche (Assertions)
+        # Verifichiamo che la chiamata sia stata fatta all'endpoint corretto
+        assert mock_post.called
+        args, kwargs = mock_post.call_args
+        assert "/occupations" in args[0]
+        assert target_uri in kwargs['data']['ids']
+
+        # Verifichiamo che la sector_map sia stata popolata correttamente
+        assert target_uri in engine.sector_map
+        assert engine.sector_map[target_uri] == expected_label
+
+        # Log di successo per debugging manuale
+        print(f"\n✅ Mapping riuscito: {engine.sector_map[target_uri]}")
+
+
+import pytest
+import os
+from main import engine
+
+
+@pytest.mark.asyncio
+async def test_fetch_occupation_labels_integration_real():
+    """
+    INTEGRATION TEST (No Mock):
+    Verifica il recupero reale dal server Tracker per l'ID ESCO specifico.
+    """
+    # 1. Setup dell'ID specifico richiesto
+    target_uri = "http://data.europa.eu/esco/occupation/2eac08c2-a81a-46fc-8d75-eb0e0f3e0f6d"
+    expected_label = "sales account manager"
+
+    # 2. Reset dello stato dell'engine per forzare la chiamata al server
+    engine.sector_map = {}
+    engine.stop_requested = False
+    # Nota: non resettiamo il token se è già presente per evitare login inutili,
+    # ma se fosse None, la funzione chiamerebbe _get_token() automaticamente.
+
+    # 3. Esecuzione (Chiamata reale al Tracker API)
+    await engine.fetch_occupation_labels([target_uri])
+
+    # 4. Verifica dei risultati
+    # Controlliamo che la mappa sia stata popolata
+    assert target_uri in engine.sector_map, "L'URI non è stato inserito nella sector_map. Verificare connessione/credenziali."
+
+    # Confronto della label (usiamo .lower() per sicurezza, dato che ESCO a volte varia il case)
+    actual_label = engine.sector_map[target_uri].lower()
+
+    print(f"\n[REAL API] Ricevuto: {actual_label}")
+
+    assert actual_label == expected_label, f"La label ricevuta '{actual_label}' non coincide con '{expected_label}'"
+
+    # 5. Verifica persistenza (Secondo tentativo non deve chiamare il server)
+    # Se lo rieseguiamo, non dovrebbe dare errori e la mappa dovrebbe essere ancora lì
+    await engine.fetch_occupation_labels([target_uri])
+    assert engine.sector_map[target_uri].lower() == expected_label

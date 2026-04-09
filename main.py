@@ -57,6 +57,9 @@ class ProjectorEngine:
         uris = [u for u in occ_uris if u not in self.sector_map]
         if not uris or self.stop_requested: return
 
+        if not self.token:
+            await self._get_token()
+
         batch_size = 40
         for i in range(0, len(uris), batch_size):
             if self.stop_requested: break
@@ -129,6 +132,9 @@ class ProjectorEngine:
     async def fetch_skill_names(self, skill_uris: List[str]):
         uris = [u for u in skill_uris if u not in self.skill_map]
         if not uris or self.stop_requested: return
+
+        if not self.token:
+            await self._get_token()
 
         GREEN_KEYWORDS = {
             "sustainable", "sustainable", "ecology", "circular", "carbon", "renewable",
@@ -237,42 +243,33 @@ class ProjectorEngine:
             },
             "geo": []
         }
-    async def calculate_smart_trends(self, base_filters: dict, min_date: str, max_date: str):
-        d1, d2 = datetime.strptime(min_date, "%Y-%m-%d"), datetime.strptime(max_date, "%Y-%m-%d")
-        mid = d1 + timedelta(days=(d2 - d1).days // 2)
 
-        f_a = {**base_filters, "min_upload_date": min_date, "max_upload_date": mid.strftime("%Y-%m-%d")}
-        f_b = {**base_filters, "min_upload_date": (mid + timedelta(days=1)).strftime("%Y-%m-%d"),
-               "max_upload_date": max_date}
+    def _empty_insights_p1(self):
+        """Restituisce la struttura vuota coerente con il contratto della Dashboard."""
+        return {
+            "ranking": [],
+            "sectors": [],
+            "job_titles": [],
+            "employers": [],
+            "trends": {
+                "market_health": {"status": "no_data", "volume_growth_percentage": 0},
+                "trends": []
+            }
+        }
 
-        logger.info("Trend Periodo A...")
-        jobs_a = await self.fetch_all_jobs(f_a)
-        res_a = await self.analyze_market_data(jobs_a)
-
-        # SHORT-CIRCUIT: Se è stato premuto stop, non facciamo il periodo B
-        if self.stop_requested: return self._stop_trend_res()
-
-        logger.info("Trend Periodo B...")
-        jobs_b = await self.fetch_all_jobs(f_b)
-        res_b = await self.analyze_market_data(jobs_b)
-        if self.stop_requested: return self._stop_trend_res()
-
-        # Mappiamo i risultati del periodo A e B per un confronto veloce
+    # --- METODO PRIVATO CONDIVISO (IL CERVELLO) ---
+    def _compare_periods(self, res_a, res_b):
+        """Calcola i delta e arricchisce con Intelligence (Phase 1)."""
         dict_a = {s["skill_id"]: s for s in res_a["rankings"]["skills"]}
         dict_b = {s["skill_id"]: s for s in res_b["rankings"]["skills"]}
         trends = []
 
         for s_id in set(list(dict_a.keys()) + list(dict_b.keys())):
             v_a = dict_a.get(s_id, {}).get("frequency", 0)
-            # Dati dal periodo più recente (B)
             info_b = dict_b.get(s_id, {})
             v_b = info_b.get("frequency", 0)
 
-            # Recuperiamo il nome e i metadati della skill
             name = info_b.get("name") or dict_a.get(s_id, {}).get("name")
-
-            # --- INTELLIGENCE C: Recupero del Settore Primario ---
-            # Prendiamo il settore che sta trainando la skill nel periodo più recente
             primary_sector = info_b.get("primary_sector", "N/D")
 
             if v_a == 0:
@@ -284,10 +281,8 @@ class ProjectorEngine:
                 t_type = "emerging" if growth > 0 else "declining" if growth < 0 else "stable"
 
             trends.append({
-                "name": name,
-                "growth": growth,
-                "trend_type": t_type,
-                "primary_sector": primary_sector,  # Ora il trend sa "dove" sta crescendo
+                "name": name, "growth": growth, "trend_type": t_type,
+                "primary_sector": primary_sector,
                 "is_green": info_b.get("is_green", False),
                 "is_digital": info_b.get("is_digital", False)
             })
@@ -304,26 +299,78 @@ class ProjectorEngine:
             "trends": trends
         }
 
+    # --- METODO 1: OTTIMIZZATO (IN-MEMORY) ---
+    async def calculate_trends_from_data(self, all_jobs: List[dict], min_date: str, max_date: str):
+        mid = self._get_midpoint(min_date, max_date)
+        jobs_a = [j for j in all_jobs if j.get("upload_date", "") <= mid]
+        jobs_b = [j for j in all_jobs if j.get("upload_date", "") > mid]
+
+        res_a = await self.analyze_market_data(jobs_a)
+        res_b = await self.analyze_market_data(jobs_b)
+        return self._compare_periods(res_a, res_b)
+
+    # --- METODO 2: STANDALONE (CON FETCH) ---
+    async def calculate_smart_trends(self, base_filters: dict, min_date: str, max_date: str):
+        mid = self._get_midpoint(min_date, max_date)
+        f_a = {**base_filters, "min_upload_date": min_date, "max_upload_date": mid}
+        f_b = {**base_filters, "min_upload_date": mid, "max_upload_date": max_date}  # Semplificato per brevità
+
+        res_a = await self.analyze_market_data(await self.fetch_all_jobs(f_a))
+        if self.stop_requested: return self._stop_trend_res()
+
+        res_b = await self.analyze_market_data(await self.fetch_all_jobs(f_b))
+        return self._compare_periods(res_a, res_b)
+
+    def _get_midpoint(self, d1, d2):
+        dt1, dt2 = datetime.strptime(d1, "%Y-%m-%d"), datetime.strptime(d2, "%Y-%m-%d")
+        return (dt1 + timedelta(days=(dt2 - dt1).days // 2)).strftime("%Y-%m-%d")
+
 
 engine = ProjectorEngine()
 
 
 @app.post("/projector/analyze-skills")
-async def analyze_skills(keywords: Optional[List[str]] = Form(None), locations: Optional[List[str]] = Form(None),
-                         min_date: Optional[str] = Form(None), max_date: Optional[str] = Form(None),
-                         page: int = Form(1), page_size: int = Form(50)):
-    engine.stop_requested = False  # Resettiamo lo stato all'inizio di ogni richiesta
-    payload = {k: v for k, v in {"keywords": keywords, "location_code": locations,
-                                 "min_upload_date": min_date, "max_upload_date": max_date}.items() if v}
-    raw = await engine.fetch_all_jobs(payload)
+async def analyze_skills(
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        min_date: str = Form(...),
+        max_date: str = Form(...),
+        page: int = Form(1),
+        page_size: int = Form(50)
+):
+    engine.stop_requested = False
 
+    # Costruzione payload pulita
+    payload = {
+        "keywords": keywords,
+        "location_code": locations,
+        "min_upload_date": min_date,
+        "max_upload_date": max_date
+    }
+    clean_payload = {k: v for k, v in payload.items() if v is not None}
+
+    # FETCH UNICO
+    raw = await engine.fetch_all_jobs(clean_payload)
+
+    # FIX: Se non ci sono job, restituiamo subito la struttura coerente
+    if not raw:
+        return {
+            "status": "completed",
+            "dimension_summary": {"jobs_analyzed": 0, "geo_breakdown": []},
+            "insights": engine._empty_insights_p1()  # <--- Coerenza qui
+        }
+
+    # Traduzione settori (Phase 1)
     occ_uris = list(set([j.get("occupation_id") for j in raw if j.get("occupation_id")]))
-
     await engine.fetch_occupation_labels(occ_uris)
 
+    # Analisi globale
     analysis = await engine.analyze_market_data(raw)
-    start = (page - 1) * page_size
 
+    # Trend in memoria (Single Fetch optimization)
+    trends = await engine.calculate_trends_from_data(raw, min_date, max_date)
+
+    start = (page - 1) * page_size
     return {
         "status": "completed" if not engine.stop_requested else "stopped",
         "dimension_summary": {
@@ -332,13 +379,12 @@ async def analyze_skills(keywords: Optional[List[str]] = Form(None), locations: 
         },
         "insights": {
             "ranking": analysis["rankings"]["skills"][start: start + page_size],
+            "sectors": analysis["rankings"]["sectors"],
             "job_titles": analysis["rankings"]["job_titles"],
             "employers": analysis["rankings"]["employers"],
-            "sectors": analysis["rankings"]["sectors"]
+            "trends": trends
         }
     }
-
-
 @app.post("/projector/emerging-skills")
 async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
                           keywords: Optional[List[str]] = Form(None)):
