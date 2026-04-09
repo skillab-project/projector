@@ -53,7 +53,7 @@ class ProjectorEngine:
     # In ProjectorEngine.__init__
 
     # Nuovo metodo per tradurre le occupazioni (Settori)
-    async def fetch_occupation_labels(self, occ_uris: List[str]):
+    async def fetch_occupation_labels(self, occ_uris: List[str], page_size: int = 500):
         uris = [u for u in occ_uris if u not in self.sector_map]
         if not uris or self.stop_requested: return
 
@@ -68,7 +68,10 @@ class ProjectorEngine:
                 res = await self.client.post(
                     f"{self.api_url}/occupations",  # Endpoint specifico per occupazioni
                     headers={"Authorization": f"Bearer {self.token}"},
-                    data={"ids": batch}
+                    data={"ids": batch},
+                    params={"page_size": page_size}
+
+
                 )
                 if res.status_code == 200:
                     for o in res.json().get("items", []):
@@ -76,7 +79,7 @@ class ProjectorEngine:
             except:
                 continue
 
-    async def fetch_all_jobs(self, filters: dict):
+    async def fetch_all_jobs(self, filters: dict, page_size: int=500):
         # Non resettiamo stop_requested qui, lo facciamo negli endpoint all'inizio
         query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
         cache_dir, cache_file = "cache_data", f"cache_data/search_{query_sig}.json"
@@ -100,7 +103,7 @@ class ProjectorEngine:
                     f"{self.api_url}/jobs",
                     headers=headers,
                     data=filters,
-                    params={"page": page, "page_size": 100}
+                    params={"page": page, "page_size": page_size}
                 )
 
                 if res.status_code != 200: break
@@ -129,7 +132,7 @@ class ProjectorEngine:
 
         return all_jobs
 
-    async def fetch_skill_names(self, skill_uris: List[str]):
+    async def fetch_skill_names(self, skill_uris: List[str], page_size : int = 500):
         uris = [u for u in skill_uris if u not in self.skill_map]
         if not uris or self.stop_requested: return
 
@@ -153,7 +156,7 @@ class ProjectorEngine:
                     f"{self.api_url}/skills",
                     headers={"Authorization": f"Bearer {self.token}"},
                     data={"ids": batch, "keywords_logic": "or"},
-                    params={"page": 1, "page_size": 50}
+                    params={"page": 1, "page_size": page_size}
                 )
                 if res.status_code == 200:
                     for s in res.json().get("items", []):
@@ -183,7 +186,13 @@ class ProjectorEngine:
             if i > 0 and i % 2000 == 0: await asyncio.sleep(0)
 
             # 1. Identificazione Settore
-            occ_id = job.get("occupation_id") or "Unclassified"
+            job_occs = job.get("occupations", [])
+            if job_occs:
+                # Prendiamo la prima occupazione come riferimento per il settore principale del job
+                occ_id = str(job_occs[0]).strip()
+            else:
+                occ_id = "Unclassified"
+
             sector_name = self.sector_map.get(occ_id, "Settore non specificato")
             sec_cnt[sector_name] += 1
 
@@ -192,12 +201,14 @@ class ProjectorEngine:
             t_cnt[job.get("title") or "N/D"] += 1
             l_cnt[job.get("location_code") or "N/D"] += 1
 
-            # 3. Matrice Skill-Settore
+            # 3. Matrice Skill-Settore (Qui potresti voler associare la skill a TUTTI i settori del job)
             for s_uri in job.get("skills", []):
                 s_uri = str(s_uri).strip()
                 s_cnt[s_uri] += 1
                 if s_uri not in skill_sector_map:
                     skill_sector_map[s_uri] = Counter()
+
+                # Associamo la skill al settore principale trovato sopra
                 skill_sector_map[s_uri][sector_name] += 1
 
         # 4. Arricchimento nomi (Skill + Settori)
@@ -361,7 +372,11 @@ async def analyze_skills(
         }
 
     # Traduzione settori (Phase 1)
-    occ_uris = list(set([j.get("occupation_id") for j in raw if j.get("occupation_id")]))
+    all_occs = []
+    for j in raw:
+        all_occs.extend(j.get("occupations", []))
+    occ_uris = list(set(all_occs))  # Rimuove i duplicati
+
     await engine.fetch_occupation_labels(occ_uris)
 
     # Analisi globale
