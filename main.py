@@ -37,10 +37,39 @@ class ProjectorEngine:
         self.client = httpx.AsyncClient(timeout=None)
 
     def request_stop(self):
+        """
+           Requests a cooperative stop of all ongoing operations.
+
+           This method sets an internal flag (`stop_requested`) that is periodically
+           checked by long-running asynchronous processes (e.g., data fetching,
+           skill translation, analysis loops). When the flag is detected, the engine
+           gracefully interrupts execution at the next safe checkpoint.
+
+           This avoids abrupt termination and ensures partial results can still be returned.
+
+           Side Effects:
+               - Sets `self.stop_requested = True`
+           """
         self.stop_requested = True
         logger.warning("!!! STOP RILEVATO !!! Interruzione programmata dei processi.")
 
     async def _get_token(self):
+        """
+            Authenticates with the external Tracker API and retrieves an access token.
+
+            The token is required for all subsequent API calls (jobs, skills, occupations).
+            It is stored internally and reused until expiration.
+
+            Returns:
+                Optional[str]: Bearer token string if authentication succeeds,
+                               None if authentication fails.
+
+            External Dependencies:
+                - POST {TRACKER_API}/login
+
+            Failure Handling:
+                - Logs error and returns None without raising exception.
+            """
         try:
             resp = await self.client.post(
                 f"{self.api_url}/login",
@@ -53,8 +82,33 @@ class ProjectorEngine:
             return None
 
 
-    # Nuovo metodo per tradurre le occupazioni (Settori)
+
     async def fetch_occupation_labels(self, occ_uris: List[str], page_size: int = 500):
+        """
+           Resolves occupation URIs into human-readable sector labels.
+
+           This method enriches job data by mapping ESCO occupation identifiers
+           to their corresponding sector names. The results are cached in `self.sector_map`
+           to avoid redundant API calls.
+
+           Args:
+               occ_uris (List[str]): List of occupation identifiers (ESCO URIs).
+               page_size (int): Pagination size for API requests.
+
+           Behavior:
+               - Filters out already known URIs using internal cache.
+               - Fetches data in batches (size=40).
+               - Updates `self.sector_map` with {occupation_id: label}.
+
+           External Dependencies:
+               - POST {TRACKER_API}/occupations
+
+           Side Effects:
+               - Modifies `self.sector_map`
+
+           Early Exit:
+               - Returns immediately if `stop_requested` is True.
+           """
 
         uris = [str(u).strip() for u in occ_uris if u and str(u).strip() not in self.sector_map]
 
@@ -81,9 +135,41 @@ class ProjectorEngine:
 
     def get_regional_projections(self, jobs: List[dict], demo: bool = False):
         """
-            Task 3.5 (i): Doppia strategia Geografica.
-            Genera proiezioni sia per Location Code grezzi che per gerarchia NUTS.
-            """
+           Computes geographical projections of job data across NUTS hierarchy levels.
+
+           This method aggregates job postings by location and derives regional
+           intelligence using both raw location codes and hierarchical NUTS levels
+           (NUTS1, NUTS2, NUTS3).
+
+           It also calculates the Location Quotient (LQ) to measure skill specialization.
+
+           Args:
+               jobs (List[dict]): List of job postings.
+               demo (bool): If True, simulates NUTS-level granularity when only
+                            national codes are available.
+
+           Returns:
+               dict:
+                   {
+                       "raw": [...],
+                       "nuts1": [...],
+                       "nuts2": [...],
+                       "nuts3": [...]
+                   }
+
+           Key Concepts:
+               - Market Share: % of total jobs in a region
+               - Specialization (LQ): relative concentration of a skill in a region
+
+           Behavior:
+               - Aggregates job counts per region
+               - Aggregates skill counts per region
+               - Computes LQ per skill
+               - Returns top skills per region
+
+           Note:
+               In demo mode, NUTS codes are synthetically generated using index-based distribution.
+           """
         raw_map = {}
         nuts_map = {"NUTS1": {}, "NUTS2": {}, "NUTS3": {}}
         global_counts = {}
@@ -172,6 +258,37 @@ class ProjectorEngine:
         }
 
     async def fetch_all_jobs(self, filters: dict, page_size: int=500):
+        """
+           Fetches all job postings from the Tracker API using pagination and caching.
+
+           This method orchestrates the retrieval of job data based on user-defined filters.
+           It supports persistent caching to avoid redundant API calls for identical queries.
+
+           Args:
+               filters (dict): Query parameters (keywords, date range, etc.).
+               page_size (int): Number of records per API request.
+
+           Returns:
+               List[dict]: List of job postings retrieved from the API or cache.
+
+           Behavior:
+               - Generates a hash signature for the query
+               - Checks disk cache (`cache_data/`)
+               - If cache miss:
+                   - Fetches paginated results from API
+                   - Stores results in cache
+               - Supports cooperative stop via `stop_requested`
+
+           External Dependencies:
+               - POST {TRACKER_API}/jobs
+
+           Failure Handling:
+               - Handles ReadTimeout gracefully
+               - Logs errors and returns partial results if interrupted
+
+           Side Effects:
+               - Writes cache files to disk
+           """
         # Non resettiamo stop_requested qui, lo facciamo negli endpoint all'inizio
         query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
         cache_dir, cache_file = "cache_data", f"cache_data/search_{query_sig}.json"
@@ -225,6 +342,35 @@ class ProjectorEngine:
         return all_jobs
 
     async def fetch_skill_names(self, skill_uris: List[str], page_size : int = 500):
+        """
+            Resolves skill URIs into enriched skill metadata (label + Twin Transition tags).
+
+            This method translates ESCO skill identifiers into human-readable labels
+            and assigns semantic tags for:
+                - Digital skills
+                - Green skills
+
+            Args:
+                skill_uris (List[str]): List of skill identifiers.
+                page_size (int): Pagination size for API requests.
+
+            Behavior:
+                - Filters already known skills using cache
+                - Fetches data in batches
+                - Applies heuristic keyword matching to classify:
+                    - is_digital
+                    - is_green
+                - Stores results in `self.skill_map`
+
+            External Dependencies:
+                - POST {TRACKER_API}/skills
+
+            Side Effects:
+                - Modifies `self.skill_map`
+
+            Early Exit:
+                - Returns immediately if `stop_requested` is True.
+            """
         uris = [u for u in skill_uris if u not in self.skill_map]
         if not uris or self.stop_requested: return
 
@@ -268,6 +414,46 @@ class ProjectorEngine:
                 continue
 
     async def analyze_market_data(self, raw_jobs: List[dict]):
+        """
+           Performs multi-dimensional aggregation of job market data.
+
+           This method is the core analytical engine of the Projector. It processes
+           raw job postings and extracts structured intelligence across multiple dimensions:
+               - Skills demand
+               - Employers
+               - Job titles
+               - Geographic distribution
+               - Sector distribution
+
+           Args:
+               raw_jobs (List[dict]): Raw job postings retrieved from the Tracker API.
+
+           Returns:
+               dict:
+                   {
+                       "total_jobs": int,
+                       "rankings": {
+                           "skills": [...],
+                           "employers": [...],
+                           "job_titles": [...],
+                           "locations": [...],
+                           "sectors": [...]
+                       }
+                   }
+
+           Behavior:
+               - Uses Counter-based aggregation for performance
+               - Builds skill-to-sector relationships
+               - Enriches skills using `fetch_skill_names`
+               - Computes frequency and sector spread
+
+           Performance Notes:
+               - Includes async checkpoints to avoid blocking event loop
+               - Handles large datasets (40k+ jobs)
+
+           Early Exit:
+               - Stops processing if `stop_requested` is True
+           """
         if not raw_jobs: return self._empty_res()
 
         s_cnt, e_cnt, t_cnt, l_cnt, sec_cnt = Counter(), Counter(), Counter(), Counter(), Counter()
@@ -452,6 +638,33 @@ async def analyze_skills(
         page_size: int = Form(50),
         demo: bool = Form(False)
 ):
+    """
+       Executes a full labor market analysis based on user-defined filters.
+
+       This endpoint orchestrates the entire pipeline:
+           1. Fetch job postings from Tracker API
+           2. Enrich skills and sectors
+           3. Compute aggregated statistics
+           4. Generate structured insights
+
+       Args:
+           keywords (List[str], optional): Search keywords for job filtering.
+           min_date (str, optional): Start date (YYYY-MM-DD).
+           max_date (str, optional): End date (YYYY-MM-DD).
+           location_code (str, optional): Geographic filter (ISO/NUTS).
+           occupation_ids (List[str], optional): Sector filter (ESCO).
+
+       Returns:
+           ProjectorResponse:
+               - status
+               - dimension_summary
+               - insights (skills, employers, job titles, etc.)
+
+       Notes:
+           - Supports large-scale analysis (tens of thousands of jobs)
+           - Uses caching for performance
+           - Can be interrupted via `/projector/stop`
+       """
     engine.stop_requested = False
 
     # Costruzione payload pulita
@@ -514,6 +727,30 @@ async def analyze_skills(
 @app.post("/projector/emerging-skills", response_model=EmergingSkillsResponse)
 async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
                           keywords: Optional[List[str]] = Form(None)):
+    """
+       Computes emerging and declining skill trends over a time period.
+
+       The analysis splits the time window into two segments:
+           - Period A (past)
+           - Period B (recent)
+
+       It then computes growth rates to identify:
+           - Emerging skills (increasing demand)
+           - Declining skills (decreasing demand)
+           - New entries (not present in previous period)
+
+       Args:
+           min_date (str): Start date (YYYY-MM-DD).
+           max_date (str): End date (YYYY-MM-DD).
+
+       Returns:
+           EmergingSkillsResponse:
+               - market_health (global trend)
+               - trends (per-skill analysis)
+
+       Key Metric:
+           Growth % = (B - A) / A * 100
+       """
     engine.stop_requested = False
     res = await engine.calculate_smart_trends({"keywords": keywords} if keywords else {}, min_date, max_date)
     return {"status": "completed" if not engine.stop_requested else "stopped", "insights": res}
@@ -521,6 +758,21 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
 
 @app.post("/projector/stop",response_model=StopResponse )
 async def stop():
+    """
+        Sends a stop signal to interrupt ongoing analysis tasks.
+
+        This endpoint triggers a cooperative stop mechanism in the engine.
+        The running process will terminate at the next safe checkpoint.
+
+        Returns:
+            dict:
+                {"status": "stopping"}
+
+        Notes:
+            - Does not immediately kill execution
+            - Safe for long-running operations
+        """
+
     engine.request_stop()
     return {"status": "signal_sent"}
 
