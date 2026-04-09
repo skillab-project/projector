@@ -1,106 +1,474 @@
-Here is the complete documentation, technical report, and README for your current **SKILLAB Projector** microservice, translated into English.
+
+# SKILLAB Projector
+
+The **SKILLAB Projector** is a microservice-based analytics component that transforms raw job-posting data into structured labor-market intelligence.
+
+It is composed of:
+- a **FastAPI backend** exposing the Projector API
+- a **Streamlit dashboard** for interactive exploration of results
+
+The service sits on top of the **SKILLAB Tracker** and provides:
+- top requested skills
+- sector distribution
+- top employers
+- top job titles
+- emerging and declining skill trends
+- geographic breakdown
+- NUTS-like regional projections
+- specialization indicators by area
 
 ---
 
-## 📊 Technical Analysis Report: SKILLAB Projector (Task 3.5)
-
-### Component Objective
-The **Projector** acts as the "Intelligence Layer" of the SKILLAB ecosystem. Its primary mission is to transform massive volumes of raw job postings from the *Skillab Tracker* into strategic, actionable insights. It focuses on the **Twin Transition** (Green & Digital) and labor market forecasting as outlined in **Grant Agreement GAP-101132663**.
-
-### Architectural Strengths
-1.  **Fully Asynchronous Engine**: By utilizing `httpx.AsyncClient` and `asyncio`, the service handles high-concurrency data fetching. This is critical for processing the 40,000+ records required for regional or national analysis without blocking the event loop.
-2.  **Persistent Disk Caching**: The implementation uses `hashlib` to generate unique MD5 signatures for every query. This ensures that identical searches are served instantly from the disk (`cache_data/`), saving bandwidth and API costs.
-3.  **Cooperative Interruption (Kill Switch)**: Unlike "brute-force" process termination, the engine implements a `stop_requested` flag. The logic checks this flag at every critical junction (fetching pages, translating skills, analyzing counters), allowing the system to stop gracefully and return partial data.
-4.  **Smart Trend Projection**: The engine automatically bisects a date range into two periods (A: Past, B: Recent) to calculate the **Market Health Index** and identify "New Entries" versus declining competencies.
-
----
-
-## 📑 Technical Documentation
-
-### 1. `ProjectorEngine` Class
-The core logic handler that interacts with external APIs and processes raw data.
-
-#### Key Methods:
-* **`fetch_all_jobs(filters: dict)`**: An asynchronous orchestrator for paginated API requests. It features a checkpoint mechanism (`await asyncio.sleep(0.01)`) to allow the event loop to process stop signals during heavy downloads.
-* **`fetch_skill_names(skill_uris: list)`**: Resolves technical URIs (ESCO/Standard) into human-readable labels. It uses **batch processing** (groups of 40) to minimize HTTP overhead.
-* **`analyze_market_data(raw_jobs: list)`**: A high-performance aggregator using Python’s `Counter` objects. It extracts four intelligence dimensions: Skills, Employers, Job Titles, and Geographical Spread.
-* **`calculate_smart_trends(base_filters, min_date, max_date)`**: A mathematical module that calculates growth rates:
-    $$Growth \% = \frac{\text{Freq}_B - \text{Freq}_A}{\text{Freq}_A} \times 100$$
-    It classifies results into *Emerging*, *Declining*, *Stable*, or *New Entry*.
-
-### 2. API Endpoints (FastAPI)
-
-| Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `/projector/analyze-skills` | `POST` | Performs a deep dive into skills, companies, and job titles. Supports output pagination for UI efficiency. |
-| `/projector/emerging-skills` | `POST` | Triggers the Trend Analysis engine to project market shifts over time. |
-| `/projector/stop` | `POST` | Remote Kill Switch. Sets the engine to interrupt all ongoing heavy processes gracefully. |
+## Index
+- [Project structure](#project-structure)
+- [Requirements](#requirements)
+- [Environment configuration](#environment-configuration)
+- [Install dependencies](#install-dependencies)
+- [Run the backend service](#run-the-backend-service)
+- [Run the Streamlit dashboard](#run-the-streamlit-dashboard)
+- [How the frontend connects to the backend](#how-the-frontend-connects-to-the-backend)
+- [Available API endpoints](#available-api-endpoints)
+- [Typical local workflow](#typical-local-workflow)
+- [Troubleshooting](#troubleshooting)
+- [Documentation](#documentation)
 
 ---
 
-## 📝 README.md
+## Project structure
 
-```markdown
-# SKILLAB Projector Microservice
+Repository layout:
 
-The **Projector** is the AI-based Skills Intelligence component of the SKILLAB project (Grant Agreement 101132663). It analyzes real-time job market data to project trends, identify skill gaps, and provide decision-support insights.
+```text
+repo-root/
+├── main.py
+├── test.py
+├── schemas.py
+├── demo_dashboard.py           # Streamlit frontend
+└── docs/
+    ├── README.md
+    ├── overview.md
+    ├── api-reference.md
+    ├── data-model.md
+    ├── architecture.md
+    ├── [User Story{...}.md]
+    └── examples.md
+   
+````
 
-## 🚀 Key Features
-- **Multi-Dimensional Filtering**: Analyze data by Keywords, Location, and Time.
-- **Smart Trends**: Automatically identify Emerging, Stable, and Declining skills.
-- **Explainable Analysis**: Extracts real-world Job Titles and Employers to provide context to raw skills.
-- **High-Performance Async Engine**: Designed to process 40,000+ records using asynchronous I/O.
-- **Cooperative Kill Switch**: Stop heavy background analyses without crashing the server.
-- **Intelligent Caching**: MD5-hashed query caching for sub-second response times on repeat searches.
+---
 
-## 🛠 Installation
+## Requirements
 
-1. Clone the repository:
-```bash
-cd SKILLAB-projector
-```
+Recommended:
 
-2. Create a virtual environment and install dependencies:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+* Python 3.10 or newer
+* access to a running **SKILLAB Tracker**
+* valid Tracker credentials
 
-3. Configure the `.env` file:
+---
+
+## Environment configuration
+
+Create a `.env` file in the project root with the credentials used by the backend to talk to the Tracker.
+
 ```env
-TRACKER_API=[https://api.skillab-tracker.com](https://api.skillab-tracker.com)
+TRACKER_API=https://your-tracker-url
 TRACKER_USERNAME=your_username
 TRACKER_PASSWORD=your_password
 ```
 
-## 🖥 Usage
+### Meaning of the variables
 
-### Start the server
+* `TRACKER_API`: base URL of the Tracker service
+* `TRACKER_USERNAME`: username used for Tracker login
+* `TRACKER_PASSWORD`: password used for Tracker login
+
+The backend reads these variables at startup through `python-dotenv`.
+
+---
+
+## Install dependencies
+
+Create and activate a virtual environment:
+
 ```bash
-python main.py
+python -m venv .venv
+source .venv/bin/activate
 ```
-The server will run at `http://127.0.0.1:8000`. Access the interactive Swagger documentation at `http://127.0.0.1:8000/docs`.
 
-### Example API Request (Skill Analysis)
+On Windows:
+
 ```bash
-curl -X 'POST' \
-  '[http://127.0.0.1:8000/projector/analyze-skills](http://127.0.0.1:8000/projector/analyze-skills)' \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  -d 'keywords=software engineer&min_date=2024-01-01&max_date=2024-12-31'
+.venv\Scripts\activate
 ```
 
-## 🏗 Project Structure
-- `main.py`: Application entry point and ProjectorEngine logic.
-- `cache_data/`: Automatically generated folder for persistent JSON storage.
-- `.env`: API credentials and environment configuration.
+Then install dependencies:
 
-## ⚠️ Technical Notes
-- **Timeouts**: The HTTP client is configured with `timeout=None` to handle massive queries that may take several minutes to download from the Tracker API.
-- **Event Loop Checkpoints**: The engine includes `asyncio.sleep` calls during intensive CPU loops to ensure the **STOP** signal can be received and processed in real-time.
+```bash
+pip install -r requirements.txt
+```
+
+If you do not yet have a `requirements.txt`, make sure at least these packages are installed:
+
+```bash
+pip install fastapi uvicorn httpx python-dotenv pydantic streamlit requests pandas plotly
 ```
 
 ---
 
-### GA Compliance Check (Task 3.5)
-This current code provides the foundational **quantitative intelligence** required by Task 3.5. The next step in the development roadmap should be the integration of **NACE sector classification** and **Explainability reasoning strings** to fulfill the "Actionable Insights" requirement of the Grant Agreement.
+## Run the backend service
+
+Start the FastAPI backend from the project root.
+
+### Recommended command
+
+```bash
+uvicorn main:app --reload
+```
+
+### Alternative
+
+```bash
+python main.py
+```
+
+If the application is configured normally, the backend will be available at:
+
+* API base URL: `http://127.0.0.1:8000`
+* Swagger UI: `http://127.0.0.1:8000/docs`
+* ReDoc: `http://127.0.0.1:8000/redoc`
+
+### What the backend does
+
+The backend:
+
+1. receives filters from the client
+2. authenticates against the Tracker
+3. fetches job postings
+4. enriches skills and occupation labels
+5. computes rankings, trends, sectors, employers, and regional projections
+6. returns structured JSON responses
+
+---
+
+## Run the Streamlit dashboard
+
+Your frontend is implemented in **Streamlit**.
+
+Assuming the file is named `demo_dashboard.py`, start it with:
+
+```bash
+streamlit run demo_dashboard.py
+```
+
+Streamlit will usually open automatically in your browser.
+If it does not, open the local URL shown in the terminal, usually:
+
+```text
+http://localhost:8501
+```
+
+### What the dashboard provides
+
+The dashboard includes:
+
+* language switcher (Italian / English)
+* search filters in the sidebar
+* stop button for long-running analyses
+* optional NUTS demo mode
+* four main tabs:
+
+  * Skill Analysis
+  * Emerging Trends
+  * Geographic Distribution
+  * Sectors & Employers
+
+---
+
+## How the frontend connects to the backend
+
+In the current frontend code, the backend base URL is hardcoded as:
+
+```python
+API_BASE_URL = "http://127.0.0.1:8000/projector"
+```
+
+This means:
+
+* the FastAPI backend must be running locally on port `8000`
+* the frontend will call:
+
+  * `POST /projector/analyze-skills`
+  * `POST /projector/stop`
+
+### Important note
+
+If you change backend host or port, you must also update this value in the Streamlit code.
+
+For example, if the backend runs on another machine:
+
+```python
+API_BASE_URL = "http://<server-ip>:8000/projector"
+```
+
+---
+
+## Available API endpoints
+
+The current dashboard uses the following backend endpoints:
+
+### `POST /projector/analyze-skills`
+
+Main analysis endpoint used by the dashboard.
+
+It receives filters such as:
+
+* `keywords`
+* `locations`
+* `min_date`
+* `max_date`
+* `demo`
+
+and returns:
+
+* `dimension_summary`
+* `ranking`
+* `trends`
+* `regional`
+* `sectors`
+* `job_titles`
+* `employers`
+
+### `POST /projector/stop`
+
+Used by the dashboard stop button.
+
+It sends a cooperative stop signal to the engine.
+
+### `POST /projector/emerging-skills`
+
+This endpoint exists in the backend but is not directly called by the current dashboard code, because trend information is already rendered from the response of `analyze-skills`.
+
+---
+
+## Typical local workflow
+
+### 1. Start the backend
+
+```bash
+uvicorn main:app --reload
+```
+
+### 2. Start the dashboard
+
+```bash
+streamlit run dashboard.py
+```
+
+### 3. Open the dashboard
+
+Usually at:
+
+```text
+http://localhost:8501
+```
+
+### 4. Configure filters
+
+From the sidebar, set:
+
+* keywords
+* location code
+* date range
+* optional demo mode
+
+### 5. Launch projection
+
+Click:
+
+```text
+Lancia Proiezione 🚀
+```
+
+or
+
+```text
+Launch Projection 🚀
+```
+
+### 6. Explore the tabs
+
+Use the four dashboard tabs to inspect:
+
+* top skills
+* market trends
+* geography
+* sectors, job titles, and employers
+
+---
+
+## Dashboard behavior details
+
+### Search filters
+
+The Streamlit sidebar collects:
+
+* free-text keywords
+* optional location code
+* date range
+* demo mode flag
+
+These are sent to the backend as form data.
+
+### Caching
+
+The frontend uses:
+
+```python
+@st.cache_data(ttl=600)
+```
+
+for analysis requests.
+
+That means repeated requests with the same parameters may be cached by Streamlit for 10 minutes.
+
+### Session state
+
+The dashboard stores the latest successful response in:
+
+```python
+st.session_state.all_data
+```
+
+This allows the interface to keep showing results even after the request has completed.
+
+### Stop button
+
+The stop button sends:
+
+```python
+requests.post(f"{API_BASE_URL}/stop")
+```
+
+This is a **cooperative stop**, not an immediate process kill.
+
+The backend stops at the next safe checkpoint.
+
+---
+
+## Troubleshooting
+
+## Backend does not start
+
+Check:
+
+* Python version
+* dependencies installed
+* `.env` file exists
+* `TRACKER_API`, `TRACKER_USERNAME`, and `TRACKER_PASSWORD` are valid
+
+## Dashboard shows “Server unreachable”
+
+This usually means one of these:
+
+* FastAPI backend is not running
+* backend is running on a different host/port
+* `API_BASE_URL` in the Streamlit file is wrong
+
+## No data returned
+
+Possible causes:
+
+* Tracker returned no matching jobs
+* filters are too restrictive
+* Tracker credentials are invalid
+* upstream Tracker is unavailable or slow
+
+## Dashboard starts but charts are empty
+
+Check the backend response first in Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Try `POST /projector/analyze-skills` manually to verify that the backend is returning data.
+
+## Tracker-related failures
+
+The Projector depends on the Tracker for:
+
+* authentication
+* job retrieval
+* skill metadata
+* occupation metadata
+
+If Tracker is down or slow, Projector behavior will also be affected.
+
+---
+
+## Documentation
+
+Detailed documentation is available in the `/docs` folder:
+
+* `docs/overview.md`
+* `docs/api-reference.md`
+* `docs/data-model.md`
+* `docs/architecture.md`
+* `docs/examples.md`
+
+Swagger is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Use Swagger for interactive endpoint testing.
+Use `/docs` for semantic and architectural explanations.
+
+---
+
+## Recommended development setup
+
+For local development, keep two terminals open.
+
+### Terminal 1 — backend
+
+```bash
+uvicorn main:app --reload
+```
+
+### Terminal 2 — dashboard
+
+```bash
+streamlit run dashboard.py
+```
+
+This is the simplest and most practical setup for day-to-day work.
+
+---
+
+## Notes on current implementation
+
+The current dashboard is designed around the existing backend contract and expects:
+
+* `dimension_summary`
+* `insights`
+* trend data inside `insights.trends`
+* regional data inside `insights.regional`
+
+If backend payloads change, the dashboard may need to be updated accordingly.
+
+The frontend also assumes that geographic raw codes can be mapped manually to ISO-3 codes for the world map.
+
+---
+
+## Future improvements
+
+Recommended next steps:
+
+* move frontend backend URL to configuration instead of hardcoding it
+* add health endpoint to the backend
+* define a standard error response model
+* align code and schema fully
+* version the API under `/api/v1/...`
