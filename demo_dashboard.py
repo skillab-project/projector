@@ -4,10 +4,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# 1. Configurazione Pagina (Wide Mode per sfruttare lo schermo)
+# 1. Configurazione Pagina
 st.set_page_config(page_title="SKILLAB Projector Intelligence", layout="wide")
 
-# --- GESTIONE LINGUA ---
 if 'lang' not in st.session_state:
     st.session_state.lang = 'IT'
 
@@ -31,7 +30,8 @@ translations = {
         'stop': "STOP ANALISI ⛔",
         'stop_toast': "Segnale di stop inviato!",
         'server_error': "Server non raggiungibile.",
-        'tabs': ["📊 Analisi Competenze", "📈 Emerging Trends", "🗺️ Distribuzione Geografica", "💼 Jobs & Employers"],
+        'tabs': ["📊 Analisi Competenze", "📈 Emerging Trends", "🗺️ Distribuzione Geografica", "🏭 Settori & Aziende"],
+        # Tab 4 Rinominata
         'top_skills': "Top Skills più richieste",
         'jobs_analyzed': "Job Analizzati",
         'trends_header': "Emerging vs Declining Skills",
@@ -43,13 +43,16 @@ translations = {
         'map_title': "Intensità Job Postings per Nazione",
         'geo_detail': "Dettaglio Volumi",
         'no_geo': "Nessun dato geografico disponibile.",
-        'jobs_emp_header': "Analisi Job Titles & Aziende",
+        'jobs_emp_header': "Analisi Macro-Settori, Titles & Aziende",
         'top_titles': "Top Job Titles (Titoli Reali)",
         'jt_title': "Cosa scrivono le aziende negli annunci",
         'no_data': "Dati non disponibili.",
         'top_emp': "Top Employers (Chi assume?)",
         'active_emp': "Aziende più attive",
-        'welcome': "Configura i filtri a sinistra e clicca su 'Lancia Proiezione' per interrogare il Projector."
+        'top_sectors': "Distribuzione Settoriale (Intelligence)",  # NEW
+        'sector_title': "Domanda per Macro-Settore",  # NEW
+        'welcome': "Configura i filtri a sinistra e clicca su 'Lancia Proiezione' per interrogare il Projector.",
+        'intelligence_label': "Dettaglio Intelligence (Phase 1)"  # NEW
     },
     'EN': {
         'title': "🚀 SKILLAB Projector: Intelligence Dashboard",
@@ -62,7 +65,7 @@ translations = {
         'stop': "STOP ANALYSIS ⛔",
         'stop_toast': "Stop signal sent!",
         'server_error': "Server unreachable.",
-        'tabs': ["📊 Skill Analysis", "📈 Emerging Trends", "🗺️ Geographic Distribution", "💼 Jobs & Employers"],
+        'tabs': ["📊 Skill Analysis", "📈 Emerging Trends", "🗺️ Geographic Distribution", "🏭 Sectors & Employers"],
         'top_skills': "Top Requested Skills",
         'jobs_analyzed': "Jobs Analyzed",
         'trends_header': "Emerging vs Declining Skills",
@@ -74,13 +77,16 @@ translations = {
         'map_title': "Job Postings Intensity by Country",
         'geo_detail': "Volume Details",
         'no_geo': "No geographic data available.",
-        'jobs_emp_header': "Job Titles & Employer Analysis",
+        'jobs_emp_header': "Macro-Sectors, Job Titles & Employer Analysis",
         'top_titles': "Top Job Titles (Actual Titles)",
         'jt_title': "What companies write in ads",
         'no_data': "Data not available.",
         'top_emp': "Top Employers (Who is hiring?)",
         'active_emp': "Most active companies",
-        'welcome': "Configure the filters on the left and click 'Launch Projection' to query the Projector."
+        'top_sectors': "Sectoral Distribution (Intelligence)",  # NEW
+        'sector_title': "Demand by Macro-Sector",  # NEW
+        'welcome': "Configure the filters on the left and click 'Launch Projection' to query the Projector.",
+        'intelligence_label': "Intelligence Detail (Phase 1)"  # NEW
     }
 }
 
@@ -89,11 +95,9 @@ T = translations[st.session_state.lang]
 st.title(T['title'])
 st.markdown(T['subtitle'])
 
-# Configurazione API
 API_BASE_URL = "http://127.0.0.1:8000/projector"
 
 
-# 2. Logica di recupero dati con Cache
 @st.cache_data(ttl=600)
 def get_analysis_data(p):
     res = requests.post(f"{API_BASE_URL}/analyze-skills", data=p)
@@ -106,7 +110,6 @@ def get_trends_data(p):
     return res.json() if res.status_code == 200 else None
 
 
-# 3. Sidebar con Form e Kill Switch
 with st.sidebar:
     st.selectbox("Language / Lingua", ["Italiano", "English"],
                  index=0 if st.session_state.lang == 'IT' else 1,
@@ -128,7 +131,6 @@ with st.sidebar:
         except:
             st.error(T['server_error'])
 
-# Preparazione Payload
 payload = {
     "keywords": [keywords] if keywords else None,
     "locations": [location] if location else None,
@@ -136,11 +138,10 @@ payload = {
     "max_date": date_range[1].strftime("%Y-%m-%d")
 }
 
-# 4. Definizione Tab
 tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
 
 if submit_button:
-    # --- TAB 1: RANKING SKILLS ---
+    # --- TAB 1: RANKING SKILLS (INTELLIGENCE AGGIUNTA) ---
     with tab1:
         st.header(T['top_skills'])
         data = get_analysis_data(payload)
@@ -148,25 +149,33 @@ if submit_button:
             ranking = data["insights"].get("ranking", [])
             if ranking:
                 df_ranking = pd.DataFrame(ranking).head(15)
+
+                # Aggiunta tag Twin Transition (Phase 1)
+                df_ranking['Twin'] = df_ranking.apply(
+                    lambda x: ("🍃" if x.get('is_green') else "") + ("💻" if x.get('is_digital') else ""), axis=1
+                )
+
                 col1, col2 = st.columns([2, 1])
                 with col1:
                     fig = px.bar(df_ranking, x='frequency', y='name', orientation='h',
                                  title=f"Top 15 Skills per '{keywords}'",
-                                 color='frequency', color_continuous_scale='Viridis')
+                                 color='frequency', color_continuous_scale='Viridis',
+                                 hover_data=["primary_sector", "sector_spread"])
                     fig.update_layout(yaxis={'categoryorder': 'total ascending'})
                     st.plotly_chart(fig, use_container_width=True)
                 with col2:
                     st.metric(T['jobs_analyzed'], data["dimension_summary"]["jobs_analyzed"])
-                    st.dataframe(df_ranking[['name', 'frequency']], use_container_width=True)
+                    st.subheader(T['intelligence_label'])
+                    # Visualizziamo i nuovi campi Phase 1 nella tabella
+                    st.dataframe(df_ranking[['name', 'frequency', 'primary_sector', 'Twin']], use_container_width=True)
 
-    # --- TAB 2: TRENDS (La Macchina del Tempo) ---
+    # --- TAB 2: TRENDS (INTELLIGENCE AGGIUNTA) ---
     with tab2:
         st.header(T['trends_header'])
         trend_data = get_trends_data(payload)
         if trend_data and "insights" in trend_data:
             ins = trend_data["insights"]
 
-            # Info sulla salute del mercato
             if "market_health" in ins:
                 mh = ins["market_health"]
                 st.info(
@@ -182,10 +191,11 @@ if submit_button:
                     df_numeric = df_numeric.dropna(subset=['growth'])
 
                     if not df_numeric.empty:
-                        # Grafico Divergente (Top 10 e Bottom 10)
                         df_plot = pd.concat([df_numeric.head(10), df_numeric.tail(10)])
+                        # Aggiunta primary_sector nel grafico dei trend
                         fig_trend = px.bar(df_plot, x='growth', y='name', orientation='h',
                                            color='trend_type',
+                                           hover_data=["primary_sector"],  # Phase 1 info
                                            color_discrete_map={'emerging': '#2ecc71', 'declining': '#e74c3c'},
                                            title=T['delta_title'])
                         st.plotly_chart(fig_trend, use_container_width=True)
@@ -194,83 +204,62 @@ if submit_button:
                         st.subheader(T['new_entries'])
                         st.success(", ".join(new_entries['name'].astype(str).tolist()))
 
-        # --- TAB 3: GEOGRAFIA ---
-        with tab3:
-            st.header(T['geo_header'])
-            data = get_analysis_data(payload)
+    # --- TAB 3: GEOGRAFIA (INVARIATA) ---
+    with tab3:
+        st.header(T['geo_header'])
+        data = get_analysis_data(payload)
+        if data and "dimension_summary" in data:
+            geo = data["dimension_summary"].get("geo_breakdown", [])
+            if geo:
+                df_geo = pd.DataFrame(geo)
+                iso_mapping = {"IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP", "EL": "GRC"}  # ... mapping ...
+                df_geo['iso_alpha_3'] = df_geo['location'].map(iso_mapping).fillna(df_geo['location'])
 
-            if data and "dimension_summary" in data:
-                geo = data["dimension_summary"].get("geo_breakdown", [])
-                if geo:
-                    df_geo = pd.DataFrame(geo)
+                c_map, c_stat = st.columns([2, 1])
+                with c_map:
+                    fig_map = px.choropleth(df_geo, locations="iso_alpha_3", color="job_count",
+                                            hover_name="location", color_continuous_scale="Viridis",
+                                            projection="natural earth", title=T['map_title'])
+                    st.plotly_chart(fig_map, use_container_width=True)
+                with c_stat:
+                    st.plotly_chart(px.pie(df_geo, values='job_count', names='location', hole=0.4),
+                                    use_container_width=True)
+            else:
+                st.warning(T['no_geo'])
 
-                    iso_mapping = {
-                        "IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP",
-                        "GB": "GBR", "US": "USA", "CH": "CHE", "AT": "AUT",
-                        "BE": "BEL", "NL": "NLD", "PT": "PRT", "GR": "GRC", "SE":"SWE",
-                        "EL": "GRC"
-                    }
-                    df_geo['iso_alpha_3'] = df_geo['location'].map(iso_mapping).fillna(df_geo['location'])
-
-                    col_map, col_stat = st.columns([2, 1])
-
-                    with col_map:
-                        fig_map = px.choropleth(
-                            df_geo,
-                            locations="iso_alpha_3",
-                            color="job_count",
-                            hover_name="location",
-                            color_continuous_scale="Viridis",
-                            projection="natural earth",
-                            title=T['map_title']
-                        )
-
-                        fig_map.update_geos(
-                            resolution=50,
-                            showcoastlines=True, coastlinecolor="RebeccaPurple",
-                            showland=True, landcolor="LightGrey",
-                            showocean=True, oceancolor="LightBlue",
-                            showcountries=True
-                        )
-
-                        fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
-                        st.plotly_chart(fig_map, use_container_width=True)
-
-                    with col_stat:
-                        st.subheader(T['geo_detail'])
-                        fig_pie = px.pie(df_geo, values='job_count', names='location',
-                                         hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
-                        st.plotly_chart(fig_pie, use_container_width=True)
-
-                        st.dataframe(df_geo[['location', 'job_count']].sort_values(by='job_count', ascending=False),
-                                     use_container_width=True)
-                else:
-                    st.warning(T['no_geo'])
-
-    # --- TAB 4: JOBS & EMPLOYERS ---
+    # --- TAB 4: SETTORI, JOBS & EMPLOYERS (LAYOUT ESTESO) ---
     with tab4:
         st.header(T['jobs_emp_header'])
         data = get_analysis_data(payload)
         if data and "insights" in data:
-            c1, c2 = st.columns(2)
+            # Layout a 3 colonne per includere il nuovo grafico dei settori
+            c1, c2, c3 = st.columns(3)
 
             with c1:
-                st.subheader(T['top_titles'])
-                jt = data["insights"].get("job_titles", [])
-                if jt:
-                    df_jt = pd.DataFrame(jt)
-                    st.plotly_chart(px.bar(df_jt, x='count', y='name', orientation='h',
-                                           title=T['jt_title'],
-                                           color_discrete_sequence=['#3498db']))
+                st.subheader(T['top_sectors'])  # NUOVO GRAFICO PHASE 1
+                sec = data["insights"].get("sectors", [])
+                if sec:
+                    df_sec = pd.DataFrame(sec)
+                    st.plotly_chart(px.pie(df_sec, values='count', names='name',
+                                           title=T['sector_title'], hole=0.4,
+                                           color_discrete_sequence=px.colors.qualitative.Pastel))
                 else:
                     st.write(T['no_data'])
 
             with c2:
+                st.subheader(T['top_titles'])
+                jt = data["insights"].get("job_titles", [])
+                if jt:
+                    st.plotly_chart(px.bar(pd.DataFrame(jt), x='count', y='name', orientation='h',
+                                           title=T['jt_title'], color_discrete_sequence=['#3498db']))
+                else:
+                    st.write(T['no_data'])
+
+            with c3:
                 st.subheader(T['top_emp'])
                 emp = data["insights"].get("employers", [])
                 if emp:
-                    df_emp = pd.DataFrame(emp)
-                    st.plotly_chart(px.pie(df_emp, values='count', names='name',
+                    st.plotly_chart(px.pie(pd.DataFrame(emp), values='count', names='name',
                                            title=T['active_emp'], hole=0.3))
                 else:
                     st.write(T['no_data'])

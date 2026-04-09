@@ -1,0 +1,80 @@
+This Integration Plan is designed to transition the **SKILLAB Projector** from a purely statistical tool to a strategic intelligence engine, fully compliant with **Task 3.5** of the **Grant Agreement (GA-101132663)**.
+
+---
+
+## 🛠 Integration Plan: Task 3.5 Evolution
+
+The integration will follow a **non-breaking approach**, enriching current data structures without discarding the existing real-world job data (Employers/Job Titles).
+
+### Phase 1: Sectoral & Semantic Enrichment (The Foundation)
+* **Action:** Extend the `fetch_occupation_names` logic to map `occupation_id` (ESCO) to macro-sectors.
+* **Twin Transition:** Integrate a lookup table or metadata enrichment to tag skills as **Green** or **Digital**.
+* **Technical Impact:** Modification of the `analyze_market_data` loop to build a **Skill-Sector Matrix**.
+
+### Phase 2: The Reasoning Engine (Explainability - XAI)
+* **Action:** Implement an automated heuristic engine that analyzes the Skill-Sector Matrix.
+* **Logic:** Calculate the **Sectoral Spread** (how many NUTS/ESCO sectors a skill appears in).
+* **Technical Impact:** Adding a `reasoning` generator function that outputs human-readable insights (e.g., *"Cross-sectoral criticality identified"*).
+
+### Phase 3: Regional Gap Analysis (Spatial Intelligence)
+* **Action:** Implement a comparison logic between the selected location filter and the global/national cache.
+* **Intelligence:** Calculate the **Location Quotient (LQ)** to identify "Specialization Hubs."
+
+### Phase 4: Strategic Relevance Scoring
+* **Action:** Move beyond sorting by `frequency` alone. Introduce a **Strategic Weight** based on $(Growth \times Spread)$.
+
+---
+
+## 📋 Backlog of User Stories (Task 3.5)
+
+### EPIC: AI-Based Skills Intelligence & Twin Transition Monitoring
+
+#### US 3.5.1: Sectoral Mapping (Intelligence Foundation)
+> **As an** Intelligence Analyst,
+> **I want to** map every analyzed job to its ESCO/NACE sectoral hierarchy,
+> **So that** I can identify which specific industries are driving the demand for emerging skills.
+> **Acceptance Criteria:**
+> * Every skill in the ranking must be associated with a `primary_sector`.
+> * The JSON response must include a `sector_distribution` list.
+
+#### US 3.5.2: Explainable Reasoning (XAI)
+> **As a** Decision Maker,
+> **I want to** receive a "reasoning" string for every top skill,
+> **So that** I can understand the underlying cause of a trend (e.g., vertical niche growth vs. cross-sectoral expansion).
+> **Acceptance Criteria:**
+> * `reasoning` field must be present in the `ranking` objects.
+> * Reasoning must distinguish between "Vertical" and "Cross-sectoral" trends based on the sector spread.
+
+#### US 3.5.3: Twin Transition Tagging (Green & Digital)
+> **As a** Policy Maker,
+> **I want to** see skills tagged as "Green" or "Digital" based on EU taxonomies,
+> **So that** I can monitor the progress of the Twin Transition in specific regions.
+> **Acceptance Criteria:**
+> * Integration of ESCO metadata for Green/Digital skill classification.
+> * Boolean flags `is_green` and `is_digital` added to the skill ranking output.
+
+#### US 3.5.4: Geographical Gap Analysis (Regional Intelligence)
+> **As a** Regional Strategist,
+> **I want to** compare the density of a specific skill in my region against the national average,
+> **So that** I can identify unique local specializations or critical talent shortages.
+> **Acceptance Criteria:**
+> * Implementation of a "Local vs. Global" density ratio.
+> * Identification of "Hub" status for specific regions.
+
+#### US 3.5.5: Strategic Weighting & Forecasting
+> **As an** HR Manager,
+> **I want to** sort skills by their "Strategic Relevance" (combining growth velocity and cross-sectoral spread),
+> **So that** I can prioritize training programs for the most future-proof competencies.
+> **Acceptance Criteria:**
+> * New sorting algorithm implementing $(Growth * Sector\_Spread)$.
+> * "High Impact" tag for skills that show high growth in multiple sectors.
+
+---
+
+## 🚦 Priority Ranking for Implementation
+
+1.  **High Priority (Immediate Compliance):** US 3.5.1 (Sectors) and US 3.5.3 (Twin Transition). These are the core KPIs for the EU Commission deliverables.
+2.  **Medium Priority (Value Add):** US 3.5.2 (Explainability). This makes the tool "Smart" for the end-user.
+3.  **Future (Advanced Intelligence):** US 3.5.4 (Gap Analysis) and US 3.5.5 (Weighting). These require a larger historical dataset to be statistically significant.
+
+**Do you want to start by implementing the ESCO Sector Mapping and the Green/Digital tags to secure the GA compliance first?**
