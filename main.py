@@ -10,6 +10,8 @@ from fastapi import FastAPI, Form
 from typing import List, Optional
 from dotenv import load_dotenv
 
+from schemas import ProjectorResponse
+
 # Configurazione Logger
 logging.basicConfig(
     level=logging.INFO,
@@ -440,7 +442,7 @@ engine = ProjectorEngine()
 
 
 
-@app.post("/projector/analyze-skills")
+@app.post("/projector/analyze-skills", response_model=ProjectorResponse)
 async def analyze_skills(
         keywords: Optional[List[str]] = Form(None),
         locations: Optional[List[str]] = Form(None),
