@@ -1,5 +1,20 @@
 # API Reference
 
+## Index
+- [Base path](#base-path)
+- [Content type](#content-type)
+- [POST /projector/analyze-skills](#1-post-projectoranalyze-skills)
+  - [Purpose](#purpose)
+  - [When to use it](#when-to-use-it)
+  - [Parameters](#parameters)
+  - [Response shape](#response-shape)
+  - [Response fields](#response-fields)
+- [POST /projector/emerging-skills](#2-post-projectoremerging-skills)
+- [POST /projector/stop](#3-post-projectorstop)
+- [Status code policy](#recommended-status-code-policy-for-production)
+
+---
+
 ## Base path
 All public endpoints are exposed under `/projector`.
 
@@ -10,6 +25,13 @@ Current endpoints accept:
 ---
 
 ## 1. POST `/projector/analyze-skills`
+
+### On this section
+- [Purpose](#purpose)
+- [When to use it](#when-to-use-it)
+- [Parameters](#parameters)
+- [Response shape](#response-shape)
+- [Response fields](#response-fields)
 
 ### Purpose
 Runs a complete analysis over the selected batch of job postings and returns a multi-dimensional intelligence payload.
@@ -93,120 +115,3 @@ Typical use cases:
     }
   }
 }
-```
-
-### Response fields
-#### `status`
-Possible values in practice:
-- `completed`
-- `stopped`
-
-#### `dimension_summary.jobs_analyzed`
-Total number of jobs actually processed after filters.
-
-#### `dimension_summary.geo_breakdown`
-Distribution of the retrieved batch by raw location code.
-
-#### `insights.ranking`
-Paginated list of top skills.
-
-#### `insights.sectors`
-Distribution of jobs by sector label.
-
-#### `insights.job_titles`
-Top job titles as written in the source vacancies.
-
-#### `insights.employers`
-Top hiring organizations.
-
-#### `insights.trends`
-Trend analysis computed on the selected time window.
-
-#### `insights.regional`
-Geographic decomposition of the analyzed jobs.
-
----
-
-## 2. POST `/projector/emerging-skills`
-
-### Purpose
-Runs a trend-focused analysis by splitting the selected time window into two sub-periods and comparing them.
-
-### When to use it
-Use this endpoint when you only care about change over time and do not need the full ranking/employer/regional package.
-
-### Parameters
-#### `min_date`
-- Type: `YYYY-MM-DD`
-- Required: yes
-
-#### `max_date`
-- Type: `YYYY-MM-DD`
-- Required: yes
-
-#### `keywords`
-- Type: list of strings
-- Required: no
-- Meaning: optional text filter applied before trend analysis.
-
-### Response shape
-```json
-{
-  "status": "completed",
-  "insights": {
-    "market_health": {
-      "status": "expanding",
-      "volume_growth_percentage": 8.3
-    },
-    "trends": [
-      {
-        "name": "Cloud computing",
-        "growth": "new_entry",
-        "trend_type": "emerging",
-        "primary_sector": "Information technology",
-        "is_green": false,
-        "is_digital": true
-      }
-    ]
-  }
-}
-```
-
-### Notes
-- the endpoint computes a midpoint date internally,
-- period A covers the first half of the selected window,
-- period B covers the second half,
-- the payload is intentionally lighter than `analyze-skills`.
-
----
-
-## 3. POST `/projector/stop`
-
-### Purpose
-Asks the engine to stop an ongoing long-running process safely.
-
-### Request body
-No parameters.
-
-### Response
-```json
-{
-  "status": "signal_sent"
-}
-```
-
-### Important behavior note
-This is a cooperative stop, not an immediate hard interruption.
-The engine stops at the next safe checkpoint.
-
----
-
-## Recommended status-code policy for production
-The current codebase does not yet define a full custom error envelope, but for a production-grade API the documented target should be:
-- `200` successful response
-- `400` invalid input
-- `401` upstream authentication failure
-- `502` upstream Tracker failure
-- `504` upstream timeout
-
-Until that error model is implemented, consumers should expect FastAPI default error behavior in edge cases.
