@@ -10,7 +10,7 @@ from fastapi import FastAPI, Form
 from typing import List, Optional
 from dotenv import load_dotenv
 
-from schemas import ProjectorResponse
+from schemas import ProjectorResponse, EmergingSkillsResponse, StopResponse
 
 # Configurazione Logger
 logging.basicConfig(
@@ -511,7 +511,7 @@ async def analyze_skills(
             "regional": regional_projections  # <--- Inserito qui
         }
     }
-@app.post("/projector/emerging-skills")
+@app.post("/projector/emerging-skills", response_model=EmergingSkillsResponse)
 async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
                           keywords: Optional[List[str]] = Form(None)):
     engine.stop_requested = False
@@ -519,7 +519,7 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
     return {"status": "completed" if not engine.stop_requested else "stopped", "insights": res}
 
 
-@app.post("/projector/stop")
+@app.post("/projector/stop",response_model=StopResponse )
 async def stop():
     engine.request_stop()
     return {"status": "signal_sent"}
