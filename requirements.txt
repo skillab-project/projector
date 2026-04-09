@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+httpx
+python-dotenv
+pydantic
+streamlit
+requests
+pandas
+plotly
+python-multipart
+pytest
+pytest-asyncio
