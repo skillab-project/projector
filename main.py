@@ -1113,11 +1113,14 @@ class ProjectorEngine:
             results.append({
                 "sector": sector_name,
                 "sector_label": self.get_sector_label(sector_name),
+
                 "observed_skills": observed_skills,
                 "canonical_skills": canonical_skills,
+
                 "observed_groups": group_profiles["observed_groups"],
                 "canonical_groups": group_profiles["canonical_groups"],
-                "official_matrix_groups": group_profiles["official_matrix_groups"]
+
+                "matrix_groups": group_profiles["official_matrix_groups"]
             })
 
         return results
@@ -1159,11 +1162,14 @@ class ProjectorEngine:
         return {
             "sector": sector_name,
             "sector_label": self.get_sector_label(sector_name),
+
             "observed_skills": observed_skills,
             "canonical_skills": canonical_skills,
+
             "observed_groups": group_profiles["observed_groups"],
             "canonical_groups": group_profiles["canonical_groups"],
-            "official_matrix_groups": group_profiles["official_matrix_groups"]
+
+            "matrix_groups": group_profiles["official_matrix_groups"]
         }
     def get_sector_from_occupation(self, occ_id: str, level: str = "isco_group") -> str:
         """
@@ -1892,7 +1898,8 @@ class ProjectorEngine:
             code = group_id
 
         code = code.strip()
-
+        if code and not code.startswith("C") and code[0].isdigit():
+            code = f"C{code}"
         # normalize to requested level if possible
         if code.startswith("C"):
             if occupation_level == 1:
@@ -1951,6 +1958,59 @@ class ProjectorEngine:
             }
 
         return None
+
+    def build_and_summarize_official_matrix_sector_skillgroups(
+            self,
+            jobs: List[dict],
+            sector_level: str = "isco_group",
+            skill_group_level: int = 1,
+            occupation_level: int = 1,
+            top_k: int = 20,
+            reset: bool = True
+    ):
+        self.build_official_matrix_sector_skillgroup_profile(
+            jobs=jobs,
+            sector_level=sector_level,
+            skill_group_level=skill_group_level,
+            occupation_level=occupation_level,
+            reset=reset
+        )
+        return self.summarize_official_matrix_sector_skillgroups(top_k=top_k)
+    def summarize_official_matrix_single_sector(
+            self,
+            sector_name: str,
+            top_k: int = 20
+    ):
+        """
+        Return a readable summary for one sector using the official ESCO matrix profile.
+        """
+        return self.get_official_matrix_groups_for_sector(
+            sector_name=sector_name,
+            top_k=top_k
+        )
+    def get_official_matrix_groups_for_sector(self, sector_name: str, top_k: int = 20):
+        """
+        Return the official ESCO matrix skill-group profile for a sector.
+        """
+        sector_name = str(sector_name).strip()
+        counter = self.matrix_profiles.get(sector_name, Counter())
+        total_group_mentions = sum(counter.values())
+
+        top_groups = []
+        for group_id, count in counter.most_common(top_k):
+            top_groups.append({
+                "group_id": group_id,
+                "group_label": self.get_skill_group_label(group_id),
+                "count": count,
+                "frequency": round(count / total_group_mentions, 6) if total_group_mentions > 0 else 0.0
+            })
+
+        return {
+            "sector": sector_name,
+            "total_group_mentions": total_group_mentions,
+            "unique_groups": len(counter),
+            "top_groups": top_groups
+        }
     def build_official_matrix_sector_skillgroup_profile(
         self,
         jobs: List[dict],
@@ -1984,7 +2044,7 @@ class ProjectorEngine:
             if not group_code:
                 continue
 
-            sector_name = group_code
+            sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
             official = self.get_official_esco_profile_for_occupation(
                 occ_id=occ_id,
                 skill_group_level=skill_group_level,

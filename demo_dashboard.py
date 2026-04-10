@@ -456,6 +456,48 @@ if st.session_state.all_data:
                     else:
                         st.write(T['no_data'])
 
+                # with g2:
+                #     st.subheader(T['canonical_groups'])
+                #     can_groups = target_sector.get("canonical_groups", {})
+                #     st.metric(T['total_mentions'], can_groups.get("total_group_mentions", 0))
+                #     st.metric(T['unique_items'], can_groups.get("unique_groups", 0))
+                #
+                #     top_groups = can_groups.get("top_groups", [])
+                #     if top_groups:
+                #         df_cg = pd.DataFrame(top_groups)
+                #         fig_cg = px.bar(
+                #             df_cg,
+                #             x="count",
+                #             y="group_label" if "group_label" in df_og.columns else "group_id",                            orientation="h",
+                #             title=T['canonical_groups']
+                #         )
+                #         fig_cg.update_layout(yaxis={'categoryorder': 'total ascending'})
+                #         st.plotly_chart(fig_cg, use_container_width=True)
+                #         st.dataframe(df_cg, use_container_width=True)
+                #     else:
+                #         st.write(T['no_data'])
+
+                # with g2:
+                #     st.subheader(T['canonical_groups'])
+                #     can_groups = target_sector.get("canonical_groups", {})
+                #     st.metric(T['total_mentions'], can_groups.get("total_group_mentions", 0))
+                #     st.metric(T['unique_items'], can_groups.get("unique_groups", 0))
+                #
+                #     top_groups = can_groups.get("top_groups", [])
+                #     if top_groups:
+                #         df_cg = pd.DataFrame(top_groups)
+                #         fig_cg = px.bar(
+                #             df_cg,
+                #             x="count",
+                #             y="group_label" if "group_label" in df_og.columns else "group_id", orientation="h",
+                #             title=T['canonical_groups']
+                #         )
+                #         fig_cg.update_layout(yaxis={'categoryorder': 'total ascending'})
+                #         st.plotly_chart(fig_cg, use_container_width=True)
+                #         st.dataframe(df_cg, use_container_width=True)
+                #     else:
+                #         st.write(T['no_data'])
+
                 with g2:
                     st.subheader(T['canonical_groups'])
                     can_groups = target_sector.get("canonical_groups", {})
@@ -468,7 +510,8 @@ if st.session_state.all_data:
                         fig_cg = px.bar(
                             df_cg,
                             x="count",
-                            y="group_label" if "group_label" in df_og.columns else "group_id",                            orientation="h",
+                            y="group_label" if "group_label" in df_cg.columns else "group_id",
+                            orientation="h",
                             title=T['canonical_groups']
                         )
                         fig_cg.update_layout(yaxis={'categoryorder': 'total ascending'})
@@ -479,7 +522,7 @@ if st.session_state.all_data:
 
                 with g3:
                     st.subheader(T['official_matrix_groups'])
-                    off_groups = target_sector.get("official_matrix_groups", {})
+                    off_groups = target_sector.get("matrix_groups", {})
                     st.metric(T['total_mentions'], off_groups.get("total_group_mentions", 0))
                     st.metric(T['unique_items'], off_groups.get("unique_groups", 0))
 
@@ -489,7 +532,8 @@ if st.session_state.all_data:
                         fig_fg = px.bar(
                             df_fg,
                             x="count",
-                            y="group_label" if "group_label" in df_og.columns else "group_id",                            orientation="h",
+                            y="group_label" if "group_label" in df_fg.columns else "group_id",
+                            orientation="h",
                             title=T['official_matrix_groups']
                         )
                         fig_fg.update_layout(yaxis={'categoryorder': 'total ascending'})

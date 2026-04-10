@@ -97,6 +97,7 @@ class SkillEntry(BaseModel):
 
 class SkillGroupEntry(BaseModel):
     group_id: str
+    group_label: str
     count: float
     frequency: float
 
@@ -116,11 +117,12 @@ class SectorGroupSummary(BaseModel):
 
 class SectoralSectorItem(BaseModel):
     sector: str
+    sector_label: str
     observed_skills: SectorSkillSummary
     canonical_skills: SectorSkillSummary
     observed_groups: SectorGroupSummary
     canonical_groups: SectorGroupSummary
-    official_matrix_groups: SectorGroupSummary
+    matrix_groups: SectorGroupSummary
 class ProjectorInsights(BaseModel):
     ranking: List[SkillRankingItem] = Field(..., description="Paginated list of enriched skill-ranking items.")
     sectors: List[CountItem] = Field(..., description="Top sectors found in the analyzed job batch.")
