@@ -1,474 +1,693 @@
 
-# SKILLAB Projector
+---
 
-The **SKILLAB Projector** is a microservice-based analytics component that transforms raw job-posting data into structured labor-market intelligence.
+# Sector Dimension Implementation
 
-It is composed of:
-- a **FastAPI backend** exposing the Projector API
-- a **Streamlit dashboard** for interactive exploration of results
+This document explains how the **Sector Dimension** was implemented in the SKILLAB Projector, step by step.
 
-The service sits on top of the **SKILLAB Tracker** and provides:
-- top requested skills
-- sector distribution
-- top employers
-- top job titles
-- emerging and declining skill trends
-- geographic breakdown
-- NUTS-like regional projections
-- specialization indicators by area
+The goal of this dimension is to move from a simple list of occupations or skills to a **sector-oriented intelligence layer** that can answer questions such as:
+
+- which skills are observed in a given sector,
+- which skills are canonically associated with that sector according to ESCO,
+- how the observed market differs from the ESCO reference structure,
+- how sector profiles can be aggregated at skill-group level.
+
+The implementation is incremental and combines three sources:
+
+1. **Tracker job postings** → observed labor market signal  
+2. **Local ESCO CSV files** → canonical occupation-skill and hierarchy support  
+3. **Official ESCO matrix workbook** → aggregated occupation-group ↔ skill-group profiles :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}
 
 ---
 
-## Index
-- [Project structure](#project-structure)
-- [Requirements](#requirements)
-- [Environment configuration](#environment-configuration)
-- [Install dependencies](#install-dependencies)
-- [Run the backend service](#run-the-backend-service)
-- [Run the Streamlit dashboard](#run-the-streamlit-dashboard)
-- [How the frontend connects to the backend](#how-the-frontend-connects-to-the-backend)
-- [Available API endpoints](#available-api-endpoints)
-- [Typical local workflow](#typical-local-workflow)
-- [Troubleshooting](#troubleshooting)
-- [Documentation](#documentation)
+## 1. Conceptual model
 
----
-
-## Project structure
-
-Repository layout:
+The sector dimension is based on the following logic:
 
 ```text
-repo-root/
-├── main.py
-├── test.py
-├── schemas.py
-├── demo_dashboard.py           # Streamlit frontend
-└── docs/
-    ├── README.md
-    ├── overview.md
-    ├── api-reference.md
-    ├── data-model.md
-    ├── architecture.md
-    ├── [User Story{...}.md]
-    └── examples.md
-   
+job posting
+ ├─ occupation(s)
+ └─ skills
+      ↓
+occupation → sector
+occupation → canonical skills
+skill → ESCO skill group
+      ↓
+sector → observed skills
+sector → canonical skills
+sector → observed skill groups
+sector → canonical skill groups
+sector → official ESCO matrix profile
 ````
 
----
-
-## Requirements
-
-Recommended:
-
-* Python 3.10 or newer
-* access to a running **SKILLAB Tracker**
-* valid Tracker credentials
+A sector is therefore **not extracted directly from a skill**.
+Instead, the sector is derived from the **occupation context**, and skills are then aggregated inside that sector.
 
 ---
 
-## Environment configuration
+## 2. Data sources used
 
-Create a `.env` file in the project root with the credentials used by the backend to talk to the Tracker.
+### 2.1 Tracker API
 
-```env
-TRACKER_API=https://your-tracker-url
-TRACKER_USERNAME=your_username
-TRACKER_PASSWORD=your_password
-```
+The Tracker API provides the live job-level signal:
 
-### Meaning of the variables
+* occupations in each job posting
+* skills in each job posting
+* temporal and geographic filters
 
-* `TRACKER_API`: base URL of the Tracker service
-* `TRACKER_USERNAME`: username used for Tracker login
-* `TRACKER_PASSWORD`: password used for Tracker login
+This is the source used for the **observed** part of the sector analysis. 
 
-The backend reads these variables at startup through `python-dotenv`.
+### 2.2 Local complementary ESCO CSV files
 
----
+The following local CSV files are used:
 
-## Install dependencies
+* `complementary_data/occupations_en.csv`
+* `complementary_data/skillsHierarchy_en.csv`
+* `complementary_data/occupationSkillRelations_en.csv`
+* `complementary_data/ISCOGroups_en.csv`
 
-Create and activate a virtual environment:
+These files are loaded at startup through `load_local_esco_support()` and populate internal support maps.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
+### 2.3 Official ESCO matrix workbook
 
-On Windows:
+The file:
 
-```bash
-.venv\Scripts\activate
-```
+* `Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx`
 
-Then install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-If you do not yet have a `requirements.txt`, make sure at least these packages are installed:
-
-```bash
-pip install fastapi uvicorn httpx python-dotenv pydantic streamlit requests pandas plotly
-```
+is used to load official occupation-group ↔ skill-group profiles from the ESCO matrix tables. The ESCO technical report explains that these matrix tables connect ISCO occupation groups and ESCO skill groups after hierarchical aggregation and row normalization. 
 
 ---
 
-## Run the backend service
+## 3. Internal support structures
 
-Start the FastAPI backend from the project root.
+The sector dimension relies on the following in-memory maps.
 
-### Recommended command
+### 3.1 Occupation metadata
 
-```bash
-uvicorn main:app --reload
-```
-
-### Alternative
-
-```bash
-python main.py
-```
-
-If the application is configured normally, the backend will be available at:
-
-* API base URL: `http://127.0.0.1:8000`
-* Swagger UI: `http://127.0.0.1:8000/docs`
-* ReDoc: `http://127.0.0.1:8000/redoc`
-
-### What the backend does
-
-The backend:
-
-1. receives filters from the client
-2. authenticates against the Tracker
-3. fetches job postings
-4. enriches skills and occupation labels
-5. computes rankings, trends, sectors, employers, and regional projections
-6. returns structured JSON responses
-
----
-
-## Run the Streamlit dashboard
-
-Your frontend is implemented in **Streamlit**.
-
-Assuming the file is named `demo_dashboard.py`, start it with:
-
-```bash
-streamlit run demo_dashboard.py
-```
-
-Streamlit will usually open automatically in your browser.
-If it does not, open the local URL shown in the terminal, usually:
-
-```text
-http://localhost:8501
-```
-
-### What the dashboard provides
-
-The dashboard includes:
-
-* language switcher (Italian / English)
-* search filters in the sidebar
-* stop button for long-running analyses
-* optional NUTS demo mode
-* four main tabs:
-
-  * Skill Analysis
-  * Emerging Trends
-  * Geographic Distribution
-  * Sectors & Employers
-
----
-
-## How the frontend connects to the backend
-
-In the current frontend code, the backend base URL is hardcoded as:
+Loaded from `occupations_en.csv` into:
 
 ```python
-API_BASE_URL = "http://127.0.0.1:8000/projector"
+self.occupation_meta
 ```
 
-This means:
-
-* the FastAPI backend must be running locally on port `8000`
-* the frontend will call:
-
-  * `POST /projector/analyze-skills`
-  * `POST /projector/stop`
-
-### Important note
-
-If you change backend host or port, you must also update this value in the Streamlit code.
-
-For example, if the backend runs on another machine:
+Structure:
 
 ```python
-API_BASE_URL = "http://<server-ip>:8000/projector"
+occ_id -> {
+    "label": ...,
+    "isco_group": ...,
+    "nace_code": ...,
+    "raw": ...
+}
 ```
+
+Used for:
+
+* occupation label resolution
+* sector derivation from occupation
+* matrix lookup through ISCO group codes
+
+### 3.2 Skill hierarchy
+
+Loaded from `skillsHierarchy_en.csv` into:
+
+```python
+self.skill_hierarchy
+```
+
+Structure:
+
+```python
+skill_id -> {
+    "level_1": ...,
+    "level_2": ...,
+    "level_3": ...,
+    "raw": ...
+}
+```
+
+Used for:
+
+* mapping granular skills to ESCO skill groups
+* building sector skill-group profiles
+
+### 3.3 Canonical occupation-skill relations
+
+Loaded from `occupationSkillRelations_en.csv` into:
+
+```python
+self.occ_skill_relations
+```
+
+Structure:
+
+```python
+occ_id -> set(skill_id)
+```
+
+Used for:
+
+* canonical ESCO skill profiles per occupation
+* canonical sector skill aggregation
+
+### 3.4 Occupation group labels
+
+Loaded from `ISCOGroups_en.csv` into:
+
+```python
+self.occupation_group_labels
+```
+
+Used for:
+
+* human-readable labels of ISCO groups
+* sector label enrichment
+
+### 3.5 Official matrix profiles
+
+Loaded from the ESCO workbook into:
+
+```python
+self.esco_matrix_profiles
+```
+
+Structure:
+
+```python
+(sheet_name, occupation_group_id) -> {
+    "occupation_group_label": ...,
+    "profile": {
+        skill_group_id: share
+    }
+}
+```
+
+Used for:
+
+* official sector/group reference profiles
 
 ---
 
-## Available API endpoints
+## 4. How sectors are derived
 
-The current dashboard uses the following backend endpoints:
+The sector dimension starts from occupations, not from skills.
 
-### `POST /projector/analyze-skills`
+### 4.1 Primary occupation extraction
 
-Main analysis endpoint used by the dashboard.
+For each job posting, the system extracts the main occupation with:
 
-It receives filters such as:
+```python
+get_primary_occupation_id(job)
+```
 
-* `keywords`
-* `locations`
-* `min_date`
-* `max_date`
-* `demo`
+Resolution order:
 
-and returns:
+1. `job["occupations"][0]`
+2. fallback to `job["occupation_id"]`
+3. empty string if missing
 
-* `dimension_summary`
-* `ranking`
-* `trends`
-* `regional`
-* `sectors`
-* `job_titles`
-* `employers`
+### 4.2 Sector resolution from occupation
 
-### `POST /projector/stop`
+The function:
 
-Used by the dashboard stop button.
+```python
+get_sector_from_occupation(occ_id, level="isco_group")
+```
 
-It sends a cooperative stop signal to the engine.
+derives a sector from an occupation.
 
-### `POST /projector/emerging-skills`
+Resolution order:
 
-This endpoint exists in the backend but is not directly called by the current dashboard code, because trend information is already rendered from the response of `analyze-skills`.
+1. **Local CSV metadata**
+
+   * if `level == "nace_code"` → return NACE code
+   * if `level == "label"` → return occupation label
+   * otherwise → return `isco_group`, optionally mapped to a readable label
+
+2. **Tracker fallback**
+
+   * if local metadata is missing, use `self.sector_map`
+
+3. **Safe fallback**
+
+   * `"Sector not specified"`
+
+In practice, the default sector resolution uses the **ISCO group** because it provides a stable professional grouping and is compatible with the ESCO matrix logic.
 
 ---
 
-## Typical local workflow
+## 5. Observed sector intelligence
 
-### 1. Start the backend
+Observed sector intelligence is built directly from Tracker job postings.
 
-```bash
-uvicorn main:app --reload
+### 5.1 Occupation → observed skill matrix
+
+The method:
+
+```python
+build_observed_occupation_skill_matrix(jobs)
 ```
 
-### 2. Start the dashboard
+creates:
 
-```bash
-streamlit run dashboard.py
+```python
+self.occ_skill_observed
 ```
 
-### 3. Open the dashboard
+Structure:
 
-Usually at:
-
-```text
-http://localhost:8501
+```python
+occ_id -> Counter(skill_id -> count)
 ```
 
-### 4. Configure filters
+This captures how often each skill is observed in jobs belonging to that occupation.
 
-From the sidebar, set:
+### 5.2 Sector → observed skill matrix
 
-* keywords
-* location code
-* date range
-* optional demo mode
+The method:
 
-### 5. Launch projection
-
-Click:
-
-```text
-Lancia Proiezione 🚀
+```python
+build_observed_sector_skill_matrix(jobs, sector_level="isco_group")
 ```
 
-or
+creates:
 
-```text
-Launch Projection 🚀
+```python
+self.sector_skill_observed
 ```
 
-### 6. Explore the tabs
+Structure:
 
-Use the four dashboard tabs to inspect:
+```python
+sector -> Counter(skill_id -> count)
+```
 
+This aggregates observed skills at sector level.
+
+### 5.3 Human-readable summaries
+
+The following methods summarize observed skills:
+
+* `get_observed_skills_for_occupation(...)`
+* `get_observed_skills_for_sector(...)`
+* `summarize_observed_sector_skills(...)`
+* `summarize_single_sector(...)`
+
+These return:
+
+* `total_skill_mentions`
+* `unique_skills`
 * top skills
-* market trends
-* geography
-* sectors, job titles, and employers
+* relative frequencies
+* optional label, green, and digital flags when available
 
 ---
 
-## Dashboard behavior details
+## 6. Canonical sector intelligence
 
-### Search filters
+Canonical sector intelligence is derived from ESCO occupation-skill relations.
 
-The Streamlit sidebar collects:
+### 6.1 Occupation → canonical skills
 
-* free-text keywords
-* optional location code
-* date range
-* demo mode flag
-
-These are sent to the backend as form data.
-
-### Caching
-
-The frontend uses:
+The method:
 
 ```python
-@st.cache_data(ttl=600)
+get_canonical_skills_for_occupation(occ_id)
 ```
 
-for analysis requests.
+returns ESCO skills linked to an occupation through the local CSV relations.
 
-That means repeated requests with the same parameters may be cached by Streamlit for 10 minutes.
+At this stage, canonical relations are treated as **unweighted**:
 
-### Session state
+* each skill contributes `count = 1`
 
-The dashboard stores the latest successful response in:
+### 6.2 Sector → canonical skill matrix
+
+The method:
 
 ```python
-st.session_state.all_data
+build_canonical_sector_skill_matrix(jobs, sector_level="isco_group")
 ```
 
-This allows the interface to keep showing results even after the request has completed.
-
-### Stop button
-
-The stop button sends:
+creates:
 
 ```python
-requests.post(f"{API_BASE_URL}/stop")
+self.sector_skill_canonical
 ```
 
-This is a **cooperative stop**, not an immediate process kill.
+Structure:
 
-The backend stops at the next safe checkpoint.
+```python
+sector -> Counter(skill_id -> count)
+```
+
+For each job:
+
+* the occupation is resolved,
+* the sector is resolved,
+* all canonical ESCO skills for that occupation are added to the sector.
+
+This means that canonical skill counts are influenced by how often an occupation appears in the filtered job dataset.
+
+### 6.3 Canonical summaries
+
+The following methods summarize canonical skills:
+
+* `get_canonical_skills_for_sector(...)`
+* `summarize_canonical_sector_skills(...)`
+
+These produce the same structure as the observed summaries, enabling direct comparison.
 
 ---
 
-## Troubleshooting
+## 7. Skill-group aggregation
 
-## Backend does not start
+The ESCO matrix logic is defined at **skill-group level**, not only at raw skill level. The ESCO report explicitly describes the matrix as linking ISCO occupation groups and ESCO skill groups across multiple hierarchy levels. 
 
-Check:
+### 7.1 Skill → ESCO group mapping
 
-* Python version
-* dependencies installed
-* `.env` file exists
-* `TRACKER_API`, `TRACKER_USERNAME`, and `TRACKER_PASSWORD` are valid
+The method:
 
-## Dashboard shows “Server unreachable”
-
-This usually means one of these:
-
-* FastAPI backend is not running
-* backend is running on a different host/port
-* `API_BASE_URL` in the Streamlit file is wrong
-
-## No data returned
-
-Possible causes:
-
-* Tracker returned no matching jobs
-* filters are too restrictive
-* Tracker credentials are invalid
-* upstream Tracker is unavailable or slow
-
-## Dashboard starts but charts are empty
-
-Check the backend response first in Swagger:
-
-```text
-http://127.0.0.1:8000/docs
+```python
+get_skill_group(skill_id, level=1|2|3)
 ```
 
-Try `POST /projector/analyze-skills` manually to verify that the backend is returning data.
+maps a granular skill to an ESCO hierarchy group using `self.skill_hierarchy`.
 
-## Tracker-related failures
+If the group cannot be resolved, the system falls back to:
 
-The Projector depends on the Tracker for:
+* skill label if available
+* `"Skill group not specified"`
 
-* authentication
-* job retrieval
-* skill metadata
-* occupation metadata
+### 7.2 Observed sector → skill-group matrix
 
-If Tracker is down or slow, Projector behavior will also be affected.
+The method:
+
+```python
+build_observed_sector_skillgroup_matrix(...)
+```
+
+creates:
+
+```python
+self.sector_skillgroup_observed
+```
+
+Structure:
+
+```python
+sector -> Counter(skill_group_id -> count)
+```
+
+### 7.3 Canonical sector → skill-group matrix
+
+The method:
+
+```python
+build_canonical_sector_skillgroup_matrix(...)
+```
+
+creates:
+
+```python
+self.sector_skillgroup_canonical
+```
+
+Structure:
+
+```python
+sector -> Counter(skill_group_id -> count)
+```
+
+### 7.4 Skill-group summaries
+
+The following methods provide readable summaries:
+
+* `summarize_observed_sector_skillgroups(...)`
+* `summarize_canonical_sector_skillgroups(...)`
+
+Both return:
+
+* `total_group_mentions`
+* `unique_groups`
+* top groups with frequencies
 
 ---
 
-## Documentation
+## 8. Official ESCO matrix integration
 
-Detailed documentation is available in the `/docs` folder:
+The official ESCO matrix provides a third, already-aggregated structural layer.
 
-* `docs/overview.md`
-* `docs/api-reference.md`
-* `docs/data-model.md`
-* `docs/architecture.md`
-* `docs/examples.md`
+### 8.1 Workbook loader
 
-Swagger is available at:
+The method:
 
-```text
-http://127.0.0.1:8000/docs
+```python
+load_official_esco_matrix(...)
 ```
 
-Use Swagger for interactive endpoint testing.
-Use `/docs` for semantic and architectural explanations.
+loads:
+
+* the `Overview` sheet
+* all `Matrix x.y` sheets
+
+Each matrix sheet is indexed as:
+
+```python
+(sheet_name, occupation_group_id) -> profile
+```
+
+where `profile` is a distribution over ESCO skill groups.
+
+### 8.2 Sheet resolution
+
+The method:
+
+```python
+get_esco_matrix_sheet_name(skill_group_level, occupation_level)
+```
+
+builds the correct sheet identifier, for example:
+
+* `Matrix 1.1`
+* `Matrix 2.3`
+
+### 8.3 Occupation → matrix occupation group
+
+The method:
+
+```python
+get_occupation_group_id_for_matrix(occ_id, occupation_level)
+```
+
+maps an occupation to the ISCO group code required by the workbook.
+
+### 8.4 Official profile lookup
+
+The method:
+
+```python
+get_official_esco_profile_for_occupation(...)
+```
+
+returns the official ESCO matrix profile for the occupation’s group.
+
+### 8.5 Sector → official matrix profile
+
+The method:
+
+```python
+build_official_matrix_sector_skillgroup_profile(...)
+```
+
+aggregates official matrix profiles at sector level:
+
+```python
+self.matrix_profiles
+```
+
+Structure:
+
+```python
+sector -> Counter(skill_group_id -> aggregated_share)
+```
+
+This provides the **official structural reference** for a sector.
 
 ---
 
-## Recommended development setup
+## 9. Unified sectoral intelligence output
 
-For local development, keep two terminals open.
+Once all layers are built, the method:
 
-### Terminal 1 — backend
-
-```bash
-uvicorn main:app --reload
+```python
+build_sectoral_intelligence(...)
 ```
 
-### Terminal 2 — dashboard
+returns a unified payload for each sector with:
 
-```bash
-streamlit run dashboard.py
+* `observed_skills`
+* `canonical_skills`
+* `observed_groups`
+* `canonical_groups`
+* `official_matrix_groups`
+
+This is the main output consumed by the API when sectoral intelligence is requested.
+
+The helper:
+
+```python
+build_single_sector_intelligence(...)
 ```
 
-This is the simplest and most practical setup for day-to-day work.
+returns the same structure for one single sector only.
 
 ---
 
-## Notes on current implementation
+## 10. API integration
 
-The current dashboard is designed around the existing backend contract and expects:
+The `/projector/analyze-skills` endpoint was extended with:
 
-* `dimension_summary`
-* `insights`
-* trend data inside `insights.trends`
-* regional data inside `insights.regional`
+* `include_sectoral`
+* `skill_group_level`
+* `occupation_level`
 
-If backend payloads change, the dashboard may need to be updated accordingly.
+When `include_sectoral=True`, the endpoint calls:
 
-The frontend also assumes that geographic raw codes can be mapped manually to ISO-3 codes for the world map.
+```python
+engine.build_sectoral_intelligence(...)
+```
+
+and adds the result under:
+
+```json
+insights.sectoral
+```
+
+This extension is **non-destructive**:
+
+* existing Phase 1 fields remain unchanged
+* sectoral intelligence is optional
+* backward compatibility is preserved 
 
 ---
 
-## Future improvements
+## 11. Summary of the three analytical layers
 
-Recommended next steps:
+The implemented sector dimension combines three complementary views:
 
-* move frontend backend URL to configuration instead of hardcoding it
-* add health endpoint to the backend
-* define a standard error response model
-* align code and schema fully
-* version the API under `/api/v1/...`
+### 11.1 Observed
+
+Derived from real Tracker job postings.
+
+Use:
+
+* current market demand
+* empirical evidence
+* live signal
+
+### 11.2 Canonical
+
+Derived from ESCO occupation-skill relations.
+
+Use:
+
+* structural ESCO reference
+* canonical expectations per occupation
+* more stable semantic baseline
+
+### 11.3 Official matrix
+
+Derived from the official ESCO aggregated workbook.
+
+Use:
+
+* occupation-group ↔ skill-group distributions
+* official structural profile
+* high-level comparison and validation 
+
+---
+
+## 12. Current limitations
+
+The implementation works, but there are still some known limitations.
+
+### 12.1 Human-readable labels are not fully resolved everywhere
+
+Some outputs may still expose:
+
+* raw ESCO skill URIs
+* raw sector codes such as `C2`
+* raw skill-group ids such as `S1` or `S5.1`
+
+This happens when:
+
+* skill labels were not pre-resolved through the Tracker
+* group labels were not available in the loaded hierarchy files
+* official matrix keys remain code-based
+
+### 12.2 Canonical skill weights are still simple
+
+Canonical skills are currently counted with a uniform weight of `1` per job occurrence of the corresponding occupation.
+
+More advanced weighting schemes could later differentiate:
+
+* essential vs optional skills
+* frequency-adjusted occupation weights
+* normalized occupation contributions
+
+### 12.3 Sector labeling is still code-heavy internally
+
+The internal pipeline uses stable codes for correctness and reproducibility, but the presentation layer still needs a stronger label enrichment phase.
+
+### 12.4 Official matrix and sector keys are not yet fully harmonized for presentation
+
+The official matrix layer is structurally correct, but its labels still need better UI-friendly decoding.
+
+---
+
+## 13. Why this implementation is useful
+
+Even with the current label limitations, the sector dimension already provides a powerful structure:
+
+* it connects jobs, occupations, skills, and sectors
+* it combines empirical market evidence with ESCO knowledge
+* it supports comparison across observed, canonical, and official profiles
+* it creates a foundation for explainable sector-oriented labor market intelligence
+
+This makes it possible to answer not only:
+
+* “Which skills appear in the data?”
+
+but also:
+
+* “Which skills characterize this sector?”
+* “How does the observed market differ from the ESCO canonical profile?”
+* “How does the sector compare with the official ESCO structural matrix?”
+
+---
+
+## 14. Implementation status
+
+Implemented:
+
+* sector derivation from occupation
+* observed occupation-skill matrix
+* observed sector-skill matrix
+* canonical sector-skill matrix
+* skill-group aggregation
+* official ESCO matrix loading and lookup
+* unified `sectoral` API payload
+* dashboard integration scaffolding
+
+Still to improve:
+
+* sector labels
+* skill-group labels
+* canonical weighting refinement
+* alignment score
+* cleaner dashboard representation of codes vs labels
+
+```
+
+
