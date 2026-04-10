@@ -262,6 +262,24 @@ class ProjectorEngine:
             "unique_groups": len(counter),
             "top_groups": results
         }
+    def get_skill_group_label(self, group_id: str) -> str:
+        """
+        Resolve a human-readable label for a skill group id.
+        Supports both full ESCO URI and short code.
+        """
+        group_id = str(group_id).strip()
+        if not group_id:
+            return "Skill group not specified"
+
+        if group_id in self.skill_group_labels:
+            return self.skill_group_labels[group_id]
+
+        if group_id.startswith("http"):
+            short_gid = group_id.rstrip("/").split("/")[-1]
+            if short_gid in self.skill_group_labels:
+                return self.skill_group_labels[short_gid]
+
+        return group_id
     def summarize_observed_sector_skillgroups(self, top_k: int = 20):
         """
         Build a readable summary of observed ESCO skill groups per sector.
@@ -355,45 +373,7 @@ class ProjectorEngine:
             reset=reset
         )
         return self.summarize_canonical_sector_skillgroups(top_k=top_k)
-    def get_skill_group(self, skill_id: str, level: int = 2) -> str:
-        """
-        Resolve the ESCO skill group for a skill using the local skill hierarchy.
 
-        Parameters
-        ----------
-        skill_id : str
-            ESCO skill URI or id
-        level : int
-            Skill hierarchy level to use: 1, 2, or 3
-
-        Returns
-        -------
-        str
-            Skill group identifier or fallback label
-        """
-        skill_id = str(skill_id).strip()
-        if not skill_id:
-            return "Skill group not specified"
-
-        meta = self.skill_hierarchy.get(skill_id)
-        if meta:
-            if level == 1:
-                group_id = (meta.get("level_1") or "").strip()
-            elif level == 3:
-                group_id = (meta.get("level_3") or "").strip()
-            else:
-                group_id = (meta.get("level_2") or "").strip()
-
-            if group_id:
-                return group_id
-
-        # fallback to resolved skill label if available
-        skill_meta = self.skill_map.get(skill_id, {})
-        label = skill_meta.get("label", "").strip()
-        if label:
-            return label
-
-        return "Skill group not specified"
     def build_observed_occupation_skill_matrix(self, jobs: List[dict], reset: bool = True):
         """
         Build an observed occupation -> skill count matrix from raw Tracker jobs.
@@ -872,6 +852,7 @@ class ProjectorEngine:
         skills_hierarchy_file = os.path.join(base_dir, "complementary_data", "skillsHierarchy_en.csv")
         occ_skill_rel_file = os.path.join(base_dir, "complementary_data", "occupationSkillRelations_en.csv")
         isco_groups_file = os.path.join(base_dir, "complementary_data", "ISCOGroups_en.csv")
+        skill_groups_file = os.path.join(base_dir, "complementary_data", "skillGroups_en.csv")
 
         # 1) Occupation metadata
         if os.path.exists(occupations_file):
@@ -905,10 +886,10 @@ class ProjectorEngine:
                     reader = csv.DictReader(f)
                     for row in reader:
                         skill_id = (
-                            row.get("conceptUri")
-                            or row.get("id")
-                            or row.get("skillUri")
-                            or ""
+                                row.get("conceptUri")
+                                or row.get("id")
+                                or row.get("skillUri")
+                                or ""
                         ).strip()
                         if not skill_id:
                             continue
@@ -924,23 +905,42 @@ class ProjectorEngine:
                             "raw": row,
                         }
 
-                        # optional labels for group ids if available in CSV
-                        l1_label = (row.get("level1Label") or row.get("ESCO Level 1 Label") or "").strip()
-                        l2_label = (row.get("level2Label") or row.get("ESCO Level 2 Label") or "").strip()
-                        l3_label = (row.get("level3Label") or row.get("ESCO Level 3 Label") or "").strip()
-
-                        if level_1 and l1_label:
-                            self.skill_group_labels[level_1] = l1_label
-                        if level_2 and l2_label:
-                            self.skill_group_labels[level_2] = l2_label
-                        if level_3 and l3_label:
-                            self.skill_group_labels[level_3] = l3_label
-
                 logger.info(f"Loaded skill hierarchy: {len(self.skill_hierarchy)}")
             except Exception as e:
-                logger.warning(f"Could not load skillsHierarchy_lt.csv: {e}")
+                logger.warning(f"Could not load skillsHierarchy_en.csv: {e}")
+        # 3) Skill group labels
+        if os.path.exists(skill_groups_file):
+            try:
+                with open(skill_groups_file, "r", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        gid = (
+                            row.get("conceptUri")
+                            or row.get("id")
+                            or row.get("skillGroup")
+                            or ""
+                        ).strip()
 
-        # 3) Occupation-skill canonical relations
+                        label = (
+                            row.get("preferredLabel")
+                            or row.get("label")
+                            or row.get("title")
+                            or ""
+                        ).strip()
+
+                        if gid and label:
+                            self.skill_group_labels[gid] = label
+
+                            # also store short-code fallback, e.g. .../skill/S4.8 -> S4.8
+                            short_gid = gid.rstrip("/").split("/")[-1]
+                            if short_gid:
+                                self.skill_group_labels[short_gid] = label
+
+                logger.info(f"Loaded skill group labels: {len(self.skill_group_labels)}")
+            except Exception as e:
+                logger.warning(f"Could not load skillGroups_en.csv: {e}")
+
+        # 4) Occupation-skill canonical relations
         if os.path.exists(occ_skill_rel_file):
             try:
                 with open(occ_skill_rel_file, "r", encoding="utf-8-sig") as f:
@@ -975,27 +975,54 @@ class ProjectorEngine:
                 with open(isco_groups_file, "r", encoding="utf-8-sig") as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        gid = (
-                            row.get("conceptUri")
-                            or row.get("id")
-                            or row.get("iscoGroup")
-                            or ""
+                        raw_gid = (
+                                row.get("conceptUri")
+                                or row.get("id")
+                                or row.get("iscoGroup")
+                                or ""
                         ).strip()
+
+                        gid = raw_gid.split("/")[-1].replace("C", "")
+
                         label = (row.get("preferredLabel") or row.get("label") or "").strip()
                         if gid:
                             self.occupation_group_labels[gid] = label
                 logger.info(f"Loaded ISCO group labels: {len(self.occupation_group_labels)}")
             except Exception as e:
                 logger.warning(f"Could not load ISCOGroups_lt.csv: {e}")
-    def get_skill_group_label(self, group_id: str) -> str:
+
+    def get_skill_group(self, skill_id: str, level: int = 2) -> str:
         """
-        Resolve a human-readable label for a skill group id.
+        Resolve the ESCO skill group for a skill using the local skill hierarchy.
+        Returns a normalized short group id when possible (e.g. S4.8 instead of full URI).
         """
-        group_id = str(group_id).strip()
-        if not group_id:
+        skill_id = str(skill_id).strip()
+        if not skill_id:
             return "Skill group not specified"
 
-        return self.skill_group_labels.get(group_id, group_id)
+        meta = self.skill_hierarchy.get(skill_id)
+        if meta:
+            if level == 1:
+                group_id = (meta.get("level_1") or "").strip()
+            elif level == 3:
+                group_id = (meta.get("level_3") or "").strip()
+            else:
+                group_id = (meta.get("level_2") or "").strip()
+
+            if group_id:
+                # normalize URI -> short code
+                if group_id.startswith("http"):
+                    return group_id.rstrip("/").split("/")[-1]
+                return group_id
+
+        skill_meta = self.skill_map.get(skill_id, {})
+        label = skill_meta.get("label", "").strip()
+        if label:
+            return label
+
+        return "Skill group not specified"
+
+
     def build_sectoral_intelligence(
         self,
         jobs: List[dict],
@@ -2122,6 +2149,29 @@ async def analyze_skills(
     await engine.fetch_occupation_labels(occ_uris)
     await engine.fetch_skill_names(list(set(all_skills)))  # <--- Traduciamo tutto il set
 
+    # ------------------------------------------------------------------
+    # Resolve ALL skills needed by the sectoral layer before building it:
+    # 1. observed skills from raw jobs
+    # 2. canonical ESCO skills linked to the occupations found in raw jobs
+    # ------------------------------------------------------------------
+    observed_skill_ids = set()
+    canonical_skill_ids = set()
+
+    for j in raw:
+        for s in j.get("skills", []):
+            s = str(s).strip()
+            if s:
+                observed_skill_ids.add(s)
+
+    for occ_id in occ_uris:
+        occ_id = str(occ_id).strip()
+        if not occ_id:
+            continue
+        canonical_skill_ids.update(engine.occ_skill_relations.get(occ_id, set()))
+
+    all_skill_ids_to_resolve = list(observed_skill_ids | canonical_skill_ids)
+
+    await engine.fetch_skill_names(all_skill_ids_to_resolve)
     # Analisi globale
     analysis = await engine.analyze_market_data(raw)
 
@@ -2129,6 +2179,19 @@ async def analyze_skills(
     trends = await engine.calculate_trends_from_data(raw, min_date, max_date)
 
     regional_projections = engine.get_regional_projections(raw, demo=demo)
+
+    sectoral_data = None
+    if include_sectoral:
+        sectoral_data = engine.build_sectoral_intelligence(
+            jobs=raw,
+            sector_level="isco_group",
+            skill_group_level=skill_group_level,
+            occupation_level=occupation_level,
+            resolve_labels=True,
+            top_k_skills=10,
+            top_k_groups=10,
+            reset=True
+        )
 
     start = (page - 1) * page_size
 
