@@ -55,7 +55,17 @@ translations = {
         'top_sectors': "Distribuzione Settoriale (Intelligence)",
         'sector_title': "Domanda per Macro-Settore",
         'welcome': "Configura i filtri a sinistra e clicca su 'Lancia Proiezione' per interrogare il Projector.",
-        'intelligence_label': "Dettaglio Intelligence (Phase 1)"
+        'intelligence_label': "Dettaglio Intelligence (Phase 1)",
+        'sectoral_header': "🧠 Sectoral Intelligence",
+        'sector_selector': "Seleziona settore",
+        'observed_skills': "Observed Skills",
+        'canonical_skills': "Canonical Skills",
+        'observed_groups': "Observed Skill Groups",
+        'canonical_groups': "Canonical Skill Groups",
+        'official_matrix_groups': "Official ESCO Matrix Groups",
+        'no_sectoral': "Dati di Sectoral Intelligence non disponibili.",
+        'total_mentions': "Total mentions",
+        'unique_items': "Unique items",
     },
     'EN': {
         'title': "🚀 SKILLAB Projector: Intelligence Dashboard",
@@ -89,7 +99,17 @@ translations = {
         'top_sectors': "Sectoral Distribution (Intelligence)",
         'sector_title': "Demand by Macro-Sector",
         'welcome': "Configure the filters on the left and click 'Launch Projection' to query the Projector.",
-        'intelligence_label': "Intelligence Detail (Phase 1)"
+        'intelligence_label': "Intelligence Detail (Phase 1)",
+        'sectoral_header': "🧠 Sectoral Intelligence",
+        'sector_selector': "Select sector",
+        'observed_skills': "Observed Skills",
+        'canonical_skills': "Canonical Skills",
+        'observed_groups': "Observed Skill Groups",
+        'canonical_groups': "Canonical Skill Groups",
+        'official_matrix_groups': "Official ESCO Matrix Groups",
+        'no_sectoral': "Sectoral Intelligence data not available.",
+        'total_mentions': "Total mentions",
+        'unique_items': "Unique items",
     }
 }
 
@@ -139,7 +159,10 @@ payload = {
     "locations": [location] if location else None,
     "min_date": date_range[0].strftime("%Y-%m-%d"),
     "max_date": date_range[1].strftime("%Y-%m-%d"),
-    "demo": demo_mode
+    "demo": demo_mode,
+    "include_sectoral": True,
+    "skill_group_level": 1,
+    "occupation_level": 1
 }
 
 # --- LOGICA DI ACQUISIZIONE DATI ---
@@ -334,6 +357,148 @@ if st.session_state.all_data:
                                        title=T['active_emp'], hole=0.3))
             else:
                 st.write(T['no_data'])
+        st.markdown("---")
+        st.header(T['sectoral_header'])
+
+        sectoral = ins.get("sectoral", None)
+
+        if sectoral:
+            sector_options = {
+                f"{item.get('sector_label', item['sector'])} ({item['sector']})": item["sector"]
+                for item in sectoral
+            }
+            selected_display = st.selectbox(T['sector_selector'], list(sector_options.keys()))
+            selected_sector = sector_options[selected_display]
+            target_sector = next((x for x in sectoral if x["sector"] == selected_sector), None)
+
+            if target_sector:
+                # =========================
+                # A. OBSERVED vs CANONICAL SKILLS
+                # =========================
+                col_obs, col_can = st.columns(2)
+
+                with col_obs:
+                    st.subheader(T['observed_skills'])
+                    obs = target_sector.get("observed_skills", {})
+                    st.metric(T['total_mentions'], obs.get("total_skill_mentions", 0))
+                    st.metric(T['unique_items'], obs.get("unique_skills", 0))
+
+                    obs_skills = obs.get("top_skills", [])
+                    if obs_skills:
+                        df_obs = pd.DataFrame(obs_skills)
+                        label_col = "label" if "label" in df_obs.columns else "skill_id"
+
+                        fig_obs = px.bar(
+                            df_obs,
+                            x="count",
+                            y=label_col,
+                            orientation="h",
+                            title=T['observed_skills']
+                        )
+                        fig_obs.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_obs, use_container_width=True)
+
+                        display_cols = [c for c in ["skill_id", "label", "count", "frequency", "is_green", "is_digital"] if c in df_obs.columns]
+                        st.dataframe(df_obs[display_cols], use_container_width=True)
+                    else:
+                        st.write(T['no_data'])
+
+                with col_can:
+                    st.subheader(T['canonical_skills'])
+                    can = target_sector.get("canonical_skills", {})
+                    st.metric(T['total_mentions'], can.get("total_skill_mentions", 0))
+                    st.metric(T['unique_items'], can.get("unique_skills", 0))
+
+                    can_skills = can.get("top_skills", [])
+                    if can_skills:
+                        df_can = pd.DataFrame(can_skills)
+                        label_col = "label" if "label" in df_can.columns else "skill_id"
+
+                        fig_can = px.bar(
+                            df_can,
+                            x="count",
+                            y=label_col,
+                            orientation="h",
+                            title=T['canonical_skills']
+                        )
+                        fig_can.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_can, use_container_width=True)
+
+                        display_cols = [c for c in ["skill_id", "label", "count", "frequency", "is_green", "is_digital"] if c in df_can.columns]
+                        st.dataframe(df_can[display_cols], use_container_width=True)
+                    else:
+                        st.write(T['no_data'])
+
+                # =========================
+                # B. GROUP PROFILES
+                # =========================
+                st.markdown("---")
+                g1, g2, g3 = st.columns(3)
+
+                with g1:
+                    st.subheader(T['observed_groups'])
+                    obs_groups = target_sector.get("observed_groups", {})
+                    st.metric(T['total_mentions'], obs_groups.get("total_group_mentions", 0))
+                    st.metric(T['unique_items'], obs_groups.get("unique_groups", 0))
+
+                    top_groups = obs_groups.get("top_groups", [])
+                    if top_groups:
+                        df_og = pd.DataFrame(top_groups)
+                        fig_og = px.bar(
+                            df_og,
+                            x="count",
+                            y="group_label" if "group_label" in df_og.columns else "group_id",                            orientation="h",
+                            title=T['observed_groups']
+                        )
+                        fig_og.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_og, use_container_width=True)
+                        st.dataframe(df_og, use_container_width=True)
+                    else:
+                        st.write(T['no_data'])
+
+                with g2:
+                    st.subheader(T['canonical_groups'])
+                    can_groups = target_sector.get("canonical_groups", {})
+                    st.metric(T['total_mentions'], can_groups.get("total_group_mentions", 0))
+                    st.metric(T['unique_items'], can_groups.get("unique_groups", 0))
+
+                    top_groups = can_groups.get("top_groups", [])
+                    if top_groups:
+                        df_cg = pd.DataFrame(top_groups)
+                        fig_cg = px.bar(
+                            df_cg,
+                            x="count",
+                            y="group_label" if "group_label" in df_og.columns else "group_id",                            orientation="h",
+                            title=T['canonical_groups']
+                        )
+                        fig_cg.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_cg, use_container_width=True)
+                        st.dataframe(df_cg, use_container_width=True)
+                    else:
+                        st.write(T['no_data'])
+
+                with g3:
+                    st.subheader(T['official_matrix_groups'])
+                    off_groups = target_sector.get("official_matrix_groups", {})
+                    st.metric(T['total_mentions'], off_groups.get("total_group_mentions", 0))
+                    st.metric(T['unique_items'], off_groups.get("unique_groups", 0))
+
+                    top_groups = off_groups.get("top_groups", [])
+                    if top_groups:
+                        df_fg = pd.DataFrame(top_groups)
+                        fig_fg = px.bar(
+                            df_fg,
+                            x="count",
+                            y="group_label" if "group_label" in df_og.columns else "group_id",                            orientation="h",
+                            title=T['official_matrix_groups']
+                        )
+                        fig_fg.update_layout(yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_fg, use_container_width=True)
+                        st.dataframe(df_fg, use_container_width=True)
+                    else:
+                        st.write(T['no_data'])
+        else:
+            st.info(T['no_sectoral'])
 
 else:
     # Mostriamo il messaggio di benvenuto solo se non ci sono dati caricati

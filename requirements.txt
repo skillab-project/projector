@@ -10,3 +10,4 @@ plotly
 python-multipart
 pytest
 pytest-asyncio
+openpyxl

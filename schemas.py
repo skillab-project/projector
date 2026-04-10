@@ -86,7 +86,41 @@ class DimensionSummary(BaseModel):
     jobs_analyzed: int = Field(..., description="Total number of job postings processed by the endpoint.")
     geo_breakdown: List[GeoBreakdownItem] = Field(..., description="Distribution of postings by original location code.")
 
+class SkillEntry(BaseModel):
+    skill_id: str
+    count: int
+    frequency: float
+    label: Optional[str] = None
+    is_green: Optional[bool] = None
+    is_digital: Optional[bool] = None
 
+
+class SkillGroupEntry(BaseModel):
+    group_id: str
+    count: float
+    frequency: float
+
+
+class SectorSkillSummary(BaseModel):
+    sector: str
+    total_skill_mentions: int
+    unique_skills: int
+    top_skills: List[SkillEntry]
+
+
+class SectorGroupSummary(BaseModel):
+    total_group_mentions: float
+    unique_groups: int
+    top_groups: List[SkillGroupEntry]
+
+
+class SectoralSectorItem(BaseModel):
+    sector: str
+    observed_skills: SectorSkillSummary
+    canonical_skills: SectorSkillSummary
+    observed_groups: SectorGroupSummary
+    canonical_groups: SectorGroupSummary
+    official_matrix_groups: SectorGroupSummary
 class ProjectorInsights(BaseModel):
     ranking: List[SkillRankingItem] = Field(..., description="Paginated list of enriched skill-ranking items.")
     sectors: List[CountItem] = Field(..., description="Top sectors found in the analyzed job batch.")
@@ -96,6 +130,10 @@ class ProjectorInsights(BaseModel):
     regional: Optional[RegionalProjections] = Field(
         None,
         description="Regional decomposition of the analyzed postings. Optional because the current no-data branch in main.py omits it."
+    )
+    sectoral: Optional[List[SectoralSectorItem]] = Field(
+        default=None,
+        description="Sectoral intelligence combining observed, canonical, and official ESCO matrix profiles"
     )
 
 
