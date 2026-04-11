@@ -334,9 +334,17 @@ if st.session_state.all_data:
             sec = ins.get("sectors", [])
             if sec:
                 df_sec = pd.DataFrame(sec)
-                st.plotly_chart(px.pie(df_sec, values='count', names='name',
-                                       title=T['sector_title'], hole=0.4,
-                                       color_discrete_sequence=px.colors.qualitative.Pastel))
+                fig_sec = px.pie(
+                    df_sec,
+                    values='count',
+                    names='name',
+                    title=T['sector_title'],
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_sec.update_traces(textposition='inside', textinfo='percent+label')
+                fig_sec.update_layout(showlegend=False)
+                st.plotly_chart(fig_sec, use_container_width=True)
             else:
                 st.write(T['no_data'])
 

@@ -65,16 +65,18 @@ class ProjectorEngine:
             self.sector_skillgroup_canonical = defaultdict(Counter)
 
         for job in jobs:
-            occ_id = self.get_primary_occupation_id(job)
-            if not occ_id:
+            occ_ids = self.get_occupation_ids(job)
+            if not occ_ids:
                 continue
 
-            sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
-            canonical_skills = self.occ_skill_relations.get(occ_id, set())
+            for occ_id in occ_ids:
+                sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
+                canonical_skills = self.occ_skill_relations.get(occ_id, set())
 
-            for skill_id in canonical_skills:
-                skill_group = self.get_skill_group(skill_id, level=skill_group_level)
-                self.sector_skillgroup_canonical[sector_name][skill_group] += 1
+                for skill_id in canonical_skills:
+                    skill_group = self.get_skill_group(skill_id, level=skill_group_level)
+                    self.sector_skillgroup_canonical[sector_name][skill_group] += 1
+
 
         return self.sector_skillgroup_canonical
     def load_official_esco_matrix(self, filename: str = "Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx"):
@@ -226,19 +228,19 @@ class ProjectorEngine:
             self.sector_skillgroup_observed = defaultdict(Counter)
 
         for job in jobs:
-            occ_id = self.get_primary_occupation_id(job)
-            if not occ_id:
+            occ_ids = self.get_occupation_ids(job)
+            if not occ_ids:
                 continue
 
-            sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
+            for occ_id in occ_ids:
+                sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
+                for skill_id in job.get("skills", []):
+                    skill_id = str(skill_id).strip()
+                    if not skill_id:
+                        continue
 
-            for skill_id in job.get("skills", []):
-                skill_id = str(skill_id).strip()
-                if not skill_id:
-                    continue
-
-                skill_group = self.get_skill_group(skill_id, level=skill_group_level)
-                self.sector_skillgroup_observed[sector_name][skill_group] += 1
+                    skill_group = self.get_skill_group(skill_id, level=skill_group_level)
+                    self.sector_skillgroup_observed[sector_name][skill_group] += 1
 
         return self.sector_skillgroup_observed
 
@@ -394,15 +396,16 @@ class ProjectorEngine:
             self.occ_skill_observed = defaultdict(Counter)
 
         for job in jobs:
-            occ_id = self.get_primary_occupation_id(job)
-            if not occ_id:
+            occ_ids = self.get_occupation_ids(job)
+            if not occ_ids:
                 continue
 
-            for skill_id in job.get("skills", []):
-                skill_id = str(skill_id).strip()
-                if not skill_id:
-                    continue
-                self.occ_skill_observed[occ_id][skill_id] += 1
+            for occ_id in occ_ids:
+                for skill_id in job.get("skills", []):
+                    skill_id = str(skill_id).strip()
+                    if not skill_id:
+                        continue
+                    self.occ_skill_observed[occ_id][skill_id] += 1
 
         return self.occ_skill_observed
 
@@ -471,18 +474,19 @@ class ProjectorEngine:
             self.sector_skill_canonical = defaultdict(Counter)
 
         for job in jobs:
-            occ_id = self.get_primary_occupation_id(job)
-            if not occ_id:
+            occ_ids = self.get_occupation_ids(job)
+            if not occ_ids:
                 continue
 
-            sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
-            canonical_skills = self.occ_skill_relations.get(occ_id, set())
+            for occ_id in occ_ids:
+                sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
+                canonical_skills = self.occ_skill_relations.get(occ_id, set())
 
-            for skill_id in canonical_skills:
-                skill_id = str(skill_id).strip()
-                if not skill_id:
-                    continue
-                self.sector_skill_canonical[sector_name][skill_id] += 1
+                for skill_id in canonical_skills:
+                    skill_id = str(skill_id).strip()
+                    if not skill_id:
+                        continue
+                    self.sector_skill_canonical[sector_name][skill_id] += 1
 
         return self.sector_skill_canonical
 
@@ -622,17 +626,17 @@ class ProjectorEngine:
             self.sector_skill_observed = defaultdict(Counter)
 
         for job in jobs:
-            occ_id = self.get_primary_occupation_id(job)
-            if not occ_id:
+            occ_ids = self.get_occupation_ids(job)
+            if not occ_ids:
                 continue
 
-            sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
-
-            for skill_id in job.get("skills", []):
-                skill_id = str(skill_id).strip()
-                if not skill_id:
-                    continue
-                self.sector_skill_observed[sector_name][skill_id] += 1
+            for occ_id in occ_ids:
+                sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
+                for skill_id in job.get("skills", []):
+                    skill_id = str(skill_id).strip()
+                    if not skill_id:
+                        continue
+                    self.sector_skill_observed[sector_name][skill_id] += 1
 
         return self.sector_skill_observed
 
@@ -1258,6 +1262,27 @@ class ProjectorEngine:
 
         return ""
 
+    def get_occupation_ids(self, job: dict) -> List[str]:
+        """
+        Extract all occupation ids from a job in a backward-compatible way.
+        """
+        occ_ids = []
+
+        job_occs = job.get("occupations", [])
+        legacy_occ = job.get("occupation_id")
+
+        for occ in job_occs:
+            occ = str(occ).strip()
+            if occ:
+                occ_ids.append(occ)
+
+        if legacy_occ:
+            legacy_occ = str(legacy_occ).strip()
+            if legacy_occ and legacy_occ not in occ_ids:
+                occ_ids.append(legacy_occ)
+
+        return occ_ids
+
 
 
     def _load_skill_uris_from_csv(self, path: str) -> set[str]:
@@ -1705,24 +1730,25 @@ class ProjectorEngine:
             if i > 0 and i % 2000 == 0: await asyncio.sleep(0)
 
             # 1. Occupation -> sector
-            occ_id = self.get_primary_occupation_id(job)
-            sector_name = self.get_sector_from_occupation(occ_id, level="isco_group")
-            sec_cnt[sector_name] += 1
+            occ_ids = self.get_occupation_ids(job)
 
-            # 2. Conteggio standard
-            e_cnt[job.get("organization_name") or "N/D"] += 1
-            t_cnt[job.get("title") or "N/D"] += 1
-            l_cnt[job.get("location_code") or "N/D"] += 1
+            for occ_id in occ_ids:
+                sector_name = self.get_sector_from_occupation(occ_id, level="isco_group")
+                sec_cnt[sector_name] += 1
 
-            # 3. Matrice Skill-Settore (Qui potresti voler associare la skill a TUTTI i settori del job)
             for s_uri in job.get("skills", []):
                 s_uri = str(s_uri).strip()
                 s_cnt[s_uri] += 1
                 if s_uri not in skill_sector_map:
                     skill_sector_map[s_uri] = Counter()
 
-                # Associamo la skill al settore principale trovato sopra
-                skill_sector_map[s_uri][sector_name] += 1
+                for occ_id in occ_ids:
+                    sector_name = self.get_sector_from_occupation(occ_id, level="isco_group")
+                    skill_sector_map[s_uri][sector_name] += 1
+
+            e_cnt[job.get("organization_name") or "N/D"] += 1
+            t_cnt[job.get("title") or "N/D"] += 1
+            l_cnt[job.get("location_code") or "N/D"] += 1
 
         # 4. Arricchimento nomi (Skill + Settori)
         await self.fetch_skill_names(list(s_cnt.keys()))
@@ -2032,29 +2058,31 @@ class ProjectorEngine:
             self.matrix_profiles = defaultdict(Counter)
 
         for job in jobs:
-            occ_id = self.get_primary_occupation_id(job)
-            if not occ_id:
+            occ_ids = self.get_occupation_ids(job)
+            if not occ_ids:
                 continue
 
-            group_code = self.get_occupation_group_id_for_matrix(
-                occ_id=occ_id,
-                occupation_level=occupation_level
-            )
+            for occ_id in occ_ids:
+                group_code = self.get_occupation_group_id_for_matrix(
+                    occ_id=occ_id,
+                    occupation_level=occupation_level
+                )
 
-            if not group_code:
-                continue
+                if not group_code:
+                    continue
 
-            sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
-            official = self.get_official_esco_profile_for_occupation(
-                occ_id=occ_id,
-                skill_group_level=skill_group_level,
-                occupation_level=occupation_level
-            )
-            if not official:
-                continue
+                sector_name = self.get_sector_from_occupation(occ_id, level=sector_level)
 
-            for skill_group_id, share in official["profile"].items():
-                self.matrix_profiles[sector_name][skill_group_id] += float(share)
+                official = self.get_official_esco_profile_for_occupation(
+                    occ_id=occ_id,
+                    skill_group_level=skill_group_level,
+                    occupation_level=occupation_level
+                )
+                if not official:
+                    continue
+
+                for skill_group_id, share in official["profile"].items():
+                    self.matrix_profiles[sector_name][skill_group_id] += float(share)
 
         return self.matrix_profiles
     def summarize_official_matrix_sector_skillgroups(self, top_k: int = 20):
@@ -2194,7 +2222,7 @@ async def analyze_skills(
     all_occs = []
     all_skills = []
     for j in raw:
-        all_occs.extend(j.get("occupations", []))
+        all_occs.extend(engine.get_occupation_ids(j))
         all_skills.extend(j.get("skills", []))  # <--- Aggiungiamo questo!
 
     # Add canonical ESCO skills from occupation-skill relations so their labels are resolved too
