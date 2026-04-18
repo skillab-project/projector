@@ -55,7 +55,6 @@ class SectoralAnalytics:
         total_skill_mentions = len(skill_ids)
 
         results = []
-        sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
         for skill_id in skill_ids[:top_k]:
             entry = {
                 "skill_id": skill_id,
