@@ -1023,6 +1023,46 @@ def test_get_sector_from_occupation_can_return_nace_code():
     assert result == "J62"
 
 
+def test_get_sector_from_occupation_can_return_nace_hierarchy_levels():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.occupation_meta = {
+        "occ_1": {
+            "label": "Food processor",
+            "isco_group": "isco_8160",
+            "nace_code": "C10.11"
+        }
+    }
+    engine.occupation_group_labels = {}
+    engine.sector_map = {}
+
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "C10"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "C101"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "C1011"
+
+
+def test_get_sector_from_occupation_nace_hierarchy_falls_back_when_code_is_short():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.occupation_meta = {
+        "occ_1": {
+            "label": "Software developer",
+            "isco_group": "isco_2512",
+            "nace_code": "J62"
+        }
+    }
+    engine.occupation_group_labels = {}
+    engine.sector_map = {}
+
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "J62"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "J62"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "J62"
+
+
 def test_get_sector_from_occupation_falls_back_to_tracker_sector_map():
     from app.core.container import ProjectorEngine
 
