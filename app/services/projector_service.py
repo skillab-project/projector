@@ -21,6 +21,7 @@ class ProjectorService:
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
+        sector_system: Literal["isco", "nace"] = Form("isco"),
         sector_level: Literal["isco_group", "nace_code", "nace_division", "nace_group", "nace_class"] = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),):
@@ -74,16 +75,21 @@ class ProjectorService:
 
         sectoral_data = None
         if include_sectoral:
-            allowed_sector_levels = {
-                "isco_group",
-                "nace_code",
-                "nace_division",
-                "nace_group",
-                "nace_class"
-            }
-            normalized_sector_level = str(sector_level or "isco_group").strip().lower()
-            if normalized_sector_level not in allowed_sector_levels:
+            normalized_system = str(sector_system or "isco").strip().lower()
+            if normalized_system not in {"isco", "nace"}:
+                normalized_system = "isco"
+
+            requested_level = str(sector_level or "").strip().lower()
+            if normalized_system == "isco":
                 normalized_sector_level = "isco_group"
+            else:
+                allowed_nace_levels = {
+                    "nace_code",
+                    "nace_division",
+                    "nace_group",
+                    "nace_class"
+                }
+                normalized_sector_level = requested_level if requested_level in allowed_nace_levels else "nace_code"
 
             sectoral_data = self.sectoral.build_sectoral_intelligence(
                 jobs=raw,
