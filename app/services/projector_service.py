@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from fastapi import Form
 
@@ -21,7 +21,7 @@ class ProjectorService:
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
-        sector_level: str = Form("isco_group"),
+        sector_level: Literal["isco_group", "nace_code", "nace_division", "nace_group", "nace_class"] = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),):
         self.engine.stop_requested = False
