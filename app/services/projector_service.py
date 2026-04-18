@@ -22,7 +22,7 @@ class ProjectorService:
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
         sector_system: Literal["isco", "nace", "both"] = Form("isco"),
-        sector_level: Literal["isco_group", "nace_code", "nace_division", "nace_group", "nace_class"] = Form("isco_group"),
+        sector_level: Literal["isco_group", "nace_section", "nace_division", "nace_group", "nace_class", "nace_code"] = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),):
         self.engine.stop_requested = False
@@ -83,7 +83,7 @@ class ProjectorService:
                 normalized_system = "isco"
 
             requested_level = str(sector_level or "").strip().lower()
-            allowed_nace_levels = ("nace_code", "nace_division", "nace_group", "nace_class")
+            allowed_nace_levels = ("nace_section", "nace_division", "nace_group", "nace_class")
 
             def build_sectoral_for_level(selected_level: str):
                 return self.sectoral.build_sectoral_intelligence(
@@ -98,7 +98,7 @@ class ProjectorService:
                 )
 
             isco_data = build_sectoral_for_level("isco_group")
-            nace_level = requested_level if requested_level in allowed_nace_levels else "nace_code"
+            nace_level = requested_level if requested_level in allowed_nace_levels else "nace_section"
             nace_levels = {
                 level_name: build_sectoral_for_level(level_name)
                 for level_name in allowed_nace_levels

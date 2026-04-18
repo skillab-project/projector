@@ -1,5 +1,53 @@
 from typing import List
 
+NACE_SECTION_RANGES = [
+    ((1, 3), "A", "Agriculture, forestry and fishing"),
+    ((5, 9), "B", "Mining and quarrying"),
+    ((10, 33), "C", "Manufacturing"),
+    ((35, 35), "D", "Electricity, gas, steam and air conditioning supply"),
+    ((36, 39), "E", "Water supply; sewerage, waste management and remediation activities"),
+    ((41, 43), "F", "Construction"),
+    ((45, 47), "G", "Wholesale and retail trade; repair of motor vehicles and motorcycles"),
+    ((49, 53), "H", "Transportation and storage"),
+    ((55, 56), "I", "Accommodation and food service activities"),
+    ((58, 63), "J", "Information and communication"),
+    ((64, 66), "K", "Financial and insurance activities"),
+    ((68, 68), "L", "Real estate activities"),
+    ((69, 75), "M", "Professional, scientific and technical activities"),
+    ((77, 82), "N", "Administrative and support service activities"),
+    ((84, 84), "O", "Public administration and defence; compulsory social security"),
+    ((85, 85), "P", "Education"),
+    ((86, 88), "Q", "Human health and social work activities"),
+    ((90, 93), "R", "Arts, entertainment and recreation"),
+    ((94, 96), "S", "Other service activities"),
+    ((97, 98), "T", "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use"),
+    ((99, 99), "U", "Activities of extraterritorial organisations and bodies"),
+]
+
+NACE_SECTION_LABELS = {
+    "A": "Agriculture, forestry and fishing",
+    "B": "Mining and quarrying",
+    "C": "Manufacturing",
+    "D": "Electricity, gas, steam and air conditioning supply",
+    "E": "Water supply; sewerage, waste management and remediation activities",
+    "F": "Construction",
+    "G": "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+    "H": "Transportation and storage",
+    "I": "Accommodation and food service activities",
+    "J": "Information and communication",
+    "K": "Financial and insurance activities",
+    "L": "Real estate activities",
+    "M": "Professional, scientific and technical activities",
+    "N": "Administrative and support service activities",
+    "O": "Public administration and defence; compulsory social security",
+    "P": "Education",
+    "Q": "Human health and social work activities",
+    "R": "Arts, entertainment and recreation",
+    "S": "Other service activities",
+    "T": "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
+    "U": "Activities of extraterritorial organisations and bodies",
+}
+
 
 class OccupationAnalytics:
     def __init__(self, engine):
@@ -92,7 +140,7 @@ class OccupationAnalytics:
                 nace = self.normalize_nace_code(meta.get("nace_code", "").strip())
                 if nace:
                     return nace
-            if level in {"nace_division", "nace_group", "nace_class"}:
+            if level in {"nace_section", "nace_division", "nace_group", "nace_class"}:
                 nace_list = self.get_nace_mappings_for_occupation(occ_id, level=level)
                 if nace_list:
                     return nace_list[0]["code"]
@@ -226,6 +274,7 @@ class OccupationAnalytics:
         """
         Extract hierarchical NACE code by level.
         Supported levels:
+        - nace_section
         - nace_division
         - nace_group
         - nace_class
@@ -238,21 +287,40 @@ class OccupationAnalytics:
             return normalized
 
         base_division = normalized.split(".", 1)[0]
-        tail = normalized.split(".", 1)[1] if "." in normalized else ""
+        numeric_division = "".join(ch for ch in base_division if ch.isdigit())[:2]
+        tail = "".join(ch for ch in (normalized.split(".", 1)[1] if "." in normalized else "") if ch.isdigit())
+        if not numeric_division:
+            return ""
 
+        if level == "nace_section":
+            return self._division_to_nace_section(numeric_division)
         if level == "nace_division":
-            return base_division
+            return numeric_division
         if level == "nace_group":
             if tail:
-                return f"{base_division}.{tail[:1]}"
-            return base_division
+                return f"{numeric_division}.{tail[:1]}"
+            return numeric_division
         if level == "nace_class":
             if len(tail) >= 2:
-                return f"{base_division}.{tail[:2]}"
+                return f"{numeric_division}.{tail[:2]}"
             if len(tail) == 1:
-                return f"{base_division}.{tail}"
-            return base_division
+                return f"{numeric_division}.{tail}"
+            return numeric_division
 
+        return ""
+
+    def _division_to_nace_section(self, division_code: str) -> str:
+        division_code = str(division_code or "").strip()
+        if not division_code:
+            return ""
+        try:
+            division = int(division_code[:2])
+        except ValueError:
+            return ""
+
+        for (low, high), section_code, _label in NACE_SECTION_RANGES:
+            if low <= division <= high:
+                return section_code
         return ""
 
     def get_sector_label(self, sector_code: str, system: str = "isco") -> str:
@@ -267,6 +335,8 @@ class OccupationAnalytics:
             nace_code = self.normalize_nace_code(sector_code)
             if not nace_code:
                 return "Sector not specified"
+            if len(nace_code) == 1 and nace_code.isalpha():
+                return NACE_SECTION_LABELS.get(nace_code, nace_code)
             return self.engine.nace_labels.get(nace_code, nace_code)
 
         # direct lookup
