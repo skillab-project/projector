@@ -49,7 +49,7 @@ async def analyze_skills(
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
-        sector_system: Literal["isco", "nace"] = Form("isco"),
+        sector_system: Literal["isco", "nace", "both"] = Form("isco"),
         sector_level: Literal["isco_group", "nace_code", "nace_division", "nace_group", "nace_class"] = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),

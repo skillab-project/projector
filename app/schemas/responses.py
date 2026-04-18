@@ -123,6 +123,13 @@ class SectoralSectorItem(BaseModel):
     observed_groups: SectorGroupSummary
     canonical_groups: SectorGroupSummary
     matrix_groups: SectorGroupSummary
+
+
+class SectoralView(BaseModel):
+    sector_level: str
+    items: List[SectoralSectorItem]
+
+
 class ProjectorInsights(BaseModel):
     ranking: List[SkillRankingItem] = Field(..., description="Paginated list of enriched skill-ranking items.")
     sectors: List[CountItem] = Field(..., description="Top sectors found in the analyzed job batch.")
@@ -136,6 +143,14 @@ class ProjectorInsights(BaseModel):
     sectoral: Optional[List[SectoralSectorItem]] = Field(
         default=None,
         description="Sectoral intelligence combining observed, canonical, and official ESCO matrix profiles"
+    )
+    sectoral_mode: Optional[Literal["isco", "nace", "both"]] = Field(
+        default=None,
+        description="Selected sector segmentation mode for the response payload."
+    )
+    sectoral_views: Optional[dict[Literal["isco", "nace"], SectoralView]] = Field(
+        default=None,
+        description="Dual sectoral payloads for ISCO and NACE segmentation modes."
     )
 
 
