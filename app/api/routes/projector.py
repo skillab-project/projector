@@ -49,6 +49,7 @@ async def analyze_skills(
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
+        sector_level: str = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),
 ):
@@ -67,6 +68,8 @@ async def analyze_skills(
            max_date (str, optional): End date (YYYY-MM-DD).
            location_code (str, optional): Geographic filter (ISO/NUTS).
            occupation_ids (List[str], optional): Sector filter (ESCO).
+           sector_level (str, optional): Sector taxonomy level. Supported values:
+               `isco_group`, `nace_code`, `nace_division`, `nace_group`, `nace_class`.
 
        Returns:
            ProjectorResponse:
@@ -88,6 +91,7 @@ async def analyze_skills(
                                  page_size,
                                  demo,
                                  include_sectoral,
+                                 sector_level,
                                  skill_group_level,
                                  occupation_level)
 

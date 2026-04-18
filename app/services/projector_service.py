@@ -21,6 +21,7 @@ class ProjectorService:
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
+        sector_level: str = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),):
         self.engine.stop_requested = False
@@ -36,19 +37,6 @@ class ProjectorService:
 
         # FETCH UNICO
         raw = await self.tracker.fetch_all_jobs(clean_payload)
-
-        sectoral_data = None
-        if include_sectoral:
-            sectoral_data = self.sectoral.build_sectoral_intelligence(
-                jobs=raw,
-                sector_level="isco_group",
-                skill_group_level=skill_group_level,
-                occupation_level=occupation_level,
-                resolve_labels=True,
-                top_k_skills=10,
-                top_k_groups=10,
-                reset=True
-            )
 
         # FIX: Se non ci sono job, restituiamo subito la struttura coerente
         if not raw:
@@ -75,31 +63,7 @@ class ProjectorService:
         occ_uris = list(set(all_occs))  # Rimuove i duplicati
 
         await self.tracker.fetch_occupation_labels(occ_uris)
-        await self.tracker.fetch_skill_names(list(set(all_skills)))  # <--- Traduciamo tutto il set
-
-        # ------------------------------------------------------------------
-        # Resolve ALL skills needed by the sectoral layer before building it:
-        # 1. observed skills from raw jobs
-        # 2. canonical ESCO skills linked to the occupations found in raw jobs
-        # ------------------------------------------------------------------
-        observed_skill_ids = set()
-        canonical_skill_ids = set()
-
-        for j in raw:
-            for s in j.get("skills", []):
-                s = str(s).strip()
-                if s:
-                    observed_skill_ids.add(s)
-
-        for occ_id in occ_uris:
-            occ_id = str(occ_id).strip()
-            if not occ_id:
-                continue
-            canonical_skill_ids.update(self.engine.occ_skill_relations.get(occ_id, set()))
-
-        all_skill_ids_to_resolve = list(observed_skill_ids | canonical_skill_ids)
-
-        await self.tracker.fetch_skill_names(all_skill_ids_to_resolve)
+        await self.tracker.fetch_skill_names(list(set(all_skills)))  # Traduciamo una sola volta il set complessivo
         # Analisi globale
         analysis = await self.market.analyze_market_data(raw)
 
@@ -110,9 +74,20 @@ class ProjectorService:
 
         sectoral_data = None
         if include_sectoral:
+            allowed_sector_levels = {
+                "isco_group",
+                "nace_code",
+                "nace_division",
+                "nace_group",
+                "nace_class"
+            }
+            normalized_sector_level = str(sector_level or "isco_group").strip().lower()
+            if normalized_sector_level not in allowed_sector_levels:
+                normalized_sector_level = "isco_group"
+
             sectoral_data = self.sectoral.build_sectoral_intelligence(
                 jobs=raw,
-                sector_level="isco_group",
+                sector_level=normalized_sector_level,
                 skill_group_level=skill_group_level,
                 occupation_level=occupation_level,
                 resolve_labels=True,
@@ -121,7 +96,9 @@ class ProjectorService:
                 reset=True
             )
 
-        start = (page - 1) * page_size
+        safe_page = max(page, 1)
+        safe_page_size = max(page_size, 1)
+        start = (safe_page - 1) * safe_page_size
 
         return {
             "status": "completed" if not self.engine.stop_requested else "stopped",
@@ -130,7 +107,7 @@ class ProjectorService:
                 "geo_breakdown": analysis["geo"]
             },
             "insights": {
-                "ranking": analysis["rankings"]["skills"][start: start + page_size],
+                "ranking": analysis["rankings"]["skills"][start: start + safe_page_size],
                 "sectors": analysis["rankings"]["sectors"],
                 "job_titles": analysis["rankings"]["job_titles"],
                 "employers": analysis["rankings"]["employers"],
@@ -150,4 +127,3 @@ class ProjectorService:
     def stop(self):
         self.engine.request_stop()
         return {"status": "signal_sent"}
-
