@@ -66,6 +66,11 @@ translations = {
         'no_sectoral': "Dati di Sectoral Intelligence non disponibili.",
         'total_mentions': "Total mentions",
         'unique_items': "Unique items",
+        'sector_mode': "Vista segmentazione",
+        'sector_mode_isco': "ESCO/ISCO",
+        'sector_mode_nace': "NACE",
+        'sector_compare': "Confronto ISCO vs NACE",
+        'nace_level': "Livello NACE",
     },
     'EN': {
         'title': "🚀 SKILLAB Projector: Intelligence Dashboard",
@@ -110,6 +115,11 @@ translations = {
         'no_sectoral': "Sectoral Intelligence data not available.",
         'total_mentions': "Total mentions",
         'unique_items': "Unique items",
+        'sector_mode': "Segmentation view",
+        'sector_mode_isco': "ESCO/ISCO",
+        'sector_mode_nace': "NACE",
+        'sector_compare': "ISCO vs NACE comparison",
+        'nace_level': "NACE level",
     }
 }
 
@@ -152,6 +162,16 @@ with st.sidebar:
     st.subheader("🛠️ Demo Settings")
     demo_mode = st.checkbox("Enable NUTS Demo Data", value=False,
                             help="Attiva l'iniezione di codici NUTS fittizi per testare la gerarchia del Task 3.5")
+    sector_mode_label = st.radio(
+        T["sector_mode"],
+        [T["sector_mode_isco"], T["sector_mode_nace"]],
+        horizontal=True
+    )
+    nace_level = st.selectbox(
+        T["nace_level"],
+        ["nace_code", "nace_division", "nace_group", "nace_class"],
+        index=0
+    )
 
 # Costruzione Payload
 payload = {
@@ -161,6 +181,8 @@ payload = {
     "max_date": date_range[1].strftime("%Y-%m-%d"),
     "demo": demo_mode,
     "include_sectoral": True,
+    "sector_system": "both",
+    "sector_level": nace_level,
     "skill_group_level": 1,
     "occupation_level": 1
 }
@@ -368,7 +390,14 @@ if st.session_state.all_data:
         st.markdown("---")
         st.header(T['sectoral_header'])
 
-        sectoral = ins.get("sectoral", None)
+        sectoral_views = ins.get("sectoral_views") or {}
+        isco_sectoral = (sectoral_views.get("isco") or {}).get("items", [])
+        nace_sectoral = (sectoral_views.get("nace") or {}).get("items", [])
+        fallback_sectoral = ins.get("sectoral", None)
+        selected_mode = "isco" if sector_mode_label == T["sector_mode_isco"] else "nace"
+        sectoral = isco_sectoral if selected_mode == "isco" else nace_sectoral
+        if not sectoral:
+            sectoral = fallback_sectoral
 
         if sectoral:
             sector_options = {
@@ -549,6 +578,34 @@ if st.session_state.all_data:
                         st.dataframe(df_fg, use_container_width=True)
                     else:
                         st.write(T['no_data'])
+
+                st.markdown("---")
+                st.subheader(T["sector_compare"])
+                c_left, c_right = st.columns(2)
+                with c_left:
+                    st.caption(f"{T['sector_mode_isco']}: {len(isco_sectoral)} sectors")
+                    if isco_sectoral:
+                        df_isco = pd.DataFrame([
+                            {
+                                "sector": x.get("sector"),
+                                "sector_label": x.get("sector_label"),
+                                "mentions": x.get("observed_skills", {}).get("total_skill_mentions", 0),
+                            }
+                            for x in isco_sectoral
+                        ])
+                        st.dataframe(df_isco.sort_values("mentions", ascending=False), use_container_width=True)
+                with c_right:
+                    st.caption(f"{T['sector_mode_nace']}: {len(nace_sectoral)} sectors")
+                    if nace_sectoral:
+                        df_nace = pd.DataFrame([
+                            {
+                                "sector": x.get("sector"),
+                                "sector_label": x.get("sector_label"),
+                                "mentions": x.get("observed_skills", {}).get("total_skill_mentions", 0),
+                            }
+                            for x in nace_sectoral
+                        ])
+                        st.dataframe(df_nace.sort_values("mentions", ascending=False), use_container_width=True)
         else:
             st.info(T['no_sectoral'])
 

@@ -21,7 +21,7 @@ class ProjectorService:
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
-        sector_system: Literal["isco", "nace"] = Form("isco"),
+        sector_system: Literal["isco", "nace", "both"] = Form("isco"),
         sector_level: Literal["isco_group", "nace_code", "nace_division", "nace_group", "nace_class"] = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),):
@@ -74,33 +74,43 @@ class ProjectorService:
         regional_projections = self.regional.get_regional_projections(raw, demo=demo)
 
         sectoral_data = None
+        sectoral_views = None
+        sectoral_mode = None
         if include_sectoral:
             normalized_system = str(sector_system or "isco").strip().lower()
-            if normalized_system not in {"isco", "nace"}:
+            if normalized_system not in {"isco", "nace", "both"}:
                 normalized_system = "isco"
 
             requested_level = str(sector_level or "").strip().lower()
-            if normalized_system == "isco":
-                normalized_sector_level = "isco_group"
-            else:
-                allowed_nace_levels = {
-                    "nace_code",
-                    "nace_division",
-                    "nace_group",
-                    "nace_class"
-                }
-                normalized_sector_level = requested_level if requested_level in allowed_nace_levels else "nace_code"
+            allowed_nace_levels = {"nace_code", "nace_division", "nace_group", "nace_class"}
 
-            sectoral_data = self.sectoral.build_sectoral_intelligence(
-                jobs=raw,
-                sector_level=normalized_sector_level,
-                skill_group_level=skill_group_level,
-                occupation_level=occupation_level,
-                resolve_labels=True,
-                top_k_skills=10,
-                top_k_groups=10,
-                reset=True
-            )
+            def build_sectoral_for_level(selected_level: str):
+                return self.sectoral.build_sectoral_intelligence(
+                    jobs=raw,
+                    sector_level=selected_level,
+                    skill_group_level=skill_group_level,
+                    occupation_level=occupation_level,
+                    resolve_labels=True,
+                    top_k_skills=10,
+                    top_k_groups=10,
+                    reset=True
+                )
+
+            isco_data = build_sectoral_for_level("isco_group")
+            nace_level = requested_level if requested_level in allowed_nace_levels else "nace_code"
+            nace_data = build_sectoral_for_level(nace_level)
+
+            sectoral_mode = normalized_system
+            sectoral_views = {
+                "isco": {"sector_level": "isco_group", "items": isco_data},
+                "nace": {"sector_level": nace_level, "items": nace_data}
+            }
+
+            if normalized_system == "nace":
+                sectoral_data = nace_data
+            else:
+                # Backward-compatible default remains ISCO.
+                sectoral_data = isco_data
 
         safe_page = max(page, 1)
         safe_page_size = max(page_size, 1)
@@ -119,7 +129,9 @@ class ProjectorService:
                 "employers": analysis["rankings"]["employers"],
                 "trends": trend,
                 "regional": regional_projections,
-                "sectoral": sectoral_data
+                "sectoral": sectoral_data,
+                "sectoral_mode": sectoral_mode,
+                "sectoral_views": sectoral_views
             }
         }
 
