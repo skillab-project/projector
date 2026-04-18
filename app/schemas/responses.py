@@ -130,6 +130,11 @@ class SectoralView(BaseModel):
     items: List[SectoralSectorItem]
 
 
+class NaceSectoralViews(BaseModel):
+    selected_level: str
+    levels: dict[str, SectoralView]
+
+
 class ProjectorInsights(BaseModel):
     ranking: List[SkillRankingItem] = Field(..., description="Paginated list of enriched skill-ranking items.")
     sectors: List[CountItem] = Field(..., description="Top sectors found in the analyzed job batch.")
@@ -148,9 +153,9 @@ class ProjectorInsights(BaseModel):
         default=None,
         description="Selected sector segmentation mode for the response payload."
     )
-    sectoral_views: Optional[dict[Literal["isco", "nace"], SectoralView]] = Field(
+    sectoral_views: Optional[dict[Literal["isco", "nace"], SectoralView | NaceSectoralViews]] = Field(
         default=None,
-        description="Dual sectoral payloads for ISCO and NACE segmentation modes."
+        description="Dual sectoral payloads for ISCO and NACE segmentation modes. NACE includes all hierarchy levels."
     )
 
 

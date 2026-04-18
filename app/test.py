@@ -2540,7 +2540,8 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
         assert data["insights"]["sectoral_mode"] == "both"
         assert set(data["insights"]["sectoral_views"].keys()) == {"isco", "nace"}
         assert data["insights"]["sectoral_views"]["isco"]["items"][0]["sector"] == "C2"
-        assert data["insights"]["sectoral_views"]["nace"]["items"][0]["sector"] == "C1011"
+        assert "levels" in data["insights"]["sectoral_views"]["nace"]
+        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "C1011"
         # Backward compatibility: primary `sectoral` remains list format.
         assert isinstance(data["insights"]["sectoral"], list)
 
