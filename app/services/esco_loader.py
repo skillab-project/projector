@@ -1,7 +1,10 @@
 import csv
 import os
 
-import openpyxl
+try:
+    import openpyxl
+except ImportError:  # optional dependency at runtime
+    openpyxl = None
 
 import logging
 logger = logging.getLogger("SKILLAB-Projector")
@@ -199,6 +202,10 @@ class EscoLoader:
         This keeps the implementation incremental and lookup-oriented.
         """
         path = os.path.join(os.getcwd(), "complementary_data", filename)
+        if openpyxl is None:
+            logger.warning("openpyxl is not installed: official ESCO matrix loading is disabled")
+            return
+
         if not os.path.exists(path):
             logger.warning(f"Official ESCO matrix file not found: {path}")
             return
