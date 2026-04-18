@@ -1174,6 +1174,21 @@ def test_compute_skill_breadth_and_concentration_returns_expected_shape():
     assert out["skill_a"]["sector_breadth"] == 2
     assert out["skill_a"]["dominant_sector"] == "S1"
     assert out["skill_a"]["dominant_share"] == 0.75
+    assert out["skill_a"]["top_sectors"][0]["sector"] == "S1"
+
+
+def test_compute_sector_skill_dominance_uses_top_k_share():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    sectoral = SectoralAnalytics(engine, occupations)
+    engine.sector_skill_observed = defaultdict(Counter, {
+        "S1": Counter({"a": 5, "b": 3, "c": 2}),
+    })
+
+    out = sectoral.compute_sector_skill_dominance("S1", top_k=2)
+    assert out == 0.8
 
 
 def test_compute_isco_skill_gap_and_stability():
@@ -1189,6 +1204,7 @@ def test_compute_isco_skill_gap_and_stability():
     assert out["emerging_skills"] == ["skill_a"]
     assert out["missing_skills"] == ["skill_c"]
     assert out["stability_overlap"] == pytest.approx(1 / 3, rel=1e-6)
+    assert out["overlap_skill_count"] == 1
 
 
 def test_get_sector_from_occupation_falls_back_to_tracker_sector_map():
@@ -2552,6 +2568,10 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
         data = response.json()
         sector = data["insights"]["sectoral"][0]
         assert sector["sector"] == "10.11"
+        assert sector["sector_metrics"]["coverage_unique_skills"] >= 1
+        assert "dominance_top10_share" in sector["sector_metrics"]
+        assert len(sector["skill_transversal_insights"]) >= 1
+        assert "sector_breadth" in sector["skill_transversal_insights"][0]
 
 @pytest.mark.integration
 def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
@@ -2609,6 +2629,10 @@ def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco()
         data = response.json()
         sector = data["insights"]["sectoral"][0]
         assert sector["sector"] == "C2"
+        assert sector["isco_interpretation"] is not None
+        assert "emerging_skills" in sector["isco_interpretation"]
+        assert "missing_skills" in sector["isco_interpretation"]
+        assert "stability_overlap" in sector["isco_interpretation"]
 
 
 @pytest.mark.integration

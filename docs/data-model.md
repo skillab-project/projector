@@ -449,6 +449,8 @@ Before treating this API as a strict external contract, code and schema should b
 - ISCO mode: native ESCO/ISCO sector labels.
 - NACE mode: NACE labels from crosswalk; if label missing, code fallback.
 - NACE canonical/matrix views are derived/aggregated through ESCO crosswalk logic.
+- NACE sector payloads include coverage, dominance, and skill transversality metrics (breadth/concentration/top sectors).
+- ISCO sector payloads include interpretation metrics: emerging skills, missing skills, and stability overlap.
 
 ## Metric definitions
 

@@ -115,6 +115,40 @@ class SectorGroupSummary(BaseModel):
     top_groups: List[SkillGroupEntry]
 
 
+class SkillSectorShare(BaseModel):
+    sector: str
+    sector_label: str
+    count: int
+    share: float
+
+
+class SkillTransversalInsight(BaseModel):
+    skill_id: str
+    label: str
+    count: int
+    importance_in_sector: float
+    sector_breadth: int
+    dominant_sector: str
+    dominant_sector_label: str
+    dominant_share: float
+    top_sectors: List[SkillSectorShare]
+
+
+class SectorMetrics(BaseModel):
+    coverage_unique_skills: int
+    dominance_top10_share: float
+
+
+class IscoInterpretation(BaseModel):
+    sector: str
+    emerging_skills: List[str]
+    missing_skills: List[str]
+    stability_overlap: float
+    observed_skill_count: int
+    canonical_skill_count: int
+    overlap_skill_count: int
+
+
 class SectoralSectorItem(BaseModel):
     sector: str
     sector_label: str
@@ -123,6 +157,9 @@ class SectoralSectorItem(BaseModel):
     observed_groups: SectorGroupSummary
     canonical_groups: SectorGroupSummary
     matrix_groups: SectorGroupSummary
+    sector_metrics: Optional[SectorMetrics] = None
+    skill_transversal_insights: Optional[List[SkillTransversalInsight]] = None
+    isco_interpretation: Optional[IscoInterpretation] = None
 
 
 class SectoralView(BaseModel):

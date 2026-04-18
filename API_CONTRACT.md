@@ -848,3 +848,10 @@ Once those are done, this service can be documented and consumed as a stable ext
 - dual views: `insights.sectoral_views`
 - selected NACE level and level map under `insights.sectoral_views.nace`
 - in dashboard mode, NACE labels are shown as conceptual levels (Section/Division/Group/Class), and switching level updates all NACE views (not only comparison summaries)
+
+### Sector interpretation metrics (payload)
+
+- `sector_metrics.coverage_unique_skills`: unique observed skills in the sector.
+- `sector_metrics.dominance_top10_share`: share of sector mentions captured by top-10 observed skills.
+- `skill_transversal_insights[]`: per-skill in-sector importance, sector breadth, dominant sector/share, and top sectors.
+- `isco_interpretation` (ISCO sectors): `emerging_skills`, `missing_skills`, and `stability_overlap`.

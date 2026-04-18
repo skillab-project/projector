@@ -39,6 +39,11 @@ This document explains how the **Sector Dimension** was implemented in the SKILL
 - **Derived Canonical**: ESCO canonical occupation-skill relations re-aggregated by NACE through the ESCO-NACE crosswalk.
 - **Aggregated Official Matrix**: ESCO official matrix profiles aggregated by NACE through the ESCO-NACE crosswalk.
 
+## Sector interpretation metrics
+
+- **NACE metrics**: top skills per sector, skill coverage (unique skills), sector breadth per skill, dominant-sector concentration, top sectors per skill, and top-10 skill dominance share per sector.
+- **ISCO interpretation**: emerging skills (observed−canonical), missing skills (canonical−observed), and stability overlap `|obs∩can|/|obs∪can|`.
+
 The goal of this dimension is to move from a simple list of occupations or skills to a **sector-oriented intelligence layer** that can answer questions such as:
 
 - which skills are observed in a given sector,
