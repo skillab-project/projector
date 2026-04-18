@@ -89,6 +89,11 @@ class OccupationAnalytics:
                 nace = meta.get("nace_code", "").strip()
                 if nace:
                     return nace
+            if level in {"nace_division", "nace_group", "nace_class"}:
+                nace = meta.get("nace_code", "").strip()
+                nace_level_value = self._get_nace_level_code(nace, level)
+                if nace_level_value:
+                    return nace_level_value
 
             if level == "label":
                 label = meta.get("label", "").strip()
@@ -113,6 +118,53 @@ class OccupationAnalytics:
 
         # 3) Last-resort fallback
         return "Sector not specified"
+
+    def _normalize_nace_code(self, nace_code: str) -> str:
+        """
+        Normalize NACE strings to an uppercase compact alphanumeric form.
+        Examples:
+        - "J62" -> "J62"
+        - "62.01" -> "6201"
+        - "c 10.11" -> "C1011"
+        """
+        nace_code = str(nace_code or "").upper()
+        return "".join(ch for ch in nace_code if ch.isalnum())
+
+    def _get_nace_level_code(self, nace_code: str, level: str) -> str:
+        """
+        Extract hierarchical NACE code by level.
+        Supported levels:
+        - nace_division
+        - nace_group
+        - nace_class
+        """
+        normalized = self._normalize_nace_code(nace_code)
+        if not normalized:
+            return ""
+
+        head = ""
+        digits = normalized
+        if normalized[0].isalpha():
+            head = normalized[0]
+            digits = normalized[1:]
+
+        if not digits:
+            return head
+
+        if level == "nace_division":
+            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+        if level == "nace_group":
+            if len(digits) >= 3:
+                return f"{head}{digits[:3]}"
+            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+        if level == "nace_class":
+            if len(digits) >= 4:
+                return f"{head}{digits[:4]}"
+            if len(digits) >= 3:
+                return f"{head}{digits[:3]}"
+            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+
+        return ""
 
     def get_sector_label(self, sector_code: str) -> str:
         """
