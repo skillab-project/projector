@@ -2368,6 +2368,63 @@ def test_endpoint_analyze_skills_sectoral_top_groups_include_group_label():
         assert "group_label" in sector["matrix_groups"]["top_groups"][0]
 
 
+@pytest.mark.integration
+def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
+    form_data = {
+        "keywords": ["developer"],
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "include_sectoral": True,
+        "sector_level": "nace_class",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {
+            "occupation_id": "occ_1",
+            "skills": ["skill_obs"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+         patch.object(tracker, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
+
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        m_fetch_occ.return_value = None
+
+        engine.occupation_meta = {
+            "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "C10.11"},
+        }
+        engine.occupation_group_labels = {"C2": "C2"}
+        engine.occ_skill_relations = defaultdict(set)
+        engine.occ_skill_relations["occ_1"] = {"skill_a"}
+        engine.skill_map = {
+            "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.esco_matrix_profiles = {
+            ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
+                "occupation_group_label": "Professionals",
+                "profile": {"S1": 1.0}
+            }
+        }
+
+        response = client.post("/projector/analyze-skills", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        sector = data["insights"]["sectoral"][0]
+        assert sector["sector"] == "C1011"
+
+
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():
     from app.core.container import ProjectorEngine
 
