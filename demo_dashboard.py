@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from requests import RequestException
 
 # 1. Configurazione Pagina
 st.set_page_config(page_title="SKILLAB Projector Intelligence", layout="wide")
@@ -13,6 +14,12 @@ if 'lang' not in st.session_state:
 
 if 'all_data' not in st.session_state:
     st.session_state.all_data = None
+
+if 'api_base_url' not in st.session_state:
+    st.session_state.api_base_url = "http://127.0.0.1:8000/projector"
+
+if 'backend_timeout' not in st.session_state:
+    st.session_state.backend_timeout = 30
 
 
 def change_lang():
@@ -34,6 +41,9 @@ translations = {
         'stop': "STOP ANALISI ⛔",
         'stop_toast': "Segnale di stop inviato!",
         'server_error': "Server non raggiungibile.",
+        'backend_url': "Backend URL",
+        'backend_help': "Avvia FastAPI prima della dashboard. Esempio: `uvicorn app.main:app --reload`",
+        'backend_timeout': "Timeout richiesta backend (secondi)",
         'tabs': ["📊 Analisi Competenze", "📈 Emerging Trends", "🗺️ Distribuzione Geografica", "🏭 Settori & Aziende"],
         'top_skills': "Top Skills più richieste",
         'jobs_analyzed': "Job Analizzati",
@@ -83,6 +93,9 @@ translations = {
         'stop': "STOP ANALYSIS ⛔",
         'stop_toast': "Stop signal sent!",
         'server_error': "Server unreachable.",
+        'backend_url': "Backend URL",
+        'backend_help': "Start FastAPI before the dashboard. Example: `uvicorn app.main:app --reload`",
+        'backend_timeout': "Backend request timeout (seconds)",
         'tabs': ["📊 Skill Analysis", "📈 Emerging Trends", "🗺️ Geographic Distribution", "🏭 Sectors & Employers"],
         'top_skills': "Top Requested Skills",
         'jobs_analyzed': "Jobs Analyzed",
@@ -128,13 +141,21 @@ T = translations[st.session_state.lang]
 st.title(T['title'])
 st.markdown(T['subtitle'])
 
-API_BASE_URL = "http://127.0.0.1:8000/projector"
-
-
 @st.cache_data(ttl=600)
-def get_analysis_data(p):
-    res = requests.post(f"{API_BASE_URL}/analyze-skills", data=p)
-    return res.json() if res.status_code == 200 else None
+def get_analysis_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{api_base_url}/analyze-skills",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_error']} [HTTP {res.status_code}]"}
 
 
 with st.sidebar:
@@ -151,12 +172,27 @@ with st.sidebar:
         submit_button = st.form_submit_button(T['submit'])
 
     st.markdown("---")
+    st.text_input(T["backend_url"], key="api_base_url")
+    st.number_input(
+        T["backend_timeout"],
+        min_value=5,
+        max_value=120,
+        value=30,
+        step=5,
+        key="backend_timeout"
+    )
+    st.caption(T["backend_help"])
+    st.markdown("---")
+
     if st.button(T['stop'], type="primary", use_container_width=True):
         try:
-            requests.post(f"{API_BASE_URL}/stop")
+            requests.post(
+                f"{st.session_state.api_base_url}/stop",
+                timeout=st.session_state.backend_timeout
+            )
             st.toast(T['stop_toast'])
-        except:
-            st.error(T['server_error'])
+        except RequestException as exc:
+            st.error(f"{T['server_error']} ({exc})")
 
     st.markdown("---")
     st.subheader("🛠️ Demo Settings")
@@ -190,11 +226,16 @@ payload = {
 # --- LOGICA DI ACQUISIZIONE DATI ---
 if submit_button:
     with st.spinner("🚀 Intelligence is loading..."):
-        data = get_analysis_data(payload)
-        if data:
+        data = get_analysis_data(
+            st.session_state.api_base_url,
+            payload,
+            st.session_state.backend_timeout
+        )
+        if data and "_error" not in data:
             st.session_state.all_data = data
         else:
-            st.error(T['server_error'])
+            error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
+            st.error(error_msg)
 
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati solo se all_data è presente nello stato della sessione

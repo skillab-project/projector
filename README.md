@@ -5,6 +5,15 @@
 
 This document explains how the **Sector Dimension** was implemented in the SKILLAB Projector, step by step.
 
+## Quick local run (API + Dashboard)
+
+- Start FastAPI (from repo root):
+  - `uvicorn app.main:app --reload`
+- Start Streamlit demo (new terminal):
+  - `streamlit run app/example_dashboard/demo_dashboard.py`
+
+> Note: Uvicorn expects `<module>:<attribute>` syntax (for example `app.main:app`), not a file path like `main.py:app`.
+
 The goal of this dimension is to move from a simple list of occupations or skills to a **sector-oriented intelligence layer** that can answer questions such as:
 
 - which skills are observed in a given sector,
@@ -689,5 +698,4 @@ Still to improve:
 * cleaner dashboard representation of codes vs labels
 
 ```
-
 
