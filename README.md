@@ -15,6 +15,26 @@ This document explains how the **Sector Dimension** was implemented in the SKILL
 
 > Note: Uvicorn expects `<module>:<attribute>` syntax (for example `app.main:app` or `main:app`), not file paths like `main.py:app` or `app/main.py`.
 
+## Sector classification systems: ISCO vs NACE
+
+- **ISCO** is occupation-based (`job -> occupation -> isco_group -> ISCO label`).
+- **NACE** is economic-activity-based (`job -> occupation -> ESCO-NACE crosswalk -> nace_code -> NACE label`).
+- Both systems are selectable in the sector dimension.
+- ISCO labels come from ISCO metadata; NACE labels are resolved through the **ESCO-NACE rev. 2.1 crosswalk** (preferred source).
+
+## NACE mode semantics
+
+- One ESCO occupation may map to multiple NACE codes through the crosswalk.
+- Multi-mapping is intentionally allowed in this phase.
+- Current objective is **sector-skill relation discovery**, not strict one-to-one job accounting.
+- Therefore the same observed skill evidence can appear in more than one NACE sector.
+
+## NACE view semantics
+
+- **Observed**: skills observed in jobs mapped to the NACE sector.
+- **Derived Canonical**: ESCO canonical occupation-skill relations re-aggregated by NACE through the ESCO-NACE crosswalk.
+- **Aggregated Official Matrix**: ESCO official matrix profiles aggregated by NACE through the ESCO-NACE crosswalk.
+
 The goal of this dimension is to move from a simple list of occupations or skills to a **sector-oriented intelligence layer** that can answer questions such as:
 
 - which skills are observed in a given sector,

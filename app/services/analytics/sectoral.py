@@ -94,14 +94,14 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                sector_name = self.occupations.get_sector_from_occupation(occ_id, level=sector_level)
+                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
                 canonical_skills = self.engine.occ_skill_relations.get(occ_id, set())
-
-                for skill_id in canonical_skills:
-                    skill_id = str(skill_id).strip()
-                    if not skill_id:
-                        continue
-                    self.engine.sector_skill_canonical[sector_name][skill_id] += 1
+                for sector_name in sector_names:
+                    for skill_id in canonical_skills:
+                        skill_id = str(skill_id).strip()
+                        if not skill_id:
+                            continue
+                        self.engine.sector_skill_canonical[sector_name][skill_id] += 1
 
         return self.engine.sector_skill_canonical
 
@@ -248,12 +248,13 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                sector_name = self.occupations.get_sector_from_occupation(occ_id, level=sector_level)
-                for skill_id in job.get("skills", []):
-                    skill_id = str(skill_id).strip()
-                    if not skill_id:
-                        continue
-                    self.engine.sector_skill_observed[sector_name][skill_id] += 1
+                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                for sector_name in sector_names:
+                    for skill_id in job.get("skills", []):
+                        skill_id = str(skill_id).strip()
+                        if not skill_id:
+                            continue
+                        self.engine.sector_skill_observed[sector_name][skill_id] += 1
 
         return self.engine.sector_skill_observed
 
@@ -716,7 +717,7 @@ class SectoralAnalytics:
                 if not group_code:
                     continue
 
-                sector_name = self.occupations.get_sector_from_occupation(occ_id, level=sector_level)
+                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
 
                 official = self.occupations.get_official_esco_profile_for_occupation(
                     occ_id=occ_id,
@@ -726,8 +727,9 @@ class SectoralAnalytics:
                 if not official:
                     continue
 
-                for skill_group_id, share in official["profile"].items():
-                    self.engine.matrix_profiles[sector_name][skill_group_id] += float(share)
+                for sector_name in sector_names:
+                    for skill_group_id, share in official["profile"].items():
+                        self.engine.matrix_profiles[sector_name][skill_group_id] += float(share)
 
         return self.engine.matrix_profiles
 
@@ -954,12 +956,12 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                sector_name = self.occupations.get_sector_from_occupation(occ_id, level=sector_level)
+                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
                 canonical_skills = self.engine.occ_skill_relations.get(occ_id, set())
-
-                for skill_id in canonical_skills:
-                    skill_group = self.get_skill_group(skill_id, level=skill_group_level)
-                    self.engine.sector_skillgroup_canonical[sector_name][skill_group] += 1
+                for sector_name in sector_names:
+                    for skill_id in canonical_skills:
+                        skill_group = self.get_skill_group(skill_id, level=skill_group_level)
+                        self.engine.sector_skillgroup_canonical[sector_name][skill_group] += 1
 
         return self.engine.sector_skillgroup_canonical
 
@@ -982,13 +984,67 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                sector_name = self.occupations.get_sector_from_occupation(occ_id, level=sector_level)
-                for skill_id in job.get("skills", []):
-                    skill_id = str(skill_id).strip()
-                    if not skill_id:
-                        continue
+                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                for sector_name in sector_names:
+                    for skill_id in job.get("skills", []):
+                        skill_id = str(skill_id).strip()
+                        if not skill_id:
+                            continue
 
-                    skill_group = self.get_skill_group(skill_id, level=skill_group_level)
-                    self.engine.sector_skillgroup_observed[sector_name][skill_group] += 1
+                        skill_group = self.get_skill_group(skill_id, level=skill_group_level)
+                        self.engine.sector_skillgroup_observed[sector_name][skill_group] += 1
 
         return self.engine.sector_skillgroup_observed
+
+    def compute_skill_breadth_and_concentration(self):
+        """
+        NACE/ISCO-agnostic metric helper built on observed sector-skill matrix.
+
+        Returns:
+            skill_id -> {
+                "sector_breadth": int,
+                "total_mentions": int,
+                "dominant_sector": str,
+                "dominant_share": float
+            }
+        """
+        by_skill = defaultdict(Counter)
+        for sector_name, counter in self.engine.sector_skill_observed.items():
+            for skill_id, count in counter.items():
+                by_skill[skill_id][sector_name] += count
+
+        out = {}
+        for skill_id, sector_counts in by_skill.items():
+            total = sum(sector_counts.values())
+            dominant_sector, dominant_count = ("", 0)
+            if sector_counts:
+                dominant_sector, dominant_count = sector_counts.most_common(1)[0]
+            out[skill_id] = {
+                "sector_breadth": len(sector_counts),
+                "total_mentions": total,
+                "dominant_sector": dominant_sector,
+                "dominant_share": round(dominant_count / total, 6) if total > 0 else 0.0
+            }
+        return out
+
+    def compute_isco_skill_gap_and_stability(self, sector_name: str):
+        """
+        ISCO interpretation helper:
+        - emerging_skills: observed - canonical
+        - missing_skills: canonical - observed
+        - stability_overlap: Jaccard overlap
+        """
+        sector_name = str(sector_name).strip()
+        observed = set(self.engine.sector_skill_observed.get(sector_name, Counter()).keys())
+        canonical = set(self.engine.sector_skill_canonical.get(sector_name, Counter()).keys())
+
+        union = observed.union(canonical)
+        intersection = observed.intersection(canonical)
+        overlap = round(len(intersection) / len(union), 6) if union else 0.0
+
+        return {
+            "sector": sector_name,
+            "emerging_skills": sorted(observed - canonical),
+            "missing_skills": sorted(canonical - observed),
+            "stability_overlap": overlap
+        }

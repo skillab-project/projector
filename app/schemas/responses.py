@@ -157,6 +157,10 @@ class ProjectorInsights(BaseModel):
         default=None,
         description="Dual sectoral payloads for ISCO and NACE segmentation modes. NACE includes all hierarchy levels."
     )
+    sector_view_names: Optional[dict[str, dict[str, str]]] = Field(
+        default=None,
+        description="Display names for sectoral views by system (e.g. NACE uses derived naming)."
+    )
 
 
 class ProjectorResponse(BaseModel):

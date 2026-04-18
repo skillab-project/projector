@@ -457,6 +457,12 @@ if st.session_state.all_data:
         sectoral = active_sectoral
 
         if sectoral:
+            observed_title = "Observed"
+            canonical_title = "Canonical" if selected_mode == "isco" else "Derived Canonical"
+            matrix_title = "Official ESCO Matrix Groups" if selected_mode == "isco" else "Aggregated Official Matrix"
+            if selected_mode == "nace":
+                st.caption("NACE mode: Derived Canonical and Aggregated Official Matrix are ESCO-derived views aggregated through the ESCO-NACE crosswalk.")
+
             sector_options = {
                 f"{item.get('sector_label', item['sector'])} ({item['sector']})": item["sector"]
                 for item in sectoral
@@ -472,7 +478,7 @@ if st.session_state.all_data:
                 col_obs, col_can = st.columns(2)
 
                 with col_obs:
-                    st.subheader(T['observed_skills'])
+                    st.subheader(observed_title)
                     obs = target_sector.get("observed_skills", {})
                     st.metric(T['total_mentions'], obs.get("total_skill_mentions", 0))
                     st.metric(T['unique_items'], obs.get("unique_skills", 0))
@@ -487,7 +493,7 @@ if st.session_state.all_data:
                             x="count",
                             y=label_col,
                             orientation="h",
-                            title=T['observed_skills']
+                            title=observed_title
                         )
                         fig_obs.update_layout(yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig_obs, use_container_width=True)
@@ -498,7 +504,7 @@ if st.session_state.all_data:
                         st.write(T['no_data'])
 
                 with col_can:
-                    st.subheader(T['canonical_skills'])
+                    st.subheader(canonical_title)
                     can = target_sector.get("canonical_skills", {})
                     st.metric(T['total_mentions'], can.get("total_skill_mentions", 0))
                     st.metric(T['unique_items'], can.get("unique_skills", 0))
@@ -513,7 +519,7 @@ if st.session_state.all_data:
                             x="count",
                             y=label_col,
                             orientation="h",
-                            title=T['canonical_skills']
+                            title=canonical_title
                         )
                         fig_can.update_layout(yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig_can, use_container_width=True)
@@ -615,7 +621,7 @@ if st.session_state.all_data:
                         st.write(T['no_data'])
 
                 with g3:
-                    st.subheader(T['official_matrix_groups'])
+                    st.subheader(matrix_title)
                     off_groups = target_sector.get("matrix_groups", {})
                     st.metric(T['total_mentions'], off_groups.get("total_group_mentions", 0))
                     st.metric(T['unique_items'], off_groups.get("unique_groups", 0))
@@ -628,7 +634,7 @@ if st.session_state.all_data:
                             x="count",
                             y="group_label" if "group_label" in df_fg.columns else "group_id",
                             orientation="h",
-                            title=T['official_matrix_groups']
+                            title=matrix_title
                         )
                         fig_fg.update_layout(yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig_fg, use_container_width=True)

@@ -76,6 +76,7 @@ class ProjectorService:
         sectoral_data = None
         sectoral_views = None
         sectoral_mode = None
+        sector_view_names = None
         if include_sectoral:
             normalized_system = str(sector_system or "isco").strip().lower()
             if normalized_system not in {"isco", "nace", "both"}:
@@ -122,6 +123,19 @@ class ProjectorService:
                 # Backward-compatible default remains ISCO.
                 sectoral_data = isco_data
 
+            sector_view_names = {
+                "isco": {
+                    "observed": "Observed",
+                    "canonical": "Canonical",
+                    "matrix": "Official Matrix"
+                },
+                "nace": {
+                    "observed": "Observed",
+                    "canonical": "Derived Canonical",
+                    "matrix": "Aggregated Official Matrix"
+                }
+            }
+
         safe_page = max(page, 1)
         safe_page_size = max(page_size, 1)
         start = (safe_page - 1) * safe_page_size
@@ -141,7 +155,8 @@ class ProjectorService:
                 "regional": regional_projections,
                 "sectoral": sectoral_data,
                 "sectoral_mode": sectoral_mode,
-                "sectoral_views": sectoral_views
+                "sectoral_views": sectoral_views,
+                "sector_view_names": sector_view_names
             }
         }
 

@@ -118,3 +118,12 @@ That means the documentation must explain two things clearly:
 
 Swagger covers the first point well.  
 This `/docs` package exists mainly to cover the second one.
+## Conceptual distinction: ISCO vs NACE
+
+- ISCO is occupation-group centric.
+- NACE is economic-activity centric.
+- The system supports both to allow complementary sector analysis views.
+
+In NACE mode:
+- `Observed` is direct from job evidence mapped through crosswalk.
+- `Derived Canonical` and `Aggregated Official Matrix` are ESCO-derived views aggregated by NACE (not native NACE ontologies).
