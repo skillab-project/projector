@@ -82,7 +82,7 @@ class ProjectorService:
                 normalized_system = "isco"
 
             requested_level = str(sector_level or "").strip().lower()
-            allowed_nace_levels = {"nace_code", "nace_division", "nace_group", "nace_class"}
+            allowed_nace_levels = ("nace_code", "nace_division", "nace_group", "nace_class")
 
             def build_sectoral_for_level(selected_level: str):
                 return self.sectoral.build_sectoral_intelligence(
@@ -98,12 +98,22 @@ class ProjectorService:
 
             isco_data = build_sectoral_for_level("isco_group")
             nace_level = requested_level if requested_level in allowed_nace_levels else "nace_code"
-            nace_data = build_sectoral_for_level(nace_level)
+            nace_levels = {
+                level_name: build_sectoral_for_level(level_name)
+                for level_name in allowed_nace_levels
+            }
+            nace_data = nace_levels[nace_level]
 
             sectoral_mode = normalized_system
             sectoral_views = {
                 "isco": {"sector_level": "isco_group", "items": isco_data},
-                "nace": {"sector_level": nace_level, "items": nace_data}
+                "nace": {
+                    "selected_level": nace_level,
+                    "levels": {
+                        level_name: {"sector_level": level_name, "items": level_items}
+                        for level_name, level_items in nace_levels.items()
+                    }
+                }
             }
 
             if normalized_system == "nace":
