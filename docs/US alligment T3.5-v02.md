@@ -42,3 +42,11 @@ Ecco il set aggiornato di **User Stories** per lo **Skills Projector**, allineat
 ---
 
 **Siamo allineati?** Se queste storie rispecchiano la tua visione del Task 3.5, il prossimo passo è aggiornare l'endpoint `/analyze-skills` per restituire queste tre "fette" di dati (Regioni, Settori, Tempo) insieme ai risultati dei test statistici.
+## Sectoral Intelligence acceptance criteria (updated)
+
+- Support both sector systems: ISCO and NACE.
+- Resolve NACE labels through ESCO-NACE crosswalk (rev. 2.1 preferred source).
+- Allow dashboard switching between ISCO and NACE without semantic mismatch.
+- Keep explicit distinction between:
+  - native ISCO views
+  - NACE derived/aggregated views (`Observed`, `Derived Canonical`, `Aggregated Official Matrix`).

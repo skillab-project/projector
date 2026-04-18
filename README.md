@@ -5,6 +5,45 @@
 
 This document explains how the **Sector Dimension** was implemented in the SKILLAB Projector, step by step.
 
+## Quick local run (API + Dashboard)
+
+- Start FastAPI (from repo root):
+  - `uvicorn app.main:app --reload` (recommended app package entrypoint)
+  - `uvicorn main:app --reload` (legacy root entrypoint)
+- Start Streamlit demo (new terminal):
+  - `streamlit run app/example_dashboard/demo_dashboard.py`
+
+> Note: Uvicorn expects `<module>:<attribute>` syntax (for example `app.main:app` or `main:app`), not file paths like `main.py:app` or `app/main.py`.
+
+## Sector classification systems: ISCO vs NACE
+
+- **ISCO** is occupation-based (`job -> occupation -> isco_group -> ISCO label`).
+- **NACE** is economic-activity-based (`job -> occupation -> ESCO-NACE crosswalk -> nace_code -> NACE label`).
+- Both systems are selectable in the sector dimension.
+- ISCO labels come from ISCO metadata; NACE labels are resolved through the **ESCO-NACE rev. 2.1 crosswalk** (preferred source).
+
+## NACE mode semantics
+
+- One ESCO occupation may map to multiple NACE codes through the crosswalk.
+- Multi-mapping is intentionally allowed in this phase.
+- Current objective is **sector-skill relation discovery**, not strict one-to-one job accounting.
+- Therefore the same observed skill evidence can appear in more than one NACE sector.
+- Dashboard-facing NACE aggregation levels are: **Section**, **Division**, **Group**, **Class**
+  (internally: `nace_section`, `nace_division`, `nace_group`, `nace_class`).
+- `nace_section` is derived from official NACE division ranges (A–U).
+- Changing NACE level updates all NACE sectoral outputs (charts, sector list, detail panels, and comparison summary).
+
+## NACE view semantics
+
+- **Observed**: skills observed in jobs mapped to the NACE sector.
+- **Derived Canonical**: ESCO canonical occupation-skill relations re-aggregated by NACE through the ESCO-NACE crosswalk.
+- **Aggregated Official Matrix**: ESCO official matrix profiles aggregated by NACE through the ESCO-NACE crosswalk.
+
+## Sector interpretation metrics
+
+- **NACE metrics**: top skills per sector, skill coverage (unique skills), sector breadth per skill, dominant-sector concentration, top sectors per skill, and top-10 skill dominance share per sector.
+- **ISCO interpretation**: emerging skills (observed−canonical), missing skills (canonical−observed), and stability overlap `|obs∩can|/|obs∪can|`.
+
 The goal of this dimension is to move from a simple list of occupations or skills to a **sector-oriented intelligence layer** that can answer questions such as:
 
 - which skills are observed in a given sector,
@@ -689,5 +728,3 @@ Still to improve:
 * cleaner dashboard representation of codes vs labels
 
 ```
-
-

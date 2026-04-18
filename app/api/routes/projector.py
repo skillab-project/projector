@@ -49,8 +49,8 @@ async def analyze_skills(
         page_size: int = Form(50),
         demo: bool = Form(False),
         include_sectoral: bool = Form(False),
-        sector_system: Literal["isco", "nace"] = Form("isco"),
-        sector_level: Literal["isco_group", "nace_code", "nace_division", "nace_group", "nace_class"] = Form("isco_group"),
+        sector_system: Literal["isco", "nace", "both"] = Form("isco"),
+        sector_level: Literal["isco_group", "nace_section", "nace_division", "nace_group", "nace_class", "nace_code"] = Form("isco_group"),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),
 ):
@@ -70,9 +70,9 @@ async def analyze_skills(
            location_code (str, optional): Geographic filter (ISO/NUTS).
            occupation_ids (List[str], optional): Sector filter (ESCO).
            sector_system (str, optional): Sector taxonomy system. Supported values:
-               `isco`, `nace`.
+               `isco`, `nace`, `both`.
            sector_level (str, optional): Sector taxonomy level. Supported values:
-               `isco_group`, `nace_code`, `nace_division`, `nace_group`, `nace_class`.
+               `isco_group`, `nace_section`, `nace_division`, `nace_group`, `nace_class` (plus `nace_code` for technical compatibility).
 
        Returns:
            ProjectorResponse:

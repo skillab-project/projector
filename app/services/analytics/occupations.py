@@ -1,5 +1,53 @@
 from typing import List
 
+NACE_SECTION_RANGES = [
+    ((1, 3), "A", "Agriculture, forestry and fishing"),
+    ((5, 9), "B", "Mining and quarrying"),
+    ((10, 33), "C", "Manufacturing"),
+    ((35, 35), "D", "Electricity, gas, steam and air conditioning supply"),
+    ((36, 39), "E", "Water supply; sewerage, waste management and remediation activities"),
+    ((41, 43), "F", "Construction"),
+    ((45, 47), "G", "Wholesale and retail trade; repair of motor vehicles and motorcycles"),
+    ((49, 53), "H", "Transportation and storage"),
+    ((55, 56), "I", "Accommodation and food service activities"),
+    ((58, 63), "J", "Information and communication"),
+    ((64, 66), "K", "Financial and insurance activities"),
+    ((68, 68), "L", "Real estate activities"),
+    ((69, 75), "M", "Professional, scientific and technical activities"),
+    ((77, 82), "N", "Administrative and support service activities"),
+    ((84, 84), "O", "Public administration and defence; compulsory social security"),
+    ((85, 85), "P", "Education"),
+    ((86, 88), "Q", "Human health and social work activities"),
+    ((90, 93), "R", "Arts, entertainment and recreation"),
+    ((94, 96), "S", "Other service activities"),
+    ((97, 98), "T", "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use"),
+    ((99, 99), "U", "Activities of extraterritorial organisations and bodies"),
+]
+
+NACE_SECTION_LABELS = {
+    "A": "Agriculture, forestry and fishing",
+    "B": "Mining and quarrying",
+    "C": "Manufacturing",
+    "D": "Electricity, gas, steam and air conditioning supply",
+    "E": "Water supply; sewerage, waste management and remediation activities",
+    "F": "Construction",
+    "G": "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+    "H": "Transportation and storage",
+    "I": "Accommodation and food service activities",
+    "J": "Information and communication",
+    "K": "Financial and insurance activities",
+    "L": "Real estate activities",
+    "M": "Professional, scientific and technical activities",
+    "N": "Administrative and support service activities",
+    "O": "Public administration and defence; compulsory social security",
+    "P": "Education",
+    "Q": "Human health and social work activities",
+    "R": "Arts, entertainment and recreation",
+    "S": "Other service activities",
+    "T": "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
+    "U": "Activities of extraterritorial organisations and bodies",
+}
+
 
 class OccupationAnalytics:
     def __init__(self, engine):
@@ -86,10 +134,16 @@ class OccupationAnalytics:
         meta = self.engine.occupation_meta.get(occ_id)
         if meta:
             if level == "nace_code":
-                nace = meta.get("nace_code", "").strip()
+                nace_list = self.get_nace_mappings_for_occupation(occ_id, level="nace_code")
+                if nace_list:
+                    return nace_list[0]["code"]
+                nace = self.normalize_nace_code(meta.get("nace_code", "").strip())
                 if nace:
                     return nace
-            if level in {"nace_division", "nace_group", "nace_class"}:
+            if level in {"nace_section", "nace_division", "nace_group", "nace_class"}:
+                nace_list = self.get_nace_mappings_for_occupation(occ_id, level=level)
+                if nace_list:
+                    return nace_list[0]["code"]
                 nace = meta.get("nace_code", "").strip()
                 nace_level_value = self._get_nace_level_code(nace, level)
                 if nace_level_value:
@@ -119,60 +173,171 @@ class OccupationAnalytics:
         # 3) Last-resort fallback
         return "Sector not specified"
 
-    def _normalize_nace_code(self, nace_code: str) -> str:
+    def get_nace_mappings_for_occupation(self, occ_id: str, level: str = "nace_code") -> List[dict]:
+        occ_id = str(occ_id).strip()
+        if not occ_id:
+            return []
+
+        mappings = self.engine.occupation_nace_map.get(occ_id, [])
+        if not mappings:
+            return []
+
+        dedup = {}
+        for entry in mappings:
+            base_code = self.normalize_nace_code(entry.get("code", ""))
+            if not base_code:
+                continue
+            if level == "nace_code":
+                final_code = base_code
+            else:
+                final_code = self._get_nace_level_code(base_code, level)
+            if not final_code:
+                continue
+            label = self.engine.nace_labels.get(final_code, entry.get("label") or final_code)
+            if final_code not in dedup:
+                dedup[final_code] = {"code": final_code, "label": label}
+
+        return [dedup[k] for k in sorted(dedup.keys())]
+
+    def get_sector_keys_from_occupation(self, occ_id: str, level: str = "isco_group") -> List[str]:
+        if str(level).startswith("nace"):
+            mapped = [m["code"] for m in self.get_nace_mappings_for_occupation(occ_id, level=level)]
+            if mapped:
+                return mapped
+            fallback = self.get_sector_from_occupation(occ_id, level=level)
+            return [fallback] if fallback and fallback != "Sector not specified" else []
+        sector = self.get_sector_from_occupation(occ_id, level=level)
+        return [sector] if sector else []
+
+    def normalize_nace_code(self, nace_code: str) -> str:
         """
-        Normalize NACE strings to an uppercase compact alphanumeric form.
+        Normalize NACE codes to standard display format.
+
         Examples:
-        - "J62" -> "J62"
-        - "62.01" -> "6201"
-        - "c 10.11" -> "C1011"
+        - "http://.../9031" -> "90.31"
+        - "242" -> "24.2"
+        - "01" -> "01"
+        - "A" -> "A"
         """
-        nace_code = str(nace_code or "").upper()
-        return "".join(ch for ch in nace_code if ch.isalnum())
+        raw = str(nace_code or "").strip()
+        if not raw:
+            return ""
+
+        if "/" in raw:
+            raw = raw.rstrip("/").split("/")[-1]
+
+        raw = raw.upper().replace(" ", "")
+        if len(raw) == 1 and raw.isalpha():
+            return raw
+
+        prefix = ""
+        body = raw
+        if raw and raw[0].isalpha():
+            prefix = raw[0]
+            body = raw[1:]
+
+        cleaned = "".join(ch for ch in body if ch.isdigit() or ch == ".")
+        if not cleaned:
+            return ""
+
+        if "." in cleaned:
+            head, tail = cleaned.split(".", 1)
+            head = head[:2]
+            tail = "".join(ch for ch in tail if ch.isdigit())
+            if not head:
+                return ""
+            if prefix:
+                head = f"{prefix}{head}"
+            if not tail:
+                return head
+            if len(tail) == 1:
+                return f"{head}.{tail}"
+            return f"{head}.{tail[:2]}"
+
+        digits = "".join(ch for ch in cleaned if ch.isdigit())
+        if not digits:
+            return ""
+        if len(digits) <= 2:
+            base = digits.zfill(2)
+            return f"{prefix}{base}" if prefix else base
+        if len(digits) == 3:
+            base = digits[:2]
+            if prefix:
+                base = f"{prefix}{base}"
+            return f"{base}.{digits[2]}"
+        base = digits[:2]
+        if prefix:
+            base = f"{prefix}{base}"
+        return f"{base}.{digits[2:4]}"
 
     def _get_nace_level_code(self, nace_code: str, level: str) -> str:
         """
         Extract hierarchical NACE code by level.
         Supported levels:
+        - nace_section
         - nace_division
         - nace_group
         - nace_class
         """
-        normalized = self._normalize_nace_code(nace_code)
+        normalized = self.normalize_nace_code(nace_code)
         if not normalized:
             return ""
 
-        head = ""
-        digits = normalized
-        if normalized[0].isalpha():
-            head = normalized[0]
-            digits = normalized[1:]
+        if len(normalized) == 1 and normalized.isalpha():
+            return normalized
 
-        if not digits:
-            return head
+        base_division = normalized.split(".", 1)[0]
+        numeric_division = "".join(ch for ch in base_division if ch.isdigit())[:2]
+        tail = "".join(ch for ch in (normalized.split(".", 1)[1] if "." in normalized else "") if ch.isdigit())
+        if not numeric_division:
+            return ""
 
+        if level == "nace_section":
+            return self._division_to_nace_section(numeric_division)
         if level == "nace_division":
-            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+            return numeric_division
         if level == "nace_group":
-            if len(digits) >= 3:
-                return f"{head}{digits[:3]}"
-            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+            if tail:
+                return f"{numeric_division}.{tail[:1]}"
+            return numeric_division
         if level == "nace_class":
-            if len(digits) >= 4:
-                return f"{head}{digits[:4]}"
-            if len(digits) >= 3:
-                return f"{head}{digits[:3]}"
-            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+            if len(tail) >= 2:
+                return f"{numeric_division}.{tail[:2]}"
+            if len(tail) == 1:
+                return f"{numeric_division}.{tail}"
+            return numeric_division
 
         return ""
 
-    def get_sector_label(self, sector_code: str) -> str:
+    def _division_to_nace_section(self, division_code: str) -> str:
+        division_code = str(division_code or "").strip()
+        if not division_code:
+            return ""
+        try:
+            division = int(division_code[:2])
+        except ValueError:
+            return ""
+
+        for (low, high), section_code, _label in NACE_SECTION_RANGES:
+            if low <= division <= high:
+                return section_code
+        return ""
+
+    def get_sector_label(self, sector_code: str, system: str = "isco") -> str:
         """
         Resolve a human-readable label for a sector/group code.
         """
         sector_code = str(sector_code).strip()
         if not sector_code:
             return "Sector not specified"
+
+        if str(system or "isco").strip().lower() == "nace":
+            nace_code = self.normalize_nace_code(sector_code)
+            if not nace_code:
+                return "Sector not specified"
+            if len(nace_code) == 1 and nace_code.isalpha():
+                return NACE_SECTION_LABELS.get(nace_code, nace_code)
+            return self.engine.nace_labels.get(nace_code, nace_code)
 
         # direct lookup
         if sector_code in self.engine.occupation_group_labels:

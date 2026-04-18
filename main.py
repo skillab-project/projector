@@ -10,7 +10,10 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Form
 from typing import List, Optional
 from dotenv import load_dotenv
-import openpyxl
+try:
+    import openpyxl
+except ImportError:  # optional dependency at runtime
+    openpyxl = None
 from schemas import ProjectorResponse, EmergingSkillsResponse, StopResponse
 
 # Configurazione Logger
@@ -94,6 +97,9 @@ class ProjectorEngine:
         This keeps the implementation incremental and lookup-oriented.
         """
         path = os.path.join(os.getcwd(), "complementary_data", filename)
+        if openpyxl is None:
+            logger.warning("openpyxl is not installed: official ESCO matrix loading is disabled")
+            return
         if not os.path.exists(path):
             logger.warning(f"Official ESCO matrix file not found: {path}")
             return
