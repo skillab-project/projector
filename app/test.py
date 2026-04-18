@@ -1,6 +1,7 @@
 import hashlib
 import os
 import json
+import tempfile
 from collections import defaultdict, Counter
 
 import httpx
@@ -1094,6 +1095,79 @@ def test_get_sector_label_nace_missing_falls_back_to_normalized_code_not_isco():
     engine.occupation_group_labels = {"90.31": "ISCO label that must be ignored"}
 
     assert occupations.get_sector_label("http://data.europa.eu/ux2/nace2.1/9031", system="nace") == "90.31"
+
+
+def test_loader_crosswalk_supports_one_to_many_occupation_nace_mapping():
+    openpyxl = pytest.importorskip("openpyxl")
+    from app.core.container import ProjectorEngine
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        comp_dir = os.path.join(tmpdir, "complementary_data")
+        os.makedirs(comp_dir, exist_ok=True)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["ESCO URI", "NACE code", "NACE title"])
+        ws.append(["occ_1", "J62", "Computer programming, consultancy and related activities"])
+        ws.append(["occ_1", "J59.11", "Motion picture, video and television programme production activities"])
+        ws.append(["occ_1", "J62", "Computer programming, consultancy and related activities"])  # duplicate
+        wb.save(os.path.join(comp_dir, "ESCO-NACE rev. 2.1 crosswalk (1).xlsx"))
+
+        engine = ProjectorEngine()
+        local_loader = EscoLoader(engine)
+        prev_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            local_loader.load_esco_nace_crosswalk()
+        finally:
+            os.chdir(prev_cwd)
+
+    assert "occ_1" in engine.occupation_nace_map
+    mapped_codes = sorted(item["code"] for item in engine.occupation_nace_map["occ_1"])
+    assert mapped_codes == ["J59.11", "J62"]
+
+
+def test_nace_mode_never_returns_isco_label_when_crosswalk_label_missing():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.occupation_group_labels = {"J62": "ISCO label"}
+    engine.nace_labels = {}
+
+    assert occupations.get_sector_label("J62", system="nace") == "J62"
+
+
+def test_compute_skill_breadth_and_concentration_returns_expected_shape():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    sectoral = SectoralAnalytics(engine, occupations)
+    engine.sector_skill_observed = defaultdict(Counter, {
+        "S1": Counter({"skill_a": 3, "skill_b": 1}),
+        "S2": Counter({"skill_a": 1}),
+    })
+
+    out = sectoral.compute_skill_breadth_and_concentration()
+    assert out["skill_a"]["sector_breadth"] == 2
+    assert out["skill_a"]["dominant_sector"] == "S1"
+    assert out["skill_a"]["dominant_share"] == 0.75
+
+
+def test_compute_isco_skill_gap_and_stability():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    sectoral = SectoralAnalytics(engine, occupations)
+    engine.sector_skill_observed = defaultdict(Counter, {"ICT": Counter({"skill_a": 2, "skill_b": 1})})
+    engine.sector_skill_canonical = defaultdict(Counter, {"ICT": Counter({"skill_b": 4, "skill_c": 1})})
+
+    out = sectoral.compute_isco_skill_gap_and_stability("ICT")
+    assert out["emerging_skills"] == ["skill_a"]
+    assert out["missing_skills"] == ["skill_c"]
+    assert out["stability_overlap"] == pytest.approx(1 / 3, rel=1e-6)
 
 
 def test_get_sector_from_occupation_falls_back_to_tracker_sector_map():
@@ -2456,7 +2530,7 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "10.11"
+        assert sector["sector"] == "C10.11"
 
 @pytest.mark.integration
 def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
@@ -2574,7 +2648,7 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
         assert set(data["insights"]["sectoral_views"].keys()) == {"isco", "nace"}
         assert data["insights"]["sectoral_views"]["isco"]["items"][0]["sector"] == "C2"
         assert "levels" in data["insights"]["sectoral_views"]["nace"]
-        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "10.11"
+        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "C10.11"
         # Backward compatibility: primary `sectoral` remains list format.
         assert isinstance(data["insights"]["sectoral"], list)
 

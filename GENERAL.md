@@ -472,3 +472,12 @@ Recommended next steps:
 * define a standard error response model
 * align code and schema fully
 * version the API under `/api/v1/...`
+## Sector dimension modes
+
+- **ISCO mode**: occupation-based sectors (ISCO groups), native ESCO views.
+- **NACE mode**: activity-based sectors resolved via ESCO-NACE crosswalk.
+- Dashboard selector controls the active sector system for charts/tables.
+- NACE view naming:
+  - Observed
+  - Derived Canonical
+  - Aggregated Official Matrix

@@ -115,3 +115,24 @@ Typical use cases:
     }
   }
 }
+## POST /projector/analyze-skills (sector parameters)
+
+- `sector_system`: `isco`, `nace`, `both`
+- `sector_level`: `isco_group`, `nace_code`, `nace_division`, `nace_group`, `nace_class`
+
+### Response semantics (sectoral)
+
+- Sector labels are system-dependent:
+  - ISCO mode -> ISCO labels
+  - NACE mode -> NACE labels (crosswalk-based)
+- NACE view naming semantics:
+  - Observed
+  - Derived Canonical
+  - Aggregated Official Matrix
+
+### Examples
+
+- ISCO:
+  - `sector_system=isco&sector_level=isco_group`
+- NACE:
+  - `sector_system=nace&sector_level=nace_class`

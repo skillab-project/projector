@@ -380,3 +380,33 @@ Se vuoi, nel prossimo step ti faccio:
 
 👉 versione **perfettamente allineata alla Task 3.5 (con NACE + matrix)**
 👉 oppure un diagramma architetturale pronto per slide/paper
+# 3. Sector systems
+
+## 3.1 ISCO mode
+
+- Native occupation-centric flow:
+  `job -> occupation -> isco_group -> ISCO label`.
+- View names remain:
+  - Observed
+  - Canonical
+  - Official Matrix
+
+## 3.2 NACE mode
+
+- Economic-activity flow:
+  `job -> occupation -> ESCO-NACE crosswalk -> nace_code -> NACE label`.
+- One ESCO occupation may map to multiple NACE sectors.
+- Current implementation keeps non-weighted multi-mapping to support sector-skill relation discovery.
+
+## 3.3 NACE view semantics
+
+- **Observed**: skills observed in jobs mapped to a NACE sector.
+- **Derived Canonical**: ESCO canonical relations aggregated by NACE via crosswalk.
+- **Aggregated Official Matrix**: ESCO official matrix aggregated by NACE via crosswalk.
+
+## 3.4 Dashboard behavior
+
+- Sector selector switches the active system between ISCO and NACE.
+- NACE level selector (`nace_code/division/group/class`) applies live to NACE views.
+- Sector charts/tables/cards follow the selected system payload.
+- Comparison block is descriptive only (no one-to-one ISCO↔NACE mapping claim).

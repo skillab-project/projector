@@ -186,3 +186,21 @@ Se vuoi, prossimo step ti faccio:
 
 👉 una versione **super sintetica da README (10 righe)**
 👉 oppure un diagramma tipo architettura per slide/paper
+## Additional source: ESCO-NACE crosswalk
+
+- File type: crosswalk workbook
+- Content: `occupation (ESCO URI) -> one or more NACE codes/titles`
+- Main use: NACE label resolution and NACE sector aggregation
+
+Relational flow:
+
+```text
+occupation (ESCO)
+ -> ESCO-NACE crosswalk
+    -> nace_code
+    -> nace_title
+```
+
+Note:
+- `occupations_en.csv` may still expose a single `nace_code`.
+- The crosswalk is now the preferred source for NACE-facing semantics and labels.

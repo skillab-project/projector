@@ -819,3 +819,30 @@ However, if the goal is a truly production-grade API, the most urgent work is no
 - and version the API.
 
 Once those are done, this service can be documented and consumed as a stable external API instead of a code-level prototype.
+## /projector/analyze-skills - Sector parameters
+
+- `sector_system`:
+  - `isco` (occupation-based)
+  - `nace` (economic-activity-based)
+  - `both` (returns both systems for comparison)
+- `sector_level`:
+  - ISCO path: `isco_group`
+  - NACE path: `nace_code`, `nace_division`, `nace_group`, `nace_class`
+
+### Sector system semantics
+
+- In **ISCO** mode, sector views are native occupation-group views.
+- In **NACE** mode, sector views are aggregated through the ESCO-NACE crosswalk.
+- In NACE mode, labels are NACE labels (or NACE code fallback), never ISCO labels.
+
+### NACE view naming
+
+- `Observed`
+- `Derived Canonical`
+- `Aggregated Official Matrix`
+
+### Response metadata (sectoral payload)
+
+- active mode: `insights.sectoral_mode`
+- dual views: `insights.sectoral_views`
+- selected NACE level and level map under `insights.sectoral_views.nace`

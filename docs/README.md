@@ -66,3 +66,11 @@ repo-root/
     ├── data-model.md
     ├── architecture.md
     └── examples.md
+## Dual sector systems in docs
+
+Documentation now covers both ISCO and NACE sector semantics.
+
+Suggested references:
+- `docs/data-model.md`
+- `docs/architecture.md`
+- `docs/overview.md`

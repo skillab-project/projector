@@ -86,10 +86,16 @@ class OccupationAnalytics:
         meta = self.engine.occupation_meta.get(occ_id)
         if meta:
             if level == "nace_code":
+                nace_list = self.get_nace_mappings_for_occupation(occ_id, level="nace_code")
+                if nace_list:
+                    return nace_list[0]["code"]
                 nace = self.normalize_nace_code(meta.get("nace_code", "").strip())
                 if nace:
                     return nace
             if level in {"nace_division", "nace_group", "nace_class"}:
+                nace_list = self.get_nace_mappings_for_occupation(occ_id, level=level)
+                if nace_list:
+                    return nace_list[0]["code"]
                 nace = meta.get("nace_code", "").strip()
                 nace_level_value = self._get_nace_level_code(nace, level)
                 if nace_level_value:
@@ -119,6 +125,42 @@ class OccupationAnalytics:
         # 3) Last-resort fallback
         return "Sector not specified"
 
+    def get_nace_mappings_for_occupation(self, occ_id: str, level: str = "nace_code") -> List[dict]:
+        occ_id = str(occ_id).strip()
+        if not occ_id:
+            return []
+
+        mappings = self.engine.occupation_nace_map.get(occ_id, [])
+        if not mappings:
+            return []
+
+        dedup = {}
+        for entry in mappings:
+            base_code = self.normalize_nace_code(entry.get("code", ""))
+            if not base_code:
+                continue
+            if level == "nace_code":
+                final_code = base_code
+            else:
+                final_code = self._get_nace_level_code(base_code, level)
+            if not final_code:
+                continue
+            label = self.engine.nace_labels.get(final_code, entry.get("label") or final_code)
+            if final_code not in dedup:
+                dedup[final_code] = {"code": final_code, "label": label}
+
+        return [dedup[k] for k in sorted(dedup.keys())]
+
+    def get_sector_keys_from_occupation(self, occ_id: str, level: str = "isco_group") -> List[str]:
+        if str(level).startswith("nace"):
+            mapped = [m["code"] for m in self.get_nace_mappings_for_occupation(occ_id, level=level)]
+            if mapped:
+                return mapped
+            fallback = self.get_sector_from_occupation(occ_id, level=level)
+            return [fallback] if fallback and fallback != "Sector not specified" else []
+        sector = self.get_sector_from_occupation(occ_id, level=level)
+        return [sector] if sector else []
+
     def normalize_nace_code(self, nace_code: str) -> str:
         """
         Normalize NACE codes to standard display format.
@@ -140,7 +182,13 @@ class OccupationAnalytics:
         if len(raw) == 1 and raw.isalpha():
             return raw
 
-        cleaned = "".join(ch for ch in raw if ch.isdigit() or ch == ".")
+        prefix = ""
+        body = raw
+        if raw and raw[0].isalpha():
+            prefix = raw[0]
+            body = raw[1:]
+
+        cleaned = "".join(ch for ch in body if ch.isdigit() or ch == ".")
         if not cleaned:
             return ""
 
@@ -150,6 +198,8 @@ class OccupationAnalytics:
             tail = "".join(ch for ch in tail if ch.isdigit())
             if not head:
                 return ""
+            if prefix:
+                head = f"{prefix}{head}"
             if not tail:
                 return head
             if len(tail) == 1:
@@ -160,10 +210,17 @@ class OccupationAnalytics:
         if not digits:
             return ""
         if len(digits) <= 2:
-            return digits.zfill(2)
+            base = digits.zfill(2)
+            return f"{prefix}{base}" if prefix else base
         if len(digits) == 3:
-            return f"{digits[:2]}.{digits[2]}"
-        return f"{digits[:2]}.{digits[2:4]}"
+            base = digits[:2]
+            if prefix:
+                base = f"{prefix}{base}"
+            return f"{base}.{digits[2]}"
+        base = digits[:2]
+        if prefix:
+            base = f"{prefix}{base}"
+        return f"{base}.{digits[2:4]}"
 
     def _get_nace_level_code(self, nace_code: str, level: str) -> str:
         """

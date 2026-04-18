@@ -38,6 +38,7 @@ class ProjectorEngine:
             "group": {},
             "class": {},
         }
+        self.occupation_nace_map = defaultdict(list)  # esco occupation uri -> [{"code":..., "label":...}, ...]
         #
         # self.green_skill_uris = self._load_skill_uris_from_csv("complementary_data/greenSkillsCollection_lt.csv")
         # self.digital_skill_uris = self._load_skill_uris_from_csv("complementary_data/digitalSkillsCollection_lt.csv")
