@@ -2425,7 +2425,6 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
         sector = data["insights"]["sectoral"][0]
         assert sector["sector"] == "C1011"
 
-
 @pytest.mark.integration
 def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
     form_data = {
