@@ -439,9 +439,10 @@ Before treating this API as a strict external contract, code and schema should b
 ## Sector system object / semantics
 
 - Active system: ISCO or NACE.
-- Active level: `isco_group` or `nace_*` hierarchy level.
+- Active level: `isco_group` or one of `nace_section`, `nace_division`, `nace_group`, `nace_class`.
 - In ISCO mode, labels/codes are ISCO group values.
 - In NACE mode, labels/codes are NACE values from crosswalk lookups.
+- `nace_section` is derived from official NACE division-to-section ranges (A–U).
 
 ## Sector distribution semantics
 

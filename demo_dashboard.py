@@ -77,11 +77,12 @@ translations = {
         'total_mentions': "Total mentions",
         'unique_items': "Unique items",
         'sector_mode': "Vista segmentazione",
-        'sector_mode_isco': "ESCO/ISCO",
-        'sector_mode_nace': "NACE",
-        'sector_mode_both': "Entrambi",
+        'sector_mode_isco': "ISCO (occupation-based)",
+        'sector_mode_nace': "NACE (economic activity-based)",
         'sector_compare': "Confronto ISCO vs NACE",
         'nace_level': "Livello NACE",
+        'agg_level': "Livello di aggregazione",
+        'categories_found': "Categorie trovate",
     },
     'EN': {
         'title': "🚀 SKILLAB Projector: Intelligence Dashboard",
@@ -130,11 +131,12 @@ translations = {
         'total_mentions': "Total mentions",
         'unique_items': "Unique items",
         'sector_mode': "Segmentation view",
-        'sector_mode_isco': "ESCO/ISCO",
-        'sector_mode_nace': "NACE",
-        'sector_mode_both': "Both",
+        'sector_mode_isco': "ISCO (occupation-based)",
+        'sector_mode_nace': "NACE (economic activity-based)",
         'sector_compare': "ISCO vs NACE comparison",
         'nace_level': "NACE level",
+        'agg_level': "Aggregation level",
+        'categories_found': "Categories found",
     }
 }
 
@@ -210,7 +212,7 @@ payload = {
     "demo": demo_mode,
     "include_sectoral": True,
     "sector_system": "both",
-    "sector_level": "nace_code",
+    "sector_level": "nace_section",
     "skill_group_level": 1,
     "occupation_level": 1
 }
@@ -387,26 +389,38 @@ if st.session_state.all_data:
         isco_sectoral = (sectoral_views.get("isco") or {}).get("items", [])
         nace_views = (sectoral_views.get("nace") or {})
         nace_levels = (nace_views.get("levels") or {})
-        default_nace_level = nace_views.get("selected_level", "nace_code")
-        nace_level_options = ["nace_code", "nace_division", "nace_group", "nace_class"]
-        default_nace_index = nace_level_options.index(default_nace_level) if default_nace_level in nace_level_options else 0
+        default_nace_level = nace_views.get("selected_level", "nace_section")
+        nace_level_options = [
+            ("Section", "nace_section"),
+            ("Division", "nace_division"),
+            ("Group", "nace_group"),
+            ("Class", "nace_class"),
+        ]
+        nace_labels = [x[0] for x in nace_level_options]
+        nace_key_by_label = {label: key for label, key in nace_level_options}
+        nace_label_by_key = {key: label for label, key in nace_level_options}
+        default_nace_label = nace_label_by_key.get(default_nace_level, "Section")
+        default_nace_index = nace_labels.index(default_nace_label)
 
         selector_col, level_col = st.columns([2, 1])
         with selector_col:
-            sector_mode_label = st.radio(
-                "View sectors by",
-                ["ISCO (occupation-based)", "NACE (economic activity-based)"],
-                horizontal=True
-            )
+            sector_mode_label = st.radio(T["sector_mode"], [T["sector_mode_isco"], T["sector_mode_nace"]], horizontal=True)
         with level_col:
-            selected_nace_level = st.selectbox(T["nace_level"], nace_level_options, index=default_nace_index)
+            selected_nace_label = st.selectbox(T["nace_level"], nace_labels, index=default_nace_index)
+            selected_nace_level = nace_key_by_label[selected_nace_label]
 
         nace_sectoral = (nace_levels.get(selected_nace_level) or {}).get("items", [])
-        selected_mode = "isco" if sector_mode_label.startswith("ISCO") else "nace"
+        selected_mode = "isco" if sector_mode_label == T["sector_mode_isco"] else "nace"
         active_sectoral = isco_sectoral if selected_mode == "isco" else nace_sectoral
         fallback_sectoral = ins.get("sectoral", None)
         if not active_sectoral:
             active_sectoral = fallback_sectoral or []
+
+        st.caption(
+            f"Sector system: {'ISCO' if selected_mode == 'isco' else 'NACE'} | "
+            f"{T['agg_level']}: {'ISCO Group' if selected_mode == 'isco' else selected_nace_label} | "
+            f"{T['categories_found']}: {len(active_sectoral)}"
+        )
 
         c1, c2, c3 = st.columns(3)
 
@@ -421,11 +435,12 @@ if st.session_state.all_data:
                     for item in active_sectoral
                 ])
                 df_sec = df_sec[df_sec["count"] > 0]
+                chart_level_label = "ISCO Group" if selected_mode == "isco" else f"NACE {selected_nace_label}"
                 fig_sec = px.pie(
                     df_sec,
                     values='count',
                     names='name',
-                    title=f"{T['sector_title']} ({'ISCO' if selected_mode == 'isco' else selected_nace_level})",
+                    title=f"Demand by {chart_level_label}",
                     hole=0.4,
                     color_discrete_sequence=px.colors.qualitative.Pastel
                 )
@@ -461,7 +476,7 @@ if st.session_state.all_data:
             canonical_title = "Canonical" if selected_mode == "isco" else "Derived Canonical"
             matrix_title = "Official ESCO Matrix Groups" if selected_mode == "isco" else "Aggregated Official Matrix"
             if selected_mode == "nace":
-                st.caption("NACE mode: Derived Canonical and Aggregated Official Matrix are ESCO-derived views aggregated through the ESCO-NACE crosswalk.")
+                st.caption("In NACE mode, Canonical and Matrix views are derived from ESCO occupation-based relations aggregated through the ESCO-NACE crosswalk.")
 
             sector_options = {
                 f"{item.get('sector_label', item['sector'])} ({item['sector']})": item["sector"]
@@ -660,7 +675,7 @@ if st.session_state.all_data:
                         ])
                         st.dataframe(df_isco.sort_values("mentions", ascending=False).head(10), use_container_width=True)
                 with c_right:
-                    st.caption(f"NACE categories ({selected_nace_level}): {len(nace_sectoral)}")
+                    st.caption(f"NACE categories ({selected_nace_label}): {len(nace_sectoral)}")
                     nace_mentions = sum(x.get("observed_skills", {}).get("total_skill_mentions", 0) for x in nace_sectoral)
                     st.metric("NACE total mentions", nace_mentions)
                     if nace_sectoral:

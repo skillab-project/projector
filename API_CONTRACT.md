@@ -827,7 +827,8 @@ Once those are done, this service can be documented and consumed as a stable ext
   - `both` (returns both systems for comparison)
 - `sector_level`:
   - ISCO path: `isco_group`
-  - NACE path: `nace_code`, `nace_division`, `nace_group`, `nace_class`
+  - NACE path (conceptual levels): `nace_section`, `nace_division`, `nace_group`, `nace_class`
+  - `nace_code` remains a technical compatibility level (not a primary dashboard selector)
 
 ### Sector system semantics
 
@@ -846,3 +847,4 @@ Once those are done, this service can be documented and consumed as a stable ext
 - active mode: `insights.sectoral_mode`
 - dual views: `insights.sectoral_views`
 - selected NACE level and level map under `insights.sectoral_views.nace`
+- in dashboard mode, NACE labels are shown as conceptual levels (Section/Division/Group/Class), and switching level updates all NACE views (not only comparison summaries)

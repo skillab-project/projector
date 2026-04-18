@@ -28,6 +28,10 @@ This document explains how the **Sector Dimension** was implemented in the SKILL
 - Multi-mapping is intentionally allowed in this phase.
 - Current objective is **sector-skill relation discovery**, not strict one-to-one job accounting.
 - Therefore the same observed skill evidence can appear in more than one NACE sector.
+- Dashboard-facing NACE aggregation levels are: **Section**, **Division**, **Group**, **Class**
+  (internally: `nace_section`, `nace_division`, `nace_group`, `nace_class`).
+- `nace_section` is derived from official NACE division ranges (A–U).
+- Changing NACE level updates all NACE sectoral outputs (charts, sector list, detail panels, and comparison summary).
 
 ## NACE view semantics
 

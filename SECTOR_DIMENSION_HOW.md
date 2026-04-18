@@ -407,6 +407,8 @@ Se vuoi, nel prossimo step ti faccio:
 ## 3.4 Dashboard behavior
 
 - Sector selector switches the active system between ISCO and NACE.
-- NACE level selector (`nace_code/division/group/class`) applies live to NACE views.
+- NACE level selector uses conceptual labels (`Section/Division/Group/Class`) and maps to
+  `nace_section/nace_division/nace_group/nace_class`.
 - Sector charts/tables/cards follow the selected system payload.
+- Level switching updates all NACE sectoral views (pie, selector list, detail panels and comparison summary), not only the comparison block.
 - Comparison block is descriptive only (no one-to-one ISCO↔NACE mapping claim).
