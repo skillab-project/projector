@@ -8,11 +8,12 @@ This document explains how the **Sector Dimension** was implemented in the SKILL
 ## Quick local run (API + Dashboard)
 
 - Start FastAPI (from repo root):
-  - `uvicorn app.main:app --reload`
+  - `uvicorn app.main:app --reload` (recommended app package entrypoint)
+  - `uvicorn main:app --reload` (legacy root entrypoint)
 - Start Streamlit demo (new terminal):
   - `streamlit run app/example_dashboard/demo_dashboard.py`
 
-> Note: Uvicorn expects `<module>:<attribute>` syntax (for example `app.main:app`), not a file path like `main.py:app`.
+> Note: Uvicorn expects `<module>:<attribute>` syntax (for example `app.main:app` or `main:app`), not file paths like `main.py:app` or `app/main.py`.
 
 The goal of this dimension is to move from a simple list of occupations or skills to a **sector-oriented intelligence layer** that can answer questions such as:
 
@@ -698,4 +699,3 @@ Still to improve:
 * cleaner dashboard representation of codes vs labels
 
 ```
-
