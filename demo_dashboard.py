@@ -382,18 +382,50 @@ if st.session_state.all_data:
     # --- TAB 4: SETTORI, JOBS & EMPLOYERS ---
     with tab4:
         st.header(T['jobs_emp_header'])
+
+        sectoral_views = ins.get("sectoral_views") or {}
+        isco_sectoral = (sectoral_views.get("isco") or {}).get("items", [])
+        nace_views = (sectoral_views.get("nace") or {})
+        nace_levels = (nace_views.get("levels") or {})
+        default_nace_level = nace_views.get("selected_level", "nace_code")
+        nace_level_options = ["nace_code", "nace_division", "nace_group", "nace_class"]
+        default_nace_index = nace_level_options.index(default_nace_level) if default_nace_level in nace_level_options else 0
+
+        selector_col, level_col = st.columns([2, 1])
+        with selector_col:
+            sector_mode_label = st.radio(
+                "View sectors by",
+                ["ISCO (occupation-based)", "NACE (economic activity-based)"],
+                horizontal=True
+            )
+        with level_col:
+            selected_nace_level = st.selectbox(T["nace_level"], nace_level_options, index=default_nace_index)
+
+        nace_sectoral = (nace_levels.get(selected_nace_level) or {}).get("items", [])
+        selected_mode = "isco" if sector_mode_label.startswith("ISCO") else "nace"
+        active_sectoral = isco_sectoral if selected_mode == "isco" else nace_sectoral
+        fallback_sectoral = ins.get("sectoral", None)
+        if not active_sectoral:
+            active_sectoral = fallback_sectoral or []
+
         c1, c2, c3 = st.columns(3)
 
         with c1:
             st.subheader(T['top_sectors'])
-            sec = ins.get("sectors", [])
-            if sec:
-                df_sec = pd.DataFrame(sec)
+            if active_sectoral:
+                df_sec = pd.DataFrame([
+                    {
+                        "name": item.get("sector_label", item.get("sector")),
+                        "count": item.get("observed_skills", {}).get("total_skill_mentions", 0)
+                    }
+                    for item in active_sectoral
+                ])
+                df_sec = df_sec[df_sec["count"] > 0]
                 fig_sec = px.pie(
                     df_sec,
                     values='count',
                     names='name',
-                    title=T['sector_title'],
+                    title=f"{T['sector_title']} ({'ISCO' if selected_mode == 'isco' else selected_nace_level})",
                     hole=0.4,
                     color_discrete_sequence=px.colors.qualitative.Pastel
                 )
@@ -422,37 +454,7 @@ if st.session_state.all_data:
                 st.write(T['no_data'])
         st.markdown("---")
         st.header(T['sectoral_header'])
-
-        sectoral_views = ins.get("sectoral_views") or {}
-        isco_sectoral = (sectoral_views.get("isco") or {}).get("items", [])
-        nace_views = (sectoral_views.get("nace") or {})
-        nace_levels = (nace_views.get("levels") or {})
-        default_nace_level = nace_views.get("selected_level", "nace_code")
-        nace_level_options = ["nace_code", "nace_division", "nace_group", "nace_class"]
-        default_nace_index = nace_level_options.index(default_nace_level) if default_nace_level in nace_level_options else 0
-
-        ui_col1, ui_col2 = st.columns([2, 1])
-        with ui_col1:
-            sector_mode_label = st.radio(
-                T["sector_mode"],
-                [T["sector_mode_isco"], T["sector_mode_nace"], T["sector_mode_both"]],
-                horizontal=True
-            )
-        with ui_col2:
-            selected_nace_level = st.selectbox(T["nace_level"], nace_level_options, index=default_nace_index)
-
-        nace_sectoral = (nace_levels.get(selected_nace_level) or {}).get("items", [])
-        fallback_sectoral = ins.get("sectoral", None)
-        if sector_mode_label == T["sector_mode_isco"]:
-            selected_mode = "isco"
-        elif sector_mode_label == T["sector_mode_nace"]:
-            selected_mode = "nace"
-        else:
-            selected_mode = "both"
-
-        sectoral = isco_sectoral if selected_mode in {"isco", "both"} else nace_sectoral
-        if not sectoral:
-            sectoral = fallback_sectoral
+        sectoral = active_sectoral
 
         if sectoral:
             sector_options = {
@@ -634,34 +636,37 @@ if st.session_state.all_data:
                     else:
                         st.write(T['no_data'])
 
-                if selected_mode == "both":
-                    st.markdown("---")
-                    st.subheader(T["sector_compare"])
-                    c_left, c_right = st.columns(2)
-                    with c_left:
-                        st.caption(f"{T['sector_mode_isco']}: {len(isco_sectoral)} sectors")
-                        if isco_sectoral:
-                            df_isco = pd.DataFrame([
-                                {
-                                    "sector": x.get("sector"),
-                                    "sector_label": x.get("sector_label"),
-                                    "mentions": x.get("observed_skills", {}).get("total_skill_mentions", 0),
-                                }
-                                for x in isco_sectoral
-                            ])
-                            st.dataframe(df_isco.sort_values("mentions", ascending=False), use_container_width=True)
-                    with c_right:
-                        st.caption(f"{T['sector_mode_nace']} ({selected_nace_level}): {len(nace_sectoral)} sectors")
-                        if nace_sectoral:
-                            df_nace = pd.DataFrame([
-                                {
-                                    "sector": x.get("sector"),
-                                    "sector_label": x.get("sector_label"),
-                                    "mentions": x.get("observed_skills", {}).get("total_skill_mentions", 0),
-                                }
-                                for x in nace_sectoral
-                            ])
-                            st.dataframe(df_nace.sort_values("mentions", ascending=False), use_container_width=True)
+                st.markdown("---")
+                st.subheader(T["sector_compare"])
+                c_left, c_right = st.columns(2)
+                with c_left:
+                    st.caption(f"ISCO categories: {len(isco_sectoral)}")
+                    isco_mentions = sum(x.get("observed_skills", {}).get("total_skill_mentions", 0) for x in isco_sectoral)
+                    st.metric("ISCO total mentions", isco_mentions)
+                    if isco_sectoral:
+                        df_isco = pd.DataFrame([
+                            {
+                                "sector": x.get("sector"),
+                                "sector_label": x.get("sector_label"),
+                                "mentions": x.get("observed_skills", {}).get("total_skill_mentions", 0),
+                            }
+                            for x in isco_sectoral
+                        ])
+                        st.dataframe(df_isco.sort_values("mentions", ascending=False).head(10), use_container_width=True)
+                with c_right:
+                    st.caption(f"NACE categories ({selected_nace_level}): {len(nace_sectoral)}")
+                    nace_mentions = sum(x.get("observed_skills", {}).get("total_skill_mentions", 0) for x in nace_sectoral)
+                    st.metric("NACE total mentions", nace_mentions)
+                    if nace_sectoral:
+                        df_nace = pd.DataFrame([
+                            {
+                                "sector": x.get("sector"),
+                                "sector_label": x.get("sector_label"),
+                                "mentions": x.get("observed_skills", {}).get("total_skill_mentions", 0),
+                            }
+                            for x in nace_sectoral
+                        ])
+                        st.dataframe(df_nace.sort_values("mentions", ascending=False).head(10), use_container_width=True)
         else:
             st.info(T['no_sectoral'])
 
