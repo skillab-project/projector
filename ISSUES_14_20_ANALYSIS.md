@@ -107,3 +107,17 @@ Issue #15 can be considered already implemented functionally; issue #14 becomes 
 - NACE level switch changes aggregation granularity deterministically.
 - Response includes explicit metadata (`sector_system`, `sector_level`) for auditability.
 - CI runs tests automatically and includes at least one integration test per sector mode.
+## Update - ISCO/NACE semantics alignment
+
+- NACE labels are now resolved through the **ESCO-NACE rev. 2.1 crosswalk** (preferred source), with CSV fallback only when needed.
+- NACE mode semantics are explicit:
+  - `Observed`
+  - `Derived Canonical`
+  - `Aggregated Official Matrix`
+- Multiple NACE mappings per ESCO occupation are supported intentionally (relation-discovery mode).
+- Dashboard selector now drives actual ISCO/NACE payload selection instead of cosmetic relabeling.
+
+### Conceptual note: why NACE mode differs from ISCO mode
+
+ISCO canonical and matrix views are native in ESCO/ISCO space.  
+In NACE mode, canonical and matrix views are derived/aggregated through the ESCO-NACE crosswalk, so they are descriptive NACE-facing projections rather than native NACE ontologies.

@@ -436,4 +436,26 @@ Example:
 * the runtime payload also includes fields like `skill_id` and `sector_spread`.
 
 Before treating this API as a strict external contract, code and schema should be aligned.
+## Sector system object / semantics
 
+- Active system: ISCO or NACE.
+- Active level: `isco_group` or one of `nace_section`, `nace_division`, `nace_group`, `nace_class`.
+- In ISCO mode, labels/codes are ISCO group values.
+- In NACE mode, labels/codes are NACE values from crosswalk lookups.
+- `nace_section` is derived from official NACE division-to-section ranges (A–U).
+
+## Sector distribution semantics
+
+- ISCO mode: native ESCO/ISCO sector labels.
+- NACE mode: NACE labels from crosswalk; if label missing, code fallback.
+- NACE canonical/matrix views are derived/aggregated through ESCO crosswalk logic.
+- NACE sector payloads include coverage, dominance, and skill transversality metrics (breadth/concentration/top sectors).
+- ISCO sector payloads include interpretation metrics: emerging skills, missing skills, and stability overlap.
+
+## Metric definitions
+
+- **Skill coverage**: number of unique skills in a sector.
+- **Sector breadth**: number of sectors a skill appears in.
+- **Skill concentration**: how much a skill is concentrated in dominant sectors (can be represented by top-sector share).
+- **Skill gap** (ISCO): observed skills minus canonical skills (and vice versa).
+- **Stability / overlap** (ISCO): overlap ratio between observed and canonical sets.

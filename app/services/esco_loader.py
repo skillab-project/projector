@@ -1,7 +1,10 @@
 import csv
 import os
 
-import openpyxl
+try:
+    import openpyxl
+except ImportError:  # optional dependency at runtime
+    openpyxl = None
 
 import logging
 logger = logging.getLogger("SKILLAB-Projector")
@@ -27,6 +30,147 @@ class EscoLoader:
         logger.info(f"Caricati {len(uris)} URI da {path}")
         return uris
 
+    def _normalize_nace_lookup_code(self, raw_code: str) -> str:
+        raw = str(raw_code or "").strip()
+        if not raw:
+            return ""
+
+        if "/" in raw:
+            raw = raw.rstrip("/").split("/")[-1]
+
+        raw = raw.upper().replace(" ", "")
+        if len(raw) == 1 and raw.isalpha():
+            return raw
+
+        cleaned = "".join(ch for ch in raw if ch.isdigit() or ch == ".")
+        if not cleaned:
+            return ""
+
+        if "." in cleaned:
+            head, tail = cleaned.split(".", 1)
+            head = head[:2]
+            tail = "".join(ch for ch in tail if ch.isdigit())
+            if not head:
+                return ""
+            if not tail:
+                return head
+            if len(tail) == 1:
+                return f"{head}.{tail}"
+            return f"{head}.{tail[:2]}"
+
+        digits = "".join(ch for ch in cleaned if ch.isdigit())
+        if not digits:
+            return ""
+
+        if len(digits) <= 2:
+            return digits.zfill(2)
+        if len(digits) == 3:
+            return f"{digits[:2]}.{digits[2]}"
+        return f"{digits[:2]}.{digits[2:4]}"
+
+    def load_nace_labels(self, filename: str = "nace_codes_2_1.csv"):
+        path = os.path.join(os.getcwd(), "complementary_data", filename)
+        if not os.path.exists(path):
+            logger.warning(f"NACE codes file not found: {path}")
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    label = str(row.get("Activity") or "").strip()
+                    if not label:
+                        continue
+
+                    for level_key, csv_key in (
+                        ("section", "Section"),
+                        ("division", "Division"),
+                        ("group", "Group"),
+                        ("class", "Class"),
+                    ):
+                        code = self._normalize_nace_lookup_code(row.get(csv_key))
+                        if not code:
+                            continue
+                        self.engine.nace_labels[code] = label
+                        self.engine.nace_labels_by_level[level_key][code] = label
+
+            logger.info(f"Loaded NACE labels: {len(self.engine.nace_labels)}")
+        except Exception as e:
+            logger.warning(f"Could not load NACE labels CSV: {e}")
+
+    def _register_occupation_nace_mapping(self, occ_uri: str, nace_code: str, nace_label: str):
+        occ_uri = str(occ_uri or "").strip()
+        nace_code = self._normalize_nace_lookup_code(nace_code)
+        nace_label = str(nace_label or "").strip()
+        if not occ_uri or not nace_code:
+            return
+
+        if nace_label:
+            self.engine.nace_labels[nace_code] = nace_label
+
+        entries = self.engine.occupation_nace_map[occ_uri]
+        if any(e.get("code") == nace_code for e in entries):
+            return
+
+        entries.append({
+            "code": nace_code,
+            "label": self.engine.nace_labels.get(nace_code, nace_label or nace_code)
+        })
+
+    def load_esco_nace_crosswalk(self, filename: str = "ESCO-NACE rev. 2.1 crosswalk (1).xlsx"):
+        """
+        Preferred source for ESCO occupation -> NACE mappings and NACE labels.
+        Falls back silently if workbook is missing.
+        """
+        path = os.path.join(os.getcwd(), "complementary_data", filename)
+        if not os.path.exists(path):
+            # try common alternate filename
+            alt_path = os.path.join(os.getcwd(), "complementary_data", "ESCO-NACE rev. 2.1 crosswalk.xlsx")
+            if os.path.exists(alt_path):
+                path = alt_path
+            else:
+                logger.warning(f"ESCO-NACE crosswalk workbook not found: {path}")
+                return
+
+        if openpyxl is None:
+            logger.warning("openpyxl is not installed: ESCO-NACE crosswalk loading is disabled")
+            return
+
+        try:
+            wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+            ws = wb.active
+            rows = ws.iter_rows(values_only=True)
+            header = [str(c or "").strip() for c in next(rows)]
+
+            def idx(name: str) -> int:
+                for i, h in enumerate(header):
+                    if h.lower() == name.lower():
+                        return i
+                return -1
+
+            i_esco_uri = idx("ESCO URI")
+            i_nace_code = idx("NACE code")
+            i_nace_title = idx("NACE title")
+
+            if i_esco_uri < 0 or i_nace_code < 0:
+                logger.warning("Crosswalk workbook missing expected columns (ESCO URI / NACE code)")
+                return
+
+            for row in rows:
+                if not row:
+                    continue
+                occ_uri = row[i_esco_uri] if i_esco_uri < len(row) else ""
+                nace_code = row[i_nace_code] if i_nace_code < len(row) else ""
+                nace_title = row[i_nace_title] if i_nace_title >= 0 and i_nace_title < len(row) else ""
+                self._register_occupation_nace_mapping(occ_uri, nace_code, nace_title)
+
+            logger.info(
+                f"Loaded ESCO-NACE crosswalk: {len(self.engine.occupation_nace_map)} occupations, "
+                f"{len(self.engine.nace_labels)} NACE labels"
+            )
+        except Exception as e:
+            logger.warning(f"Could not load ESCO-NACE crosswalk workbook: {e}")
+
 
 
     def load_local_esco_support(self):
@@ -39,6 +183,8 @@ class EscoLoader:
 
         This step is safe and incremental: if a file is missing, it is skipped.
         """
+        self.load_esco_nace_crosswalk()
+        self.load_nace_labels()
         base_dir = os.getcwd()
 
         occupations_file = os.path.join(base_dir, "complementary_data", "occupations_en.csv")
@@ -68,6 +214,16 @@ class EscoLoader:
                             "nace_code": (row.get("naceCode") or "").strip(),
                             "raw": row,
                         }
+
+                        # Fallback mapping when crosswalk workbook is not available.
+                        self._register_occupation_nace_mapping(
+                            occ_uri=occ_id,
+                            nace_code=row.get("naceCode"),
+                            nace_label=self.engine.nace_labels.get(
+                                self._normalize_nace_lookup_code(row.get("naceCode")),
+                                ""
+                            )
+                        )
                 logger.info(f"Loaded occupation metadata: {len(self.engine.occupation_meta)}")
             except Exception as e:
                 logger.warning(f"Could not load occupations_lt.csv: {e}")
@@ -199,6 +355,10 @@ class EscoLoader:
         This keeps the implementation incremental and lookup-oriented.
         """
         path = os.path.join(os.getcwd(), "complementary_data", filename)
+        if openpyxl is None:
+            logger.warning("openpyxl is not installed: official ESCO matrix loading is disabled")
+            return
+
         if not os.path.exists(path):
             logger.warning(f"Official ESCO matrix file not found: {path}")
             return

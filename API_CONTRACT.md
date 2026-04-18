@@ -819,3 +819,39 @@ However, if the goal is a truly production-grade API, the most urgent work is no
 - and version the API.
 
 Once those are done, this service can be documented and consumed as a stable external API instead of a code-level prototype.
+## /projector/analyze-skills - Sector parameters
+
+- `sector_system`:
+  - `isco` (occupation-based)
+  - `nace` (economic-activity-based)
+  - `both` (returns both systems for comparison)
+- `sector_level`:
+  - ISCO path: `isco_group`
+  - NACE path (conceptual levels): `nace_section`, `nace_division`, `nace_group`, `nace_class`
+  - `nace_code` remains a technical compatibility level (not a primary dashboard selector)
+
+### Sector system semantics
+
+- In **ISCO** mode, sector views are native occupation-group views.
+- In **NACE** mode, sector views are aggregated through the ESCO-NACE crosswalk.
+- In NACE mode, labels are NACE labels (or NACE code fallback), never ISCO labels.
+
+### NACE view naming
+
+- `Observed`
+- `Derived Canonical`
+- `Aggregated Official Matrix`
+
+### Response metadata (sectoral payload)
+
+- active mode: `insights.sectoral_mode`
+- dual views: `insights.sectoral_views`
+- selected NACE level and level map under `insights.sectoral_views.nace`
+- in dashboard mode, NACE labels are shown as conceptual levels (Section/Division/Group/Class), and switching level updates all NACE views (not only comparison summaries)
+
+### Sector interpretation metrics (payload)
+
+- `sector_metrics.coverage_unique_skills`: unique observed skills in the sector.
+- `sector_metrics.dominance_top10_share`: share of sector mentions captured by top-10 observed skills.
+- `skill_transversal_insights[]`: per-skill in-sector importance, sector breadth, dominant sector/share, and top sectors.
+- `isco_interpretation` (ISCO sectors): `emerging_skills`, `missing_skills`, and `stability_overlap`.

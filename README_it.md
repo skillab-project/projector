@@ -107,3 +107,13 @@ curl -X 'POST' \
 3. **Database Relazionale**: Per analisi storiche su più anni, potremmo passare dalla cache JSON a un database (PostgreSQL) per query più granulari.
 
 Ti sembra che questa documentazione copra tutto il lavoro fatto finora? Se sì, siamo pronti per il prossimo sprint!
+## Modalità settoriale: ISCO vs NACE
+
+- **ISCO**: classificazione occupation-based (job -> occupation -> isco_group).
+- **NACE**: classificazione economic-activity-based (job -> occupation -> crosswalk ESCO-NACE -> nace_code).
+- In modalità NACE le etichette non devono provenire da ISCO.
+- Il mapping NACE è risolto tramite il crosswalk **ESCO-NACE rev. 2.1** (fonte preferita).
+- Viste NACE:
+  - **Observed**
+  - **Derived Canonical**
+  - **Aggregated Official Matrix**

@@ -205,3 +205,14 @@ To move from prototype-quality behavior to production-quality behavior, priority
 5. introduce versioning such as `/api/v1/...`
 6. document status codes and error semantics
 7. define cache invalidation strategy
+## Sector-resolution strategy
+
+- **ISCO path**: occupation -> isco_group -> ISCO label.
+- **NACE path**: occupation -> ESCO-NACE crosswalk -> NACE code/title.
+- The crosswalk is an explicit internal dependency for NACE labels and mappings.
+- One occupation can map to multiple NACE codes; all mappings are currently kept.
+
+### Known implementation caveats
+
+NACE mode is relation-oriented for discovery.  
+Because multi-mapping is valid, the same job-derived skill evidence may appear in multiple NACE sectors.

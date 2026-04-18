@@ -1,6 +1,7 @@
 import hashlib
 import os
 import json
+import tempfile
 from collections import defaultdict, Counter
 
 import httpx
@@ -1013,14 +1014,14 @@ def test_get_sector_from_occupation_can_return_nace_code():
         "occ_1": {
             "label": "Software developer",
             "isco_group": "isco_2512",
-            "nace_code": "J62"
+            "nace_code": "http://data.europa.eu/ux2/nace2.1/6201"
         }
     }
     engine.occupation_group_labels = {}
     engine.sector_map = {}
 
     result = occupations.get_sector_from_occupation("occ_1", level="nace_code")
-    assert result == "J62"
+    assert result == "62.01"
 
 
 def test_get_sector_from_occupation_can_return_nace_hierarchy_levels():
@@ -1032,15 +1033,16 @@ def test_get_sector_from_occupation_can_return_nace_hierarchy_levels():
         "occ_1": {
             "label": "Food processor",
             "isco_group": "isco_8160",
-            "nace_code": "C10.11"
+            "nace_code": "http://data.europa.eu/ux2/nace2.1/1011"
         }
     }
     engine.occupation_group_labels = {}
     engine.sector_map = {}
 
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "C10"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "C101"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "C1011"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_section") == "C"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "10"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "10.1"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "10.11"
 
 
 def test_get_sector_from_occupation_nace_hierarchy_falls_back_when_code_is_short():
@@ -1052,15 +1054,157 @@ def test_get_sector_from_occupation_nace_hierarchy_falls_back_when_code_is_short
         "occ_1": {
             "label": "Software developer",
             "isco_group": "isco_2512",
-            "nace_code": "J62"
+            "nace_code": "6201"
         }
     }
     engine.occupation_group_labels = {}
     engine.sector_map = {}
 
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "J62"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "J62"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "J62"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_section") == "J"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "62"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "62.0"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "62.01"
+
+
+def test_normalize_nace_code_supports_uri_and_numeric_shapes():
+    from app.core.container import ProjectorEngine
+
+    occupations = OccupationAnalytics(ProjectorEngine())
+
+    assert occupations.normalize_nace_code("http://data.europa.eu/ux2/nace2.1/9031") == "90.31"
+    assert occupations.normalize_nace_code("242") == "24.2"
+    assert occupations.normalize_nace_code("01") == "01"
+    assert occupations.normalize_nace_code("A") == "A"
+
+
+def test_get_sector_label_uses_nace_dictionary_in_nace_mode():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.nace_labels = {"10.11": "Processing and preserving of meat, except of poultry meat"}
+    engine.occupation_group_labels = {"10.11": "THIS MUST NOT BE USED"}
+
+    assert occupations.get_sector_label("10.11", system="nace") == "Processing and preserving of meat, except of poultry meat"
+
+
+def test_get_sector_label_nace_missing_falls_back_to_normalized_code_not_isco():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.nace_labels = {}
+    engine.occupation_group_labels = {"90.31": "ISCO label that must be ignored"}
+
+    assert occupations.get_sector_label("http://data.europa.eu/ux2/nace2.1/9031", system="nace") == "90.31"
+
+
+def test_get_sector_label_uses_official_nace_section_lookup():
+    from app.core.container import ProjectorEngine
+
+    occupations = OccupationAnalytics(ProjectorEngine())
+    assert occupations.get_sector_label("J", system="nace") == "Information and communication"
+
+
+def test_nace_section_derivation_follows_official_division_ranges():
+    from app.core.container import ProjectorEngine
+
+    occupations = OccupationAnalytics(ProjectorEngine())
+
+    assert occupations.get_sector_from_occupation("occ_missing", level="nace_section") == "Sector not specified"
+    assert occupations._get_nace_level_code("01", "nace_section") == "A"
+    assert occupations._get_nace_level_code("35", "nace_section") == "D"
+    assert occupations._get_nace_level_code("62.01", "nace_section") == "J"
+    assert occupations._get_nace_level_code("99", "nace_section") == "U"
+
+
+def test_loader_crosswalk_supports_one_to_many_occupation_nace_mapping():
+    openpyxl = pytest.importorskip("openpyxl")
+    from app.core.container import ProjectorEngine
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        comp_dir = os.path.join(tmpdir, "complementary_data")
+        os.makedirs(comp_dir, exist_ok=True)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["ESCO URI", "NACE code", "NACE title"])
+        ws.append(["occ_1", "J62", "Computer programming, consultancy and related activities"])
+        ws.append(["occ_1", "J59.11", "Motion picture, video and television programme production activities"])
+        ws.append(["occ_1", "J62", "Computer programming, consultancy and related activities"])  # duplicate
+        wb.save(os.path.join(comp_dir, "ESCO-NACE rev. 2.1 crosswalk (1).xlsx"))
+
+        engine = ProjectorEngine()
+        local_loader = EscoLoader(engine)
+        prev_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            local_loader.load_esco_nace_crosswalk()
+        finally:
+            os.chdir(prev_cwd)
+
+    assert "occ_1" in engine.occupation_nace_map
+    mapped_codes = sorted(item["code"] for item in engine.occupation_nace_map["occ_1"])
+    assert mapped_codes == ["J59.11", "J62"]
+
+
+def test_nace_mode_never_returns_isco_label_when_crosswalk_label_missing():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.occupation_group_labels = {"J62": "ISCO label"}
+    engine.nace_labels = {}
+
+    assert occupations.get_sector_label("J62", system="nace") == "J62"
+
+
+def test_compute_skill_breadth_and_concentration_returns_expected_shape():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    sectoral = SectoralAnalytics(engine, occupations)
+    engine.sector_skill_observed = defaultdict(Counter, {
+        "S1": Counter({"skill_a": 3, "skill_b": 1}),
+        "S2": Counter({"skill_a": 1}),
+    })
+
+    out = sectoral.compute_skill_breadth_and_concentration()
+    assert out["skill_a"]["sector_breadth"] == 2
+    assert out["skill_a"]["dominant_sector"] == "S1"
+    assert out["skill_a"]["dominant_share"] == 0.75
+    assert out["skill_a"]["top_sectors"][0]["sector"] == "S1"
+
+
+def test_compute_sector_skill_dominance_uses_top_k_share():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    sectoral = SectoralAnalytics(engine, occupations)
+    engine.sector_skill_observed = defaultdict(Counter, {
+        "S1": Counter({"a": 5, "b": 3, "c": 2}),
+    })
+
+    out = sectoral.compute_sector_skill_dominance("S1", top_k=2)
+    assert out == 0.8
+
+
+def test_compute_isco_skill_gap_and_stability():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    sectoral = SectoralAnalytics(engine, occupations)
+    engine.sector_skill_observed = defaultdict(Counter, {"ICT": Counter({"skill_a": 2, "skill_b": 1})})
+    engine.sector_skill_canonical = defaultdict(Counter, {"ICT": Counter({"skill_b": 4, "skill_c": 1})})
+
+    out = sectoral.compute_isco_skill_gap_and_stability("ICT")
+    assert out["emerging_skills"] == ["skill_a"]
+    assert out["missing_skills"] == ["skill_c"]
+    assert out["stability_overlap"] == pytest.approx(1 / 3, rel=1e-6)
+    assert out["overlap_skill_count"] == 1
 
 
 def test_get_sector_from_occupation_falls_back_to_tracker_sector_map():
@@ -2423,7 +2567,11 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "C1011"
+        assert sector["sector"] == "10.11"
+        assert sector["sector_metrics"]["coverage_unique_skills"] >= 1
+        assert "dominance_top10_share" in sector["sector_metrics"]
+        assert len(sector["skill_transversal_insights"]) >= 1
+        assert "sector_breadth" in sector["skill_transversal_insights"][0]
 
 @pytest.mark.integration
 def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
@@ -2481,6 +2629,137 @@ def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco()
         data = response.json()
         sector = data["insights"]["sectoral"][0]
         assert sector["sector"] == "C2"
+        assert sector["isco_interpretation"] is not None
+        assert "emerging_skills" in sector["isco_interpretation"]
+        assert "missing_skills" in sector["isco_interpretation"]
+        assert "stability_overlap" in sector["isco_interpretation"]
+
+
+@pytest.mark.integration
+def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
+    form_data = {
+        "keywords": ["developer"],
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "include_sectoral": True,
+        "sector_system": "both",
+        "sector_level": "nace_class",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {
+            "occupation_id": "occ_1",
+            "skills": ["skill_obs"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+         patch.object(tracker, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
+
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        m_fetch_occ.return_value = None
+
+        engine.occupation_meta = {
+            "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "C10.11"},
+        }
+        engine.occupation_group_labels = {"C2": "C2"}
+        engine.occ_skill_relations = defaultdict(set)
+        engine.occ_skill_relations["occ_1"] = {"skill_a"}
+        engine.skill_map = {
+            "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.esco_matrix_profiles = {
+            ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
+                "occupation_group_label": "Professionals",
+                "profile": {"S1": 1.0}
+            }
+        }
+
+        response = client.post("/projector/analyze-skills", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["insights"]["sectoral_mode"] == "both"
+        assert set(data["insights"]["sectoral_views"].keys()) == {"isco", "nace"}
+        assert data["insights"]["sectoral_views"]["isco"]["items"][0]["sector"] == "C2"
+        assert "levels" in data["insights"]["sectoral_views"]["nace"]
+        assert set(data["insights"]["sectoral_views"]["nace"]["levels"].keys()) == {
+            "nace_section", "nace_division", "nace_group", "nace_class"
+        }
+        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "10.11"
+        # Backward compatibility: primary `sectoral` remains list format.
+        assert isinstance(data["insights"]["sectoral"], list)
+
+
+@pytest.mark.integration
+def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
+    form_data = {
+        "keywords": ["developer"],
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "include_sectoral": True,
+        "sector_system": "both",
+        "sector_level": "nace_section",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {"occupation_id": "occ_1", "skills": ["skill_obs"], "upload_date": "2024-01-02"},
+        {"occupation_id": "occ_2", "skills": ["skill_obs"], "upload_date": "2024-01-03"},
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+         patch.object(tracker, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        m_fetch_occ.return_value = None
+
+        engine.occupation_meta = {
+            "occ_1": {"label": "Developer", "isco_group": "C2", "nace_code": "C10.11"},
+            "occ_2": {"label": "Programmer", "isco_group": "C2", "nace_code": "J62.01"},
+        }
+        engine.occupation_group_labels = {"C2": "C2"}
+        engine.occ_skill_relations = defaultdict(set)
+        engine.occ_skill_relations["occ_1"] = {"skill_a"}
+        engine.occ_skill_relations["occ_2"] = {"skill_b"}
+        engine.skill_map = {
+            "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
+            "skill_b": {"label": "SQL", "is_green": False, "is_digital": True},
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
+            "skill_b": {"level_1": "S2", "level_2": "S2.1", "level_3": "S2.1.1"},
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.esco_matrix_profiles = {
+            ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {"occupation_group_label": "Professionals", "profile": {"S1": 1.0}}
+        }
+
+        response = client.post("/projector/analyze-skills", data=form_data)
+        assert response.status_code == 200
+        data = response.json()
+
+        nace_levels = data["insights"]["sectoral_views"]["nace"]["levels"]
+        section_keys = {x["sector"] for x in nace_levels["nace_section"]["items"]}
+        division_keys = {x["sector"] for x in nace_levels["nace_division"]["items"]}
+        class_keys = {x["sector"] for x in nace_levels["nace_class"]["items"]}
+
+        assert section_keys == {"C", "J"}
+        assert division_keys == {"10", "62"}
+        assert class_keys == {"10.11", "62.01"}
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():
