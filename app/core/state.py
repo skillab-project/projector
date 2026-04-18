@@ -31,6 +31,13 @@ class ProjectorEngine:
         # Timeout impostato a None per evitare ReadTimeout su query pesanti
         self.client = httpx.AsyncClient(timeout=None)
         self.skill_group_labels = {}  # group_id -> readable label
+        self.nace_labels = {}  # normalized_nace_code -> label
+        self.nace_labels_by_level = {
+            "section": {},
+            "division": {},
+            "group": {},
+            "class": {},
+        }
         #
         # self.green_skill_uris = self._load_skill_uris_from_csv("complementary_data/greenSkillsCollection_lt.csv")
         # self.digital_skill_uris = self._load_skill_uris_from_csv("complementary_data/digitalSkillsCollection_lt.csv")

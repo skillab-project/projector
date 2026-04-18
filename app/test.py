@@ -1013,14 +1013,14 @@ def test_get_sector_from_occupation_can_return_nace_code():
         "occ_1": {
             "label": "Software developer",
             "isco_group": "isco_2512",
-            "nace_code": "J62"
+            "nace_code": "http://data.europa.eu/ux2/nace2.1/6201"
         }
     }
     engine.occupation_group_labels = {}
     engine.sector_map = {}
 
     result = occupations.get_sector_from_occupation("occ_1", level="nace_code")
-    assert result == "J62"
+    assert result == "62.01"
 
 
 def test_get_sector_from_occupation_can_return_nace_hierarchy_levels():
@@ -1032,15 +1032,15 @@ def test_get_sector_from_occupation_can_return_nace_hierarchy_levels():
         "occ_1": {
             "label": "Food processor",
             "isco_group": "isco_8160",
-            "nace_code": "C10.11"
+            "nace_code": "http://data.europa.eu/ux2/nace2.1/1011"
         }
     }
     engine.occupation_group_labels = {}
     engine.sector_map = {}
 
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "C10"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "C101"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "C1011"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "10"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "10.1"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "10.11"
 
 
 def test_get_sector_from_occupation_nace_hierarchy_falls_back_when_code_is_short():
@@ -1052,15 +1052,48 @@ def test_get_sector_from_occupation_nace_hierarchy_falls_back_when_code_is_short
         "occ_1": {
             "label": "Software developer",
             "isco_group": "isco_2512",
-            "nace_code": "J62"
+            "nace_code": "6201"
         }
     }
     engine.occupation_group_labels = {}
     engine.sector_map = {}
 
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "J62"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "J62"
-    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "J62"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_division") == "62"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_group") == "62.0"
+    assert occupations.get_sector_from_occupation("occ_1", level="nace_class") == "62.01"
+
+
+def test_normalize_nace_code_supports_uri_and_numeric_shapes():
+    from app.core.container import ProjectorEngine
+
+    occupations = OccupationAnalytics(ProjectorEngine())
+
+    assert occupations.normalize_nace_code("http://data.europa.eu/ux2/nace2.1/9031") == "90.31"
+    assert occupations.normalize_nace_code("242") == "24.2"
+    assert occupations.normalize_nace_code("01") == "01"
+    assert occupations.normalize_nace_code("A") == "A"
+
+
+def test_get_sector_label_uses_nace_dictionary_in_nace_mode():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.nace_labels = {"10.11": "Processing and preserving of meat, except of poultry meat"}
+    engine.occupation_group_labels = {"10.11": "THIS MUST NOT BE USED"}
+
+    assert occupations.get_sector_label("10.11", system="nace") == "Processing and preserving of meat, except of poultry meat"
+
+
+def test_get_sector_label_nace_missing_falls_back_to_normalized_code_not_isco():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.nace_labels = {}
+    engine.occupation_group_labels = {"90.31": "ISCO label that must be ignored"}
+
+    assert occupations.get_sector_label("http://data.europa.eu/ux2/nace2.1/9031", system="nace") == "90.31"
 
 
 def test_get_sector_from_occupation_falls_back_to_tracker_sector_map():
@@ -2423,7 +2456,7 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "C1011"
+        assert sector["sector"] == "10.11"
 
 @pytest.mark.integration
 def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
@@ -2541,7 +2574,7 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
         assert set(data["insights"]["sectoral_views"].keys()) == {"isco", "nace"}
         assert data["insights"]["sectoral_views"]["isco"]["items"][0]["sector"] == "C2"
         assert "levels" in data["insights"]["sectoral_views"]["nace"]
-        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "C1011"
+        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "10.11"
         # Backward compatibility: primary `sectoral` remains list format.
         assert isinstance(data["insights"]["sectoral"], list)
 

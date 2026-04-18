@@ -86,7 +86,7 @@ class OccupationAnalytics:
         meta = self.engine.occupation_meta.get(occ_id)
         if meta:
             if level == "nace_code":
-                nace = meta.get("nace_code", "").strip()
+                nace = self.normalize_nace_code(meta.get("nace_code", "").strip())
                 if nace:
                     return nace
             if level in {"nace_division", "nace_group", "nace_class"}:
@@ -119,16 +119,51 @@ class OccupationAnalytics:
         # 3) Last-resort fallback
         return "Sector not specified"
 
-    def _normalize_nace_code(self, nace_code: str) -> str:
+    def normalize_nace_code(self, nace_code: str) -> str:
         """
-        Normalize NACE strings to an uppercase compact alphanumeric form.
+        Normalize NACE codes to standard display format.
+
         Examples:
-        - "J62" -> "J62"
-        - "62.01" -> "6201"
-        - "c 10.11" -> "C1011"
+        - "http://.../9031" -> "90.31"
+        - "242" -> "24.2"
+        - "01" -> "01"
+        - "A" -> "A"
         """
-        nace_code = str(nace_code or "").upper()
-        return "".join(ch for ch in nace_code if ch.isalnum())
+        raw = str(nace_code or "").strip()
+        if not raw:
+            return ""
+
+        if "/" in raw:
+            raw = raw.rstrip("/").split("/")[-1]
+
+        raw = raw.upper().replace(" ", "")
+        if len(raw) == 1 and raw.isalpha():
+            return raw
+
+        cleaned = "".join(ch for ch in raw if ch.isdigit() or ch == ".")
+        if not cleaned:
+            return ""
+
+        if "." in cleaned:
+            head, tail = cleaned.split(".", 1)
+            head = head[:2]
+            tail = "".join(ch for ch in tail if ch.isdigit())
+            if not head:
+                return ""
+            if not tail:
+                return head
+            if len(tail) == 1:
+                return f"{head}.{tail}"
+            return f"{head}.{tail[:2]}"
+
+        digits = "".join(ch for ch in cleaned if ch.isdigit())
+        if not digits:
+            return ""
+        if len(digits) <= 2:
+            return digits.zfill(2)
+        if len(digits) == 3:
+            return f"{digits[:2]}.{digits[2]}"
+        return f"{digits[:2]}.{digits[2:4]}"
 
     def _get_nace_level_code(self, nace_code: str, level: str) -> str:
         """
@@ -138,41 +173,44 @@ class OccupationAnalytics:
         - nace_group
         - nace_class
         """
-        normalized = self._normalize_nace_code(nace_code)
+        normalized = self.normalize_nace_code(nace_code)
         if not normalized:
             return ""
 
-        head = ""
-        digits = normalized
-        if normalized[0].isalpha():
-            head = normalized[0]
-            digits = normalized[1:]
+        if len(normalized) == 1 and normalized.isalpha():
+            return normalized
 
-        if not digits:
-            return head
+        base_division = normalized.split(".", 1)[0]
+        tail = normalized.split(".", 1)[1] if "." in normalized else ""
 
         if level == "nace_division":
-            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+            return base_division
         if level == "nace_group":
-            if len(digits) >= 3:
-                return f"{head}{digits[:3]}"
-            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+            if tail:
+                return f"{base_division}.{tail[:1]}"
+            return base_division
         if level == "nace_class":
-            if len(digits) >= 4:
-                return f"{head}{digits[:4]}"
-            if len(digits) >= 3:
-                return f"{head}{digits[:3]}"
-            return f"{head}{digits[:2]}" if len(digits) >= 2 else f"{head}{digits}"
+            if len(tail) >= 2:
+                return f"{base_division}.{tail[:2]}"
+            if len(tail) == 1:
+                return f"{base_division}.{tail}"
+            return base_division
 
         return ""
 
-    def get_sector_label(self, sector_code: str) -> str:
+    def get_sector_label(self, sector_code: str, system: str = "isco") -> str:
         """
         Resolve a human-readable label for a sector/group code.
         """
         sector_code = str(sector_code).strip()
         if not sector_code:
             return "Sector not specified"
+
+        if str(system or "isco").strip().lower() == "nace":
+            nace_code = self.normalize_nace_code(sector_code)
+            if not nace_code:
+                return "Sector not specified"
+            return self.engine.nace_labels.get(nace_code, nace_code)
 
         # direct lookup
         if sector_code in self.engine.occupation_group_labels:
