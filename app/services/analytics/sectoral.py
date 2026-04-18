@@ -851,6 +851,11 @@ class SectoralAnalytics:
 
         results = []
         sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
+        skill_metrics = self.compute_skill_breadth_and_concentration(
+            resolve_labels=resolve_labels,
+            top_k_sectors=5,
+            sector_system=sector_system
+        )
 
         for sector_name in sorted(sectors):
             observed_skills = self.summarize_single_sector(
@@ -875,6 +880,38 @@ class SectoralAnalytics:
                 top_k=top_k_groups
             )
 
+            sector_total_mentions = observed_skills.get("total_skill_mentions", 0)
+            sector_metrics = {
+                "coverage_unique_skills": observed_skills.get("unique_skills", 0),
+                "dominance_top10_share": self.compute_sector_skill_dominance(sector_name, top_k=10)
+            }
+
+            skill_transversal_insights = []
+            observed_top_skills = observed_skills.get("top_skills", [])
+            for skill in observed_top_skills:
+                skill_id = skill.get("skill_id")
+                if not skill_id:
+                    continue
+                base = skill_metrics.get(skill_id, {})
+                if not base:
+                    continue
+                insight = {
+                    "skill_id": skill_id,
+                    "label": skill.get("label", base.get("label", skill_id)),
+                    "count": skill.get("count", 0),
+                    "importance_in_sector": round((skill.get("count", 0) / sector_total_mentions), 6) if sector_total_mentions > 0 else 0.0,
+                    "sector_breadth": base.get("sector_breadth", 0),
+                    "dominant_sector": base.get("dominant_sector", ""),
+                    "dominant_sector_label": base.get("dominant_sector_label", ""),
+                    "dominant_share": base.get("dominant_share", 0.0),
+                    "top_sectors": base.get("top_sectors", []),
+                }
+                skill_transversal_insights.append(insight)
+
+            isco_interpretation = None
+            if sector_system == "isco":
+                isco_interpretation = self.compute_isco_skill_gap_and_stability(sector_name)
+
             results.append({
                 "sector": sector_name,
                 "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
@@ -885,7 +922,10 @@ class SectoralAnalytics:
                 "observed_groups": group_profiles["observed_groups"],
                 "canonical_groups": group_profiles["canonical_groups"],
 
-                "matrix_groups": group_profiles["official_matrix_groups"]
+                "matrix_groups": group_profiles["official_matrix_groups"],
+                "sector_metrics": sector_metrics,
+                "skill_transversal_insights": skill_transversal_insights,
+                "isco_interpretation": isco_interpretation
             })
 
         return results
@@ -927,6 +967,31 @@ class SectoralAnalytics:
         )
 
         sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
+        skill_metrics = self.compute_skill_breadth_and_concentration(
+            resolve_labels=resolve_labels,
+            top_k_sectors=5,
+            sector_system=sector_system
+        )
+        sector_total_mentions = observed_skills.get("total_skill_mentions", 0)
+        skill_transversal_insights = []
+        for skill in observed_skills.get("top_skills", []):
+            skill_id = skill.get("skill_id")
+            if not skill_id:
+                continue
+            base = skill_metrics.get(skill_id, {})
+            skill_transversal_insights.append({
+                "skill_id": skill_id,
+                "label": skill.get("label", base.get("label", skill_id)),
+                "count": skill.get("count", 0),
+                "importance_in_sector": round((skill.get("count", 0) / sector_total_mentions), 6) if sector_total_mentions > 0 else 0.0,
+                "sector_breadth": base.get("sector_breadth", 0),
+                "dominant_sector": base.get("dominant_sector", ""),
+                "dominant_sector_label": base.get("dominant_sector_label", ""),
+                "dominant_share": base.get("dominant_share", 0.0),
+                "top_sectors": base.get("top_sectors", []),
+            })
+
+        isco_interpretation = self.compute_isco_skill_gap_and_stability(sector_name) if sector_system == "isco" else None
         return {
             "sector": sector_name,
             "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
@@ -937,7 +1002,13 @@ class SectoralAnalytics:
             "observed_groups": group_profiles["observed_groups"],
             "canonical_groups": group_profiles["canonical_groups"],
 
-            "matrix_groups": group_profiles["official_matrix_groups"]
+            "matrix_groups": group_profiles["official_matrix_groups"],
+            "sector_metrics": {
+                "coverage_unique_skills": observed_skills.get("unique_skills", 0),
+                "dominance_top10_share": self.compute_sector_skill_dominance(sector_name, top_k=10)
+            },
+            "skill_transversal_insights": skill_transversal_insights,
+            "isco_interpretation": isco_interpretation
         }
 
     def build_canonical_sector_skillgroup_matrix(
@@ -996,17 +1067,17 @@ class SectoralAnalytics:
 
         return self.engine.sector_skillgroup_observed
 
-    def compute_skill_breadth_and_concentration(self):
+    def compute_skill_breadth_and_concentration(
+            self,
+            resolve_labels: bool = False,
+            top_k_sectors: int = 5,
+            sector_system: str = "nace"
+    ):
         """
         NACE/ISCO-agnostic metric helper built on observed sector-skill matrix.
 
         Returns:
-            skill_id -> {
-                "sector_breadth": int,
-                "total_mentions": int,
-                "dominant_sector": str,
-                "dominant_share": float
-            }
+            skill_id -> metrics dict (breadth, concentration, top sectors).
         """
         by_skill = defaultdict(Counter)
         for sector_name, counter in self.engine.sector_skill_observed.items():
@@ -1019,13 +1090,41 @@ class SectoralAnalytics:
             dominant_sector, dominant_count = ("", 0)
             if sector_counts:
                 dominant_sector, dominant_count = sector_counts.most_common(1)[0]
-            out[skill_id] = {
+            top_sectors = []
+            for sector_name, count in sector_counts.most_common(top_k_sectors):
+                top_sectors.append({
+                    "sector": sector_name,
+                    "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
+                    "count": count,
+                    "share": round(count / total, 6) if total > 0 else 0.0
+                })
+
+            skill_entry = {
+                "skill_id": skill_id,
                 "sector_breadth": len(sector_counts),
                 "total_mentions": total,
                 "dominant_sector": dominant_sector,
+                "dominant_sector_label": self.occupations.get_sector_label(dominant_sector, system=sector_system) if dominant_sector else "",
                 "dominant_share": round(dominant_count / total, 6) if total > 0 else 0.0
+                ,
+                "top_sectors": top_sectors
             }
+            if resolve_labels:
+                meta = self.engine.skill_map.get(skill_id, {})
+                skill_entry["label"] = meta.get("label", skill_id)
+                skill_entry["is_green"] = meta.get("is_green", False)
+                skill_entry["is_digital"] = meta.get("is_digital", False)
+            out[skill_id] = skill_entry
         return out
+
+    def compute_sector_skill_dominance(self, sector_name: str, top_k: int = 10):
+        sector_name = str(sector_name).strip()
+        counter = self.engine.sector_skill_observed.get(sector_name, Counter())
+        total_mentions = sum(counter.values())
+        if total_mentions <= 0:
+            return 0.0
+        top_mentions = sum(count for _skill_id, count in counter.most_common(top_k))
+        return round(top_mentions / total_mentions, 6)
 
     def compute_isco_skill_gap_and_stability(self, sector_name: str):
         """
@@ -1046,5 +1145,8 @@ class SectoralAnalytics:
             "sector": sector_name,
             "emerging_skills": sorted(observed - canonical),
             "missing_skills": sorted(canonical - observed),
-            "stability_overlap": overlap
+            "stability_overlap": overlap,
+            "observed_skill_count": len(observed),
+            "canonical_skill_count": len(canonical),
+            "overlap_skill_count": len(intersection)
         }

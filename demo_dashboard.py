@@ -688,6 +688,38 @@ if st.session_state.all_data:
                             for x in nace_sectoral
                         ])
                         st.dataframe(df_nace.sort_values("mentions", ascending=False).head(10), use_container_width=True)
+
+                st.markdown("---")
+                st.subheader("Sector Metrics")
+                sec_metrics = target_sector.get("sector_metrics", {})
+                sm1, sm2 = st.columns(2)
+                with sm1:
+                    st.metric("Skill coverage (unique)", sec_metrics.get("coverage_unique_skills", 0))
+                with sm2:
+                    st.metric("Top-10 skill dominance", sec_metrics.get("dominance_top10_share", 0.0))
+
+                if selected_mode == "nace":
+                    st.subheader("Skill Transversality (NACE)")
+                    insights = target_sector.get("skill_transversal_insights", [])
+                    if insights:
+                        df_ins = pd.DataFrame(insights)
+                        cols = [c for c in ["label", "count", "importance_in_sector", "sector_breadth", "dominant_sector_label", "dominant_share"] if c in df_ins.columns]
+                        st.dataframe(df_ins[cols], use_container_width=True)
+                    else:
+                        st.write(T['no_data'])
+
+                if selected_mode == "isco":
+                    st.subheader("ISCO Interpretation")
+                    interp = target_sector.get("isco_interpretation") or {}
+                    it1, it2, it3 = st.columns(3)
+                    with it1:
+                        st.metric("Stability overlap", interp.get("stability_overlap", 0.0))
+                    with it2:
+                        st.metric("Emerging skills", len(interp.get("emerging_skills", [])))
+                    with it3:
+                        st.metric("Missing skills", len(interp.get("missing_skills", [])))
+                    st.caption(f"Emerging: {', '.join(interp.get('emerging_skills', [])[:10])}" if interp.get("emerging_skills") else "Emerging: none")
+                    st.caption(f"Missing: {', '.join(interp.get('missing_skills', [])[:10])}" if interp.get("missing_skills") else "Missing: none")
         else:
             st.info(T['no_sectoral'])
 

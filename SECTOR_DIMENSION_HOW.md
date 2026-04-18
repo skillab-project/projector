@@ -403,6 +403,8 @@ Se vuoi, nel prossimo step ti faccio:
 - **Observed**: skills observed in jobs mapped to a NACE sector.
 - **Derived Canonical**: ESCO canonical relations aggregated by NACE via crosswalk.
 - **Aggregated Official Matrix**: ESCO official matrix aggregated by NACE via crosswalk.
+- NACE sector payloads also expose interpretation metrics: coverage (unique skills), top-skill dominance, and per-skill breadth/concentration/top-sector summaries.
+- ISCO sector payloads include interpretation metrics: emerging skills, missing skills, and stability overlap between observed and canonical skill sets.
 
 ## 3.4 Dashboard behavior
 
