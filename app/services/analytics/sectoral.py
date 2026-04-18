@@ -55,6 +55,7 @@ class SectoralAnalytics:
         total_skill_mentions = len(skill_ids)
 
         results = []
+        sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
         for skill_id in skill_ids[:top_k]:
             entry = {
                 "skill_id": skill_id,
@@ -848,6 +849,7 @@ class SectoralAnalytics:
         sectors.update(self.engine.matrix_profiles.keys())
 
         results = []
+        sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
 
         for sector_name in sorted(sectors):
             observed_skills = self.summarize_single_sector(
@@ -874,7 +876,7 @@ class SectoralAnalytics:
 
             results.append({
                 "sector": sector_name,
-                "sector_label": self.occupations.get_sector_label(sector_name),
+                "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
 
                 "observed_skills": observed_skills,
                 "canonical_skills": canonical_skills,
@@ -890,6 +892,7 @@ class SectoralAnalytics:
     def build_single_sector_intelligence(
             self,
             sector_name: str,
+            sector_level: str = "isco_group",
             resolve_labels: bool = False,
             top_k_skills: int = 10,
             top_k_groups: int = 10
@@ -922,9 +925,10 @@ class SectoralAnalytics:
             top_k=top_k_groups
         )
 
+        sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
         return {
             "sector": sector_name,
-            "sector_label": self.occupations.get_sector_label(sector_name),
+            "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
 
             "observed_skills": observed_skills,
             "canonical_skills": canonical_skills,

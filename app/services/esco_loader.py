@@ -30,6 +30,74 @@ class EscoLoader:
         logger.info(f"Caricati {len(uris)} URI da {path}")
         return uris
 
+    def _normalize_nace_lookup_code(self, raw_code: str) -> str:
+        raw = str(raw_code or "").strip()
+        if not raw:
+            return ""
+
+        if "/" in raw:
+            raw = raw.rstrip("/").split("/")[-1]
+
+        raw = raw.upper().replace(" ", "")
+        if len(raw) == 1 and raw.isalpha():
+            return raw
+
+        cleaned = "".join(ch for ch in raw if ch.isdigit() or ch == ".")
+        if not cleaned:
+            return ""
+
+        if "." in cleaned:
+            head, tail = cleaned.split(".", 1)
+            head = head[:2]
+            tail = "".join(ch for ch in tail if ch.isdigit())
+            if not head:
+                return ""
+            if not tail:
+                return head
+            if len(tail) == 1:
+                return f"{head}.{tail}"
+            return f"{head}.{tail[:2]}"
+
+        digits = "".join(ch for ch in cleaned if ch.isdigit())
+        if not digits:
+            return ""
+
+        if len(digits) <= 2:
+            return digits.zfill(2)
+        if len(digits) == 3:
+            return f"{digits[:2]}.{digits[2]}"
+        return f"{digits[:2]}.{digits[2:4]}"
+
+    def load_nace_labels(self, filename: str = "nace_codes_2_1.csv"):
+        path = os.path.join(os.getcwd(), "complementary_data", filename)
+        if not os.path.exists(path):
+            logger.warning(f"NACE codes file not found: {path}")
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    label = str(row.get("Activity") or "").strip()
+                    if not label:
+                        continue
+
+                    for level_key, csv_key in (
+                        ("section", "Section"),
+                        ("division", "Division"),
+                        ("group", "Group"),
+                        ("class", "Class"),
+                    ):
+                        code = self._normalize_nace_lookup_code(row.get(csv_key))
+                        if not code:
+                            continue
+                        self.engine.nace_labels[code] = label
+                        self.engine.nace_labels_by_level[level_key][code] = label
+
+            logger.info(f"Loaded NACE labels: {len(self.engine.nace_labels)}")
+        except Exception as e:
+            logger.warning(f"Could not load NACE labels CSV: {e}")
+
 
 
     def load_local_esco_support(self):
@@ -42,6 +110,7 @@ class EscoLoader:
 
         This step is safe and incremental: if a file is missing, it is skipped.
         """
+        self.load_nace_labels()
         base_dir = os.getcwd()
 
         occupations_file = os.path.join(base_dir, "complementary_data", "occupations_en.csv")
