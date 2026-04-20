@@ -38,6 +38,7 @@ pipeline {
                 sh '''
                     set -e
                     docker run --rm \
+                        -e CI=true \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \

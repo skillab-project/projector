@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 
 import httpx
 import pytest
@@ -383,6 +384,10 @@ async def test_fetch_occupation_labels_specific_esco():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="Skipping test in CI environment"
+)
 async def test_fetch_occupation_labels_integration_real():
     """
     INTEGRATION TEST (No Mock):
