@@ -32,6 +32,37 @@ pipeline {
             }
         }
 
+        stage('Prepare Workspace') {
+            steps {
+                echo "🧹 Preparing workspace permissions..."
+                sh '''
+                    set -e
+                    HOST_UID=$(id -u)
+                    HOST_GID=$(id -g)
+
+                    docker run --rm \
+                        -u 0:0 \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c "
+                            rm -rf \
+                                coverage-report \
+                                .pytest_cache \
+                                test-results.xml \
+                                integration-test-results.xml \
+                                flake8-report.json \
+                                pylint-report.txt \
+                                pylint-files.txt \
+                                coverage.xml \
+                                .coverage || true
+
+                            chown -R ${HOST_UID}:${HOST_GID} /workspace || true
+                        "
+                '''
+            }
+        }
+
         stage('Run Tests') {
             steps {
                 echo "🧪 Running pytest suite..."
@@ -120,17 +151,7 @@ pipeline {
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true
             '''
 
-            cleanWs(
-                deleteDirs: true,
-                notFailBuild: true,
-                patterns: [
-                    [pattern: '__pycache__/', type: 'INCLUDE'],
-                    [pattern: '.pytest_cache/', type: 'INCLUDE'],
-                    [pattern: '.coverage', type: 'INCLUDE'],
-                    [pattern: 'coverage.xml', type: 'INCLUDE'],
-                    [pattern: 'pylint-files.txt', type: 'INCLUDE']
-                ]
-            )
+            cleanWs(deleteDirs: true, notFailBuild: true)
         }
 
         success {
