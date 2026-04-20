@@ -144,14 +144,14 @@ pipeline {
                         '
                 '''
 
-                // TENTATIVO DI USARE IL PLUGIN (Warnings Next Generation)
-                script {
-                    try {
-                        recordIssues(tools: [pyLint(pattern: 'pylint-report.txt'), flake8(pattern: 'flake8-report.json')])
-                    } catch (Exception e) {
-                        echo "⚠️ Plugin 'Warnings Next Generation' non trovato. Salto la generazione dei grafici."
-                    }
-                }
+//                 // TENTATIVO DI USARE IL PLUGIN (Warnings Next Generation)
+//                 script {
+//                     try {
+//                         recordIssues(tools: [pyLint(pattern: 'pylint-report.txt'), flake8(pattern: 'flake8-report.json')])
+//                     } catch (Exception e) {
+//                         echo "⚠️ Plugin 'Warnings Next Generation' non trovato. Salto la generazione dei grafici."
+//                     }
+//                 }
             }
         }
     }
@@ -160,6 +160,9 @@ pipeline {
         always {
             echo "📝 Publishing test results..."
             junit allowEmptyResults: true, testResults: '*test-results.xml'
+
+            // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
+            archiveArtifacts artifacts: 'pylint-report.txt, flake8-report.json', allowEmptyArchive: true
 
             sh '''
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true
