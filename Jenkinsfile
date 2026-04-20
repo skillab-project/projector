@@ -1,14 +1,17 @@
 pipeline {
     agent {
-        docker {
-            image 'python:3.11'
-            reuseNode true
+        node {
+            label 'dev-server'
         }
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timeout(time: 1, unit: 'HOURS')
+    }
+
+    environment {
+        CI_IMAGE = "projector-ci:${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -19,14 +22,12 @@ pipeline {
             }
         }
 
-        stage('Setup Python Environment') {
+        stage('Build CI Image') {
             steps {
-                echo "🐍 Setting up Python environment inside Docker..."
+                echo "🐳 Building CI Docker image..."
                 sh '''
                     set -e
-                    python --version
-                    python -m pip install --upgrade pip setuptools wheel
-                    pip install -r requirements.txt
+                    docker build -f Dockerfile.ci -t ${CI_IMAGE} .
                 '''
             }
         }
@@ -36,13 +37,19 @@ pipeline {
                 echo "🧪 Running pytest suite..."
                 sh '''
                     set -e
-                    pytest test.py -v \
-                        --tb=short \
-                        --junitxml=test-results.xml \
-                        --cov=. \
-                        --cov-report=xml \
-                        --cov-report=html:coverage-report \
-                        -m "not integration"
+                    docker run --rm \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c "
+                            pytest test.py -v \
+                                --tb=short \
+                                --junitxml=test-results.xml \
+                                --cov=. \
+                                --cov-report=xml \
+                                --cov-report=html:coverage-report \
+                                -m 'not integration'
+                        "
                 '''
             }
         }
@@ -52,40 +59,49 @@ pipeline {
                 branch 'main'
             }
             steps {
-                echo "🔗 Running integration tests (main branch only)..."
+                echo "🔗 Running integration tests..."
                 sh '''
                     set -e
-                    pytest test.py -v \
-                        -m "integration" \
-                        --tb=short \
-                        --junitxml=integration-test-results.xml
+                    docker run --rm \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c "
+                            pytest test.py -v \
+                                -m 'integration' \
+                                --tb=short \
+                                --junitxml=integration-test-results.xml
+                        "
                 '''
             }
         }
 
         stage('Code Quality') {
             steps {
-                echo "📊 Analyzing code quality..."
+                echo "📊 Running code quality checks..."
                 sh '''
                     set +e
+                    docker run --rm \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c "
+                            flake8 . \
+                                --max-line-length=120 \
+                                --exclude=venv,__pycache__ \
+                                --format=json > flake8-report.json || true
 
-                    pip install flake8 pylint
+                            find . -name '*.py' \
+                                -not -path './.git/*' \
+                                -not -path './__pycache__/*' \
+                                > pylint-files.txt
 
-                    echo "Running flake8..."
-                    flake8 . \
-                        --max-line-length=120 \
-                        --exclude=venv,__pycache__ \
-                        --format=json > flake8-report.json
-
-                    echo "Running pylint..."
-                    find . -name "*.py" -not -path "./.git/*" -not -path "./__pycache__/*" -not -path "./venv/*" > pylint-files.txt
-
-                    if [ -s pylint-files.txt ]; then
-                        pylint $(cat pylint-files.txt) --exit-zero --output-format=parseable > pylint-report.txt
-                    else
-                        echo "No Python files found for pylint" > pylint-report.txt
-                    fi
-
+                            if [ -s pylint-files.txt ]; then
+                                pylint \$(cat pylint-files.txt) --exit-zero --output-format=parseable > pylint-report.txt
+                            else
+                                echo 'No Python files found for pylint' > pylint-report.txt
+                            fi
+                        "
                     exit 0
                 '''
             }
@@ -95,16 +111,11 @@ pipeline {
     post {
         always {
             echo "📝 Publishing test results..."
-
             junit allowEmptyResults: true, testResults: '*test-results.xml'
 
-            script {
-                if (fileExists('coverage-report/index.html')) {
-                    echo "📄 Coverage HTML report generated in coverage-report/"
-                } else {
-                    echo "⚠️ Coverage HTML report not found."
-                }
-            }
+            sh '''
+                docker image rm -f ${CI_IMAGE} 2>/dev/null || true
+            '''
 
             cleanWs(
                 deleteDirs: true,
