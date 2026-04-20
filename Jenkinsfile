@@ -25,9 +25,10 @@ pipeline {
                 echo "🐍 Setting up Python environment..."
                 sh '''
                     python3 --version
-                    python3 -m venv venv
+                    python3 -m pip install --user virtualenv
+                    python3 -m virtualenv venv
                     . venv/bin/activate
-                    pip install --upgrade pip setuptools wheel
+                    python -m pip install --upgrade pip setuptools wheel
                     pip install -r requirements.txt
                 '''
             }
