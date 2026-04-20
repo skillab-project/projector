@@ -38,6 +38,7 @@ pipeline {
                 sh '''
                     set -e
                     docker run --rm \
+                        -u $(id -u):$(id -g) \
                         -e CI=true \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
@@ -56,14 +57,13 @@ pipeline {
         }
 
         stage('Integration Tests') {
-            when {
-                branch 'main'
-            }
             steps {
                 echo "🔗 Running integration tests..."
                 sh '''
                     set -e
                     docker run --rm \
+                        -u $(id -u):$(id -g) \
+                        -e CI=true \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
@@ -83,26 +83,28 @@ pipeline {
                 sh '''
                     set +e
                     docker run --rm \
+                        -u $(id -u):$(id -g) \
+                        -e CI=true \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
-                        sh -c "
+                        sh -c '
                             flake8 . \
                                 --max-line-length=120 \
                                 --exclude=venv,__pycache__ \
                                 --format=json > flake8-report.json || true
 
-                            find . -name '*.py' \
-                                -not -path './.git/*' \
-                                -not -path './__pycache__/*' \
+                            find . -name "*.py" \
+                                -not -path "./.git/*" \
+                                -not -path "./__pycache__/*" \
                                 > pylint-files.txt
 
                             if [ -s pylint-files.txt ]; then
-                                pylint \$(cat pylint-files.txt) --exit-zero --output-format=parseable > pylint-report.txt
+                                xargs pylint --exit-zero --output-format=parseable < pylint-files.txt > pylint-report.txt
                             else
-                                echo 'No Python files found for pylint' > pylint-report.txt
+                                echo "No Python files found for pylint" > pylint-report.txt
                             fi
-                        "
+                        '
                     exit 0
                 '''
             }
@@ -120,6 +122,7 @@ pipeline {
 
             cleanWs(
                 deleteDirs: true,
+                notFailBuild: true,
                 patterns: [
                     [pattern: '__pycache__/', type: 'INCLUDE'],
                     [pattern: '.pytest_cache/', type: 'INCLUDE'],
