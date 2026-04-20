@@ -116,6 +116,7 @@ pipeline {
                     docker run --rm \
                         -u $(id -u):$(id -g) \
                         -e CI=true \
+                        -e PYLINTHOME=/workspace/.pylint_cache \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
@@ -131,13 +132,26 @@ pipeline {
                                 > pylint-files.txt
 
                             if [ -s pylint-files.txt ]; then
+                                # Generiamo il report
                                 xargs pylint --exit-zero --output-format=parseable < pylint-files.txt > pylint-report.txt
+                                # Stampiamo il risultato nel log di Jenkins per visibilità immediata
+                                echo "--- PYLINT REPORT START ---"
+                                cat pylint-report.txt
+                                echo "--- PYLINT REPORT END ---"
                             else
                                 echo "No Python files found for pylint" > pylint-report.txt
                             fi
                         '
-                    exit 0
                 '''
+
+                // TENTATIVO DI USARE IL PLUGIN (Warnings Next Generation)
+                script {
+                    try {
+                        recordIssues(tools: [pyLint(pattern: 'pylint-report.txt'), flake8(pattern: 'flake8-report.json')])
+                    } catch (Exception e) {
+                        echo "⚠️ Plugin 'Warnings Next Generation' non trovato. Salto la generazione dei grafici."
+                    }
+                }
             }
         }
     }
