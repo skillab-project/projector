@@ -12,6 +12,7 @@ This folder contains the maintained documentation for the current `app/` impleme
 6. [Examples](examples.md) provides request examples and frontend integration patterns.
 7. [Sector intelligence](sector-intelligence.md) explains ISCO/NACE sectoral analytics.
 8. [Data sources](data-sources.md) explains Tracker, ESCO CSV files, ESCO matrix and ESCO-NACE crosswalk usage.
+9. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
 
 ## Current Code Layout
 
