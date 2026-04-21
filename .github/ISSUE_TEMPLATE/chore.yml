@@ -1,0 +1,46 @@
+name: Chore
+description: Maintenance, tooling, setup, Docker, CI/CD, or operational work.
+title: "[Chore] "
+labels: ["type: chore"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Task
+      description: What maintenance or operational work is needed?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Risks, dependencies, or operational details.

@@ -1,0 +1,71 @@
+name: Bug
+description: Report incorrect behavior against a clear expectation.
+title: "[Bug] "
+labels: ["type: bug"]
+body:
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: What is happening now?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: scopes
+    attributes:
+      label: Scope labels
+      multiple: true
+      options:
+        - "scope: analytical-model"
+        - "scope: data-mapping"
+        - "scope: metrics"
+        - "scope: api-response"
+        - "scope: validation"
+        - "scope: performance"
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. 
+        2. 
+        3. 
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Paste logs, request examples, screenshots, or response snippets.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 

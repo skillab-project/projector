@@ -1,0 +1,52 @@
+name: Sync issue labels
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add selected area and scope labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || "";
+            const knownLabels = [
+              "area: sectoral",
+              "area: regional",
+              "area: temporal",
+              "area: statistical",
+              "area: cross-dimension",
+              "area: architecture",
+              "area: api",
+              "area: docs",
+              "area: dashboard",
+              "area: demo",
+              "area: devops",
+              "area: data-ingestion",
+              "area: testing",
+              "scope: analytical-model",
+              "scope: data-mapping",
+              "scope: metrics",
+              "scope: api-response",
+              "scope: validation",
+              "scope: performance"
+            ];
+
+            const labelsToAdd = knownLabels.filter((label) => body.includes(label));
+            if (labelsToAdd.length === 0) {
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: labelsToAdd
+            });

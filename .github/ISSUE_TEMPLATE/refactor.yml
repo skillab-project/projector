@@ -1,0 +1,52 @@
+name: Refactor
+description: Improve internal structure without changing intended behavior.
+title: "[Refactor] "
+labels: ["type: refactor"]
+body:
+  - type: textarea
+    id: target
+    attributes:
+      label: Refactor target
+      description: What code path, module, or structure should change?
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is the current structure hard to maintain or extend?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Behavior that must stay unchanged
+      description: List API, analytics, or UI behavior that must remain compatible.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: How will we verify that behavior did not change?

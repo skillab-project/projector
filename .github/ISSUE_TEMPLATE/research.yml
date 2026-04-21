@@ -1,0 +1,67 @@
+name: Research
+description: Investigate options when the right approach is not known yet.
+title: "[Research] "
+labels: ["type: research"]
+body:
+  - type: textarea
+    id: research-question
+    attributes:
+      label: Research question
+      description: What do we need to learn?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What makes this uncertain?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: scopes
+    attributes:
+      label: Scope labels
+      multiple: true
+      options:
+        - "scope: analytical-model"
+        - "scope: data-mapping"
+        - "scope: metrics"
+        - "scope: api-response"
+        - "scope: validation"
+        - "scope: performance"
+  - type: textarea
+    id: options
+    attributes:
+      label: Options to compare
+      description: List known approaches, sources, or tradeoffs.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Research outcome
+      description: What should this issue produce?
+      value: |
+        - [ ] Decision summary
+        - [ ] Follow-up implementation issues, if needed
+    validations:
+      required: true

@@ -28,12 +28,14 @@ It is designed for three audiences:
 - [Data model document](./data-model.md)
 - [Architecture document](./architecture.md)
 - [Examples document](./examples.md)
+- [Issue management document](./issue-management.md)
 
 1. **[overview.md](./overview.md)** — what the service is, what problem it solves, and when to use it  
 2. **[api-reference.md](./api-reference.md)** — endpoint-by-endpoint reference  
 3. **[data-model.md](./data-model.md)** — meaning of fields and metrics returned by the API  
 4. **[architecture.md](./architecture.md)** — internal flow, Tracker dependency, caching, stop behavior, and caveats  
 5. **[examples.md](./examples.md)** — ready-to-use request/response examples and integration patterns  
+6. **[issue-management.md](./issue-management.md)** — issue labels, GitHub Project statuses, templates, and decision/implementation flows
 
 ---
 

@@ -1,0 +1,58 @@
+name: Documentation
+description: Improve user, API, technical, or demo documentation.
+title: "[Docs] "
+labels: ["type: docs"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Documentation need
+      description: What needs to be documented or clarified?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Audience
+      options:
+        - API consumer
+        - Developer
+        - Analyst
+        - Project reviewer
+        - Demo/dashboard user
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Source of truth
+      description: Link code, existing docs, issue decisions, or API behavior that the docs should reflect.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 
+    validations:
+      required: true

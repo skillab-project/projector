@@ -1,0 +1,74 @@
+name: Conceptual Redesign
+description: Rework a model because the current design is misleading or inappropriate.
+title: "[Conceptual Redesign] "
+labels: ["type: conceptual-redesign"]
+body:
+  - type: textarea
+    id: current-model
+    attributes:
+      label: Current model or assumption
+      description: What existing or planned model is misleading, incomplete, or inappropriate?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Conceptual problem
+      description: Why does the current model lead to wrong interpretation or implementation?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: scopes
+    attributes:
+      label: Scope labels
+      multiple: true
+      options:
+        - "scope: analytical-model"
+        - "scope: data-mapping"
+        - "scope: metrics"
+        - "scope: api-response"
+        - "scope: validation"
+        - "scope: performance"
+  - type: textarea
+    id: proposed-direction
+    attributes:
+      label: Proposed redesign direction
+      description: How should the model change?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected impact
+      description: Which outputs, metrics, API contracts, docs, or implementation issues may change?
+    validations:
+      required: true
+  - type: textarea
+    id: decision-review
+    attributes:
+      label: Decision review checklist
+      value: |
+        - [ ] Decision documented
+        - [ ] Reviewers agree on interpretation
+        - [ ] Implementation sub-issues created, if needed
