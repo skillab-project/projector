@@ -1,76 +1,53 @@
 # SKILLAB Projector Documentation
 
-## Index
-- [Purpose of this documentation](#purpose-of-this-documentation)
-- [Suggested reading order](#suggested-reading-order)
-- [Why this structure](#why-this-structure)
-- [Recommended repository layout](#recommended-repository-layout)
-- [Publishing recommendation](#publishing-recommendation)
+This folder contains the maintained documentation for the current `app/` implementation of SKILLAB Projector.
 
----
+## Reading Order
 
-## Purpose of this documentation
+1. [Overview](overview.md) explains what the service does and who it is for.
+2. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
+3. [API reference](api-reference.md) documents current public endpoints and form fields.
+4. [Data model](data-model.md) explains response fields and metric semantics.
+5. [Architecture](architecture.md) maps the runtime flow to the current code.
+6. [Examples](examples.md) provides request examples and frontend integration patterns.
+7. [Sector intelligence](sector-intelligence.md) explains ISCO/NACE sectoral analytics.
+8. [Data sources](data-sources.md) explains Tracker, ESCO CSV files, ESCO matrix and ESCO-NACE crosswalk usage.
 
-This folder contains the recommended documentation structure for the **SKILLAB Projector** API.
-
-It is designed for three audiences:
-- developers integrating the API,
-- dashboard or frontend authors,
-- stakeholders who need to understand what the service does without reading the source code.
-
----
-
-## Suggested reading order
-
-### Section index
-- [Overview document](./overview.md)
-- [API reference document](./api-reference.md)
-- [Data model document](./data-model.md)
-- [Architecture document](./architecture.md)
-- [Examples document](./examples.md)
-
-1. **[overview.md](./overview.md)** — what the service is, what problem it solves, and when to use it  
-2. **[api-reference.md](./api-reference.md)** — endpoint-by-endpoint reference  
-3. **[data-model.md](./data-model.md)** — meaning of fields and metrics returned by the API  
-4. **[architecture.md](./architecture.md)** — internal flow, Tracker dependency, caching, stop behavior, and caveats  
-5. **[examples.md](./examples.md)** — ready-to-use request/response examples and integration patterns  
-
----
-
-## Why this structure
-
-FastAPI Swagger is excellent for trying endpoints, but it does not explain the business meaning of concepts such as:
-- market health,
-- specialization / location quotient,
-- raw geography vs NUTS-like geography,
-- emerging vs declining skills,
-- demo mode.
-
-For that reason, the recommended production setup is:
-- **Swagger/OpenAPI** for interactive technical exploration  
-- this **/docs** folder for stable, versioned written documentation  
-
----
-
-## Recommended repository layout
+## Current Code Layout
 
 ```text
 repo-root/
-├── main.py
-├── schemas.py
-├── README.md
+├── app/
+│   ├── main.py
+│   ├── api/routes/projector.py
+│   ├── client/tracker_client.py
+│   ├── core/
+│   ├── schemas/responses.py
+│   ├── services/projector_service.py
+│   ├── services/esco_loader.py
+│   └── services/analytics/
+├── complementary_data/
 └── docs/
-    ├── README.md
-    ├── overview.md
-    ├── api-reference.md
-    ├── data-model.md
-    ├── architecture.md
-    └── examples.md
-## Dual sector systems in docs
+```
 
-Documentation now covers both ISCO and NACE sector semantics.
+The legacy root files (`main.py`, `schemas.py`, `demo_dashboard.py`, `main_sectoral.py`) are still present in the repository, but the maintained backend path is the package entrypoint:
 
-Suggested references:
-- `docs/data-model.md`
-- `docs/architecture.md`
-- `docs/overview.md`
+```bash
+uvicorn app.main:app --reload
+```
+
+The maintained dashboard path is:
+
+```bash
+streamlit run app/example_dashboard/demo_dashboard.py
+```
+
+## Documentation Policy
+
+Swagger/OpenAPI is useful for interactive endpoint testing. These Markdown documents are the semantic layer: they explain business meaning, metric interpretation, known caveats and integration expectations.
+
+When code and documentation disagree, update the Markdown against:
+- `app/api/routes/projector.py` for endpoint parameters
+- `app/services/projector_service.py` for orchestration behavior
+- `app/schemas/responses.py` for response fields
+- `app/services/analytics/` for metric semantics

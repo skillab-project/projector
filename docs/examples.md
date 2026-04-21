@@ -1,13 +1,13 @@
 # Examples and Integration Patterns
 
-## Example 1 — Full snapshot for a dashboard
+## Example 1: Full Dashboard Snapshot
+
 Use this when the interface needs a complete market summary.
 
-### Request
 ```bash
 curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "keywords=software engineer" \
+  -d "keywords=software" \
   -d "locations=IT" \
   -d "min_date=2024-01-01" \
   -d "max_date=2024-12-31" \
@@ -16,21 +16,56 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
   -d "demo=false"
 ```
 
-### Use the response like this
-- `dimension_summary.jobs_analyzed` → KPI tile
-- `insights.ranking` → top-skills chart
-- `insights.sectors` → sector bar chart
-- `insights.job_titles` → title leaderboard
-- `insights.employers` → employer leaderboard
-- `insights.trends` → trend tab
-- `insights.regional` → map and specialization widgets
+Use the response like this:
+- `dimension_summary.jobs_analyzed`: KPI tile
+- `insights.ranking`: top-skills chart
+- `insights.sectors`: ISCO-oriented sector bar chart
+- `insights.job_titles`: title leaderboard
+- `insights.employers`: employer leaderboard
+- `insights.trends`: trend tab
+- `insights.regional`: map and specialization widgets
 
----
+## Example 2: Full Snapshot With ISCO/NACE Sectoral Views
 
-## Example 2 — Trend-only widget
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "locations=IT" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "include_sectoral=true" \
+  -d "sector_system=both" \
+  -d "sector_level=nace_section" \
+  -d "skill_group_level=1" \
+  -d "occupation_level=1"
+```
+
+Frontend usage:
+- read ISCO from `insights.sectoral_views.isco.items`
+- read NACE levels from `insights.sectoral_views.nace.levels`
+- use `insights.sectoral_views.nace.selected_level` as the default NACE tab or selector value
+- use `insights.sector_view_names` for display labels
+
+## Example 3: NACE Class View
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=data" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "include_sectoral=true" \
+  -d "sector_system=nace" \
+  -d "sector_level=nace_class"
+```
+
+`insights.sectoral` will contain the selected NACE class payload. `insights.sectoral_views` will still contain the full ISCO and NACE level map.
+
+## Example 4: Trend-Only Widget
+
 Use this when the UI only needs to know what is rising or declining.
 
-### Request
 ```bash
 curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
   -H "Content-Type: application/x-www-form-urlencoded" \
@@ -39,31 +74,26 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
   -d "max_date=2024-12-31"
 ```
 
-### Interpretation pattern
-- if `market_health.status = expanding`, the overall selected labor-market slice grew in the second half of the window
-- if a skill has `trend_type = emerging`, it gained relevance
-- if `growth = "new_entry"`, it was absent before and appeared only in the second half
+Interpretation:
+- `market_health.status = expanding`: job volume grew in the second half of the window
+- `trend_type = emerging`: the skill gained relevance
+- `growth = "new_entry"`: the skill was absent in the first half and present in the second
 
----
+## Example 5: Cancel Button
 
-## Example 3 — Cancel button behavior
-When a user launches a heavy request and wants to stop it:
-
-### Stop request
 ```bash
 curl -X POST "http://127.0.0.1:8000/projector/stop"
 ```
 
-### UI recommendation
-Treat this as a cooperative cancel:
-- show “stopping analysis…”
-- do not assume instant interruption
-- when the final payload arrives, inspect `status`
+Treat this as cooperative cancel:
+- show a stopping state,
+- do not assume instant interruption,
+- inspect the final analysis `status` when the running request returns.
 
----
+## Example 6: Reading Specialization
 
-## Example 4 — Reading specialization correctly
 Suppose a regional item contains:
+
 ```json
 {
   "code": "ITC4",
@@ -75,41 +105,27 @@ Suppose a regional item contains:
 }
 ```
 
-### Correct interpretation
-- the area represents `9.6%` of the analyzed batch
-- `Python` appears 33 times in that area
-- `specialization = 1.78` means Python is significantly more concentrated there than in the full analyzed market
+Correct interpretation:
+- the area represents `9.6%` of the analyzed batch,
+- `Python` appears 33 times in that area,
+- `specialization = 1.78` means Python is more concentrated there than in the full analyzed market.
 
-### Wrong interpretation to avoid
 Do not read specialization as raw popularity alone.
-A smaller territory can still have a high specialization value if a skill is unusually concentrated there.
 
----
+## Example 7: Demo Regional Mode
 
-## Example 5 — Demo mode explanation for stakeholders
-If the request uses:
+If `demo=true` and the source jobs only carry country-level location codes, the service distributes jobs across synthetic NUTS-like areas.
+
+Recommended UI wording:
+
 ```text
-demo=true
+Regional detail shown in demonstration mode. Sub-national distribution is simulated from country-level data.
 ```
 
-and the source jobs only carry country-level location codes, the engine distributes jobs across synthetic NUTS-like areas to simulate regional analysis.
+## Recommended Frontend Strategy
 
-### Best practice wording in UI
-Use a label such as:
-> Regional detail shown in demonstration mode. Sub-national distribution is simulated from country-level data.
-
----
-
-## Example 6 — Recommended frontend call strategy
-### Initial page load
-Call `/projector/analyze-skills`.
-
-### Dedicated trend page or trend popup
-Call `/projector/emerging-skills`.
-
-### User aborts a long process
-Call `/projector/stop`.
-
-### Pagination note
-Do not treat `page` and `page_size` as upstream fetch pagination.
-They only paginate the returned ranking list, not the internal data retrieval.
+- Initial page load: call `/projector/analyze-skills`.
+- Sector dashboard: call `/projector/analyze-skills` with `include_sectoral=true`.
+- Dedicated trend widget: call `/projector/emerging-skills`.
+- Cancel button: call `/projector/stop`.
+- Ranking pagination: use `page` and `page_size`, but remember they only slice returned ranking items.

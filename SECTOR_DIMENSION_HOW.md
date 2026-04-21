@@ -1,416 +1,91 @@
-Perfetto, ti faccio una **documentazione strutturata, chiara e riusabile** (livello “/docs” industriale), con **flow esplicito** e esempi.
+# Sector Dimension: Current Implementation
 
----
+This document is a compact technical note for the current sector dimension.
 
-# 📊 SKILLAB Projector – Data Model & Flow
+The maintained, reader-facing sector documentation is [docs/sector-intelligence.md](docs/sector-intelligence.md).
 
-## 1. Obiettivo
+## Goal
 
-Il sistema trasforma dati grezzi di job postings in **informazione strutturata multi-livello**:
+The sector dimension connects jobs, occupations and skills so the API can answer:
 
-* domanda reale (Observed)
-* conoscenza standardizzata ESCO (Canonical)
-* aggregazione semantica (Skill Groups)
-* analisi per settore (Sector)
+- which skills appear in a sector,
+- which skills are canonically associated with that sector according to ESCO,
+- how observed market evidence differs from ESCO references,
+- how skills aggregate into ESCO skill groups,
+- how ISCO and NACE views differ.
 
----
-
-# 🧭 2. Entità fondamentali
-
-## 2.1 Job
-
-**Fonte:** SKILLAB Tracker
-
-Rappresenta un annuncio reale di lavoro.
-
-**Campi rilevanti:**
-
-* `skills`: lista skill ESCO
-* `occupations`: lista occupation ESCO
-* `location_code`: geografia
-
-**Esempio:**
-
-```json
-{
-  "occupation": "Software Developer",
-  "skills": ["python", "sql"]
-}
-```
-
----
-
-## 2.2 Occupation
-
-**Fonte:** ESCO + CSV locale (`occupations_en.csv`)
-
-Rappresenta un ruolo lavorativo standard.
-
-**Serve per:**
-
-* collegare job → conoscenza ESCO
-* derivare il sector
-
----
-
-## 2.3 Sector
-
-**Definizione attuale:**
+## Runtime Flow
 
 ```text
-occupation → isco_group
+Tracker job
+ ├── occupations
+ └── skills
+      ↓
+occupation -> ISCO sector
+occupation -> NACE sector through ESCO-NACE crosswalk
+occupation -> canonical ESCO skills
+skill -> ESCO skill group
+      ↓
+sector -> observed skills
+sector -> canonical skills
+sector -> observed skill groups
+sector -> canonical skill groups
+sector -> official ESCO matrix groups
 ```
 
-**Fonte:**
+## Systems
 
-* `occupations_en.csv` (`iscoGroup`)
-* `ISCOGroups_en.csv` (label)
-
-**Esempio:**
+ISCO:
 
 ```text
-C2512 → Software developers
-1213 → Financial managers
+job -> occupation -> isco_group -> ISCO label
 ```
 
-👉 Il sector è una **aggregazione di occupation**
-
----
-
-## 2.4 Skill (Observed)
-
-**Fonte:** job postings
-
-Rappresenta le skill realmente richieste dal mercato.
-
-**Esempio:**
+NACE:
 
 ```text
-python, fastapi, sql
+job -> occupation -> ESCO-NACE crosswalk -> NACE code/title
 ```
 
----
+NACE supports:
+- `nace_section`
+- `nace_division`
+- `nace_group`
+- `nace_class`
 
-## 2.5 Skill (Canonical)
+`nace_code` remains accepted by the route for technical compatibility, but dashboard-facing views are built for section, division, group and class.
 
-**Fonte:** `occupationSkillRelations_en.csv`
+## Analytical Layers
 
-Rappresenta le skill ufficiali ESCO associate a una occupation.
+Observed:
+- built from Tracker job skills,
+- represents current market evidence.
 
-**Relazione:**
+Canonical:
+- built from `occupationSkillRelations_en.csv`,
+- represents ESCO occupation-skill reference knowledge.
 
-```text
-occupation → skill
-```
+Skill groups:
+- built from `skillsHierarchy_en.csv`,
+- aggregates skills into higher-level ESCO groups.
 
-**Esempio:**
+Official matrix:
+- built from `Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx`,
+- represents official occupation-group to skill-group profiles.
 
-```text
-Software Developer → programming, testing, debugging
-```
+## API Output
 
----
+When `include_sectoral=true`, `/projector/analyze-skills` returns:
 
-## 2.6 Skill Group
+- `insights.sectoral`
+- `insights.sectoral_mode`
+- `insights.sectoral_views`
+- `insights.sector_view_names`
 
-**Fonte:** `skillsHierarchy_en.csv`
+`insights.sectoral_views` contains both ISCO and NACE payloads. NACE includes all supported hierarchy levels.
 
-Rappresenta una categoria semantica di skill.
+## Interpretation Caveat
 
-**Gerarchia:**
+NACE is relation-oriented in the current implementation. If one occupation maps to multiple NACE sectors, all mappings are kept and the same skill evidence can appear in multiple NACE sectors.
 
-```text
-Skill → Skill Group (Level 1 / 2 / 3)
-```
-
-**Esempio:**
-
-```text
-python → programming
-sql → data management
-```
-
----
-
-# 🔗 3. Data Flow completo
-
-## 3.1 Pipeline generale
-
-```text
-JOB
- ├──→ Occupation
- │     └──→ Sector
- │     └──→ Canonical Skills
- │             └──→ Skill Groups
- │
- └──→ Observed Skills
-         └──→ Skill Groups
-```
-
----
-
-# ⚙️ 4. Costruzione dei dati
-
-## 4.1 Step 1 — Job → Occupation
-
-```python
-occ_id = get_primary_occupation_id(job)
-```
-
----
-
-## 4.2 Step 2 — Occupation → Sector
-
-```python
-sector = get_sector_from_occupation(occ_id)
-```
-
-**Output:**
-
-```text
-occupation → ISCO group → label
-```
-
----
-
-## 4.3 Step 3 — Observed Skills
-
-```python
-for skill in job["skills"]:
-    sector_skill_observed[sector][skill] += 1
-```
-
-👉 rappresenta:
-
-> domanda reale del mercato
-
----
-
-## 4.4 Step 4 — Canonical Skills
-
-```python
-canonical_skills = occ_skill_relations[occ_id]
-
-for skill in canonical_skills:
-    sector_skill_canonical[sector][skill] += 1
-```
-
-👉 rappresenta:
-
-> struttura teorica ESCO pesata sui job
-
----
-
-## 4.5 Step 5 — Skill → Skill Group
-
-```python
-group = get_skill_group(skill_id)
-```
-
-Applicato sia a:
-
-* observed
-* canonical
-
----
-
-## 4.6 Step 6 — Aggregazione per Sector
-
-Tutti i dati vengono aggregati per:
-
-```text
-sector → skill
-sector → skill group
-```
-
----
-
-# 📊 5. Esempio completo
-
-## Input (Job)
-
-```json
-[
-  {
-    "occupation": "Software Developer",
-    "skills": ["python", "sql"]
-  },
-  {
-    "occupation": "Software Developer",
-    "skills": ["java"]
-  }
-]
-```
-
----
-
-## ESCO
-
-```text
-Software Developer → programming, testing
-```
-
----
-
-## Step-by-step
-
-### Sector
-
-```text
-Software Developer → C2512 → Software developers
-```
-
----
-
-### Observed Skills
-
-```text
-python = 1
-sql = 1
-java = 1
-```
-
----
-
-### Canonical Skills
-
-```text
-programming = 2
-testing = 2
-```
-
-👉 perché 2 job con stessa occupation
-
----
-
-### Skill Groups
-
-#### Observed
-
-```text
-python → programming
-sql → data management
-```
-
-```text
-programming = 2
-data management = 1
-```
-
----
-
-#### Canonical
-
-```text
-programming → programming
-testing → quality assurance
-```
-
-```text
-programming = 2
-quality assurance = 2
-```
-
----
-
-# 🔴 6. Differenza fondamentale
-
-| Dimensione  | Observed                | Canonical                    |
-| ----------- | ----------------------- | ---------------------------- |
-| Origine     | Job                     | ESCO                         |
-| Significato | domanda reale           | conoscenza teorica           |
-| Peso        | frequenza skill nei job | frequenza occupation nei job |
-| Rumore      | alto                    | basso                        |
-| Completezza | bassa                   | alta                         |
-
----
-
-# 🧠 7. Interpretazione
-
-## Observed
-
-> “cosa le aziende chiedono esplicitamente”
-
-## Canonical
-
-> “cosa ESCO dice che serve per quel lavoro”
-
----
-
-# 🎯 8. Perché serve tutto questo
-
-Il sistema combina:
-
-```text
-Observed (mercato)
-+
-Canonical (modello)
-+
-Skill Groups (astrazione)
-+
-Sector (aggregazione)
-```
-
-per ottenere:
-
-* analisi robusta
-* confronto tra settori
-* identificazione gap
-
----
-
-# 🔥 9. Insight possibili
-
-| Caso                     | Significato     |
-| ------------------------ | --------------- |
-| Observed ↑ / Canonical ↓ | skill emergente |
-| Observed ↓ / Canonical ↑ | skill mancante  |
-| Entrambi ↑               | skill core      |
-| Entrambi ↓               | skill marginale |
-
----
-
-# 🧾 TL;DR
-
-> Il sistema proietta le skill ESCO (canonical) sulla distribuzione reale dei job, aggregandole per settore e astraendole tramite skill group per supportare analisi robuste e confrontabili.
-
----
-
-Se vuoi, nel prossimo step ti faccio:
-
-👉 versione **perfettamente allineata alla Task 3.5 (con NACE + matrix)**
-👉 oppure un diagramma architetturale pronto per slide/paper
-# 3. Sector systems
-
-## 3.1 ISCO mode
-
-- Native occupation-centric flow:
-  `job -> occupation -> isco_group -> ISCO label`.
-- View names remain:
-  - Observed
-  - Canonical
-  - Official Matrix
-
-## 3.2 NACE mode
-
-- Economic-activity flow:
-  `job -> occupation -> ESCO-NACE crosswalk -> nace_code -> NACE label`.
-- One ESCO occupation may map to multiple NACE sectors.
-- Current implementation keeps non-weighted multi-mapping to support sector-skill relation discovery.
-
-## 3.3 NACE view semantics
-
-- **Observed**: skills observed in jobs mapped to a NACE sector.
-- **Derived Canonical**: ESCO canonical relations aggregated by NACE via crosswalk.
-- **Aggregated Official Matrix**: ESCO official matrix aggregated by NACE via crosswalk.
-- NACE sector payloads also expose interpretation metrics: coverage (unique skills), top-skill dominance, and per-skill breadth/concentration/top-sector summaries.
-- ISCO sector payloads include interpretation metrics: emerging skills, missing skills, and stability overlap between observed and canonical skill sets.
-
-## 3.4 Dashboard behavior
-
-- Sector selector switches the active system between ISCO and NACE.
-- NACE level selector uses conceptual labels (`Section/Division/Group/Class`) and maps to
-  `nace_section/nace_division/nace_group/nace_class`.
-- Sector charts/tables/cards follow the selected system payload.
-- Level switching updates all NACE sectoral views (pie, selector list, detail panels and comparison summary), not only the comparison block.
-- Comparison block is descriptive only (no one-to-one ISCO↔NACE mapping claim).
+Use NACE totals for relationship discovery, not strict one-job-one-sector accounting.

@@ -1,7 +1,8 @@
-SECTOR RESOLUTION NOW SUPPORTS TWO SYSTEMS:
+# Implementation Note
 
-- ISCO: sector derived from occupation -> isco_group
-- NACE: sector derived from occupation -> ESCO-NACE crosswalk -> nace_code
+Sector resolution currently supports two systems:
 
-In NACE mode, one occupation may map to more than one NACE sector.
-Current goal: represent skill-sector relations, not strict one-to-one job accounting.
+- ISCO: `job -> occupation -> isco_group`
+- NACE: `job -> occupation -> ESCO-NACE crosswalk -> NACE code/title`
+
+NACE allows one occupation to map to multiple sectors. This is intentional for skill-sector relationship discovery and should not be interpreted as strict one-to-one job accounting.

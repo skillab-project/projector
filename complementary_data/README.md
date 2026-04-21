@@ -1,206 +1,72 @@
-Perfetto, ti faccio una **tabella chiara, completa e “da documentazione ufficiale”** 👇
-(con ruolo, relazioni e uso nel codice)
+# Complementary Data
 
----
+This folder contains local ESCO and NACE support files used by the current `app/` implementation.
 
-# 📂 SKILLAB Projector – File ESCO & Data Sources
+The canonical data-source documentation is [../docs/data-sources.md](../docs/data-sources.md).
 
-| File                                  | Tipo            | Contenuto                  | Relazione principale                                | Come lo usi                         | Esempio                      |
-| ------------------------------------- | --------------- | -------------------------- | --------------------------------------------------- | ----------------------------------- | ---------------------------- |
-| **`occupations_en.csv`**              | ESCO CSV        | Occupation + metadati      | `occupation → isco_group`, `occupation → nace_code` | Definisce il **sector**             | `Software Developer → 2512`  |
-| **`ISCOGroups_en.csv`**               | ESCO CSV        | Label gruppi ISCO          | `isco_group → label`                                | Traduce i sector in label leggibili | `2512 → Software developers` |
-| **`occupationSkillRelations_en.csv`** | ESCO CSV        | Relazione occupation-skill | `occupation → skill`                                | Costruisce il **canonical**         | `Software Dev → programming` |
-| **`skillsHierarchy_en.csv`**          | ESCO CSV        | Gerarchia skill            | `skill → skill_group`                               | Aggregazione semantica              | `python → programming`       |
-| **`Skills_Occupations Matrix.xlsx`**  | ESCO ufficiale  | Matrice pesata             | `occupation_group → skill_group → weight`           | Analisi avanzata/policy             | `C251 → programming = 0.8`   |
-| **Job API**                           | SKILLAB Tracker | Job reali                  | `job → occupation`, `job → skill`                   | Costruisce **observed**             | job con python, sql          |
+## Files Used At Runtime
 
----
+| File | Use |
+| --- | --- |
+| `occupations_en.csv` | Occupation metadata and ISCO fallback values |
+| `ISCOGroups_en.csv` | ISCO group labels |
+| `occupationSkillRelations_en.csv` | Canonical occupation-skill relations |
+| `skillsHierarchy_en.csv` | Skill-to-skill-group hierarchy |
+| `skillGroups_en.csv` | Skill group labels |
+| `Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx` | Official ESCO occupation-group to skill-group matrix |
+| `ESCO-NACE rev. 2.1 crosswalk (1).xlsx` | Preferred ESCO occupation to NACE mapping |
+| `nace_codes_2_1.csv` | NACE label fallback |
 
-# 🔗 Relazioni tra i file
+## Loading Path
 
-## 🔵 Core mapping
-
-```text
-job
- → occupation (Tracker)
- → occupations_en.csv
-     → isco_group
-     → nace_code
-```
-
----
-
-## 🔵 Skill mapping
+Files are loaded by:
 
 ```text
-job → skills (observed)
-
-occupationSkillRelations_en.csv
- → occupation → skills (canonical)
+app.core.container
+ -> app.services.esco_loader.EscoLoader
 ```
 
----
-
-## 🔵 Skill grouping
+The loader calls:
 
 ```text
-skillsHierarchy_en.csv
- → skill → skill_group
+load_local_esco_support()
+load_official_esco_matrix()
 ```
 
----
+## Conceptual Roles
 
-## 🔵 Sector labeling
+Observed layer:
 
 ```text
-occupations_en.csv → isco_group
-ISCOGroups_en.csv → label
+Tracker jobs -> occupations + skills
 ```
 
----
-
-## 🔵 Matrice avanzata
+Canonical layer:
 
 ```text
-Matrix Excel
- → occupation_group → skill_group → weight
+occupationSkillRelations_en.csv -> occupation -> canonical skills
 ```
 
----
-
-# 📊 Schema completo (visivo)
-
-```text id="c8t5wv"
-JOB (Tracker)
- ├── occupation_id
- │     └── occupations_en.csv
- │            ├── isco_group → ISCOGroups_en.csv → sector label
- │            └── nace_code (non usato ora)
- │
- ├── skills (observed)
- │     └── skillsHierarchy_en.csv → skill groups
- │
- └── canonical (via occupationSkillRelations_en.csv)
-       └── skillsHierarchy_en.csv → skill groups
-
-+ (opzionale)
-Matrix Excel → weighted skill groups
-```
-
----
-
-# 🧠 Ruolo di ogni file (in una riga)
-
-| File                              | Ruolo                       |
-| --------------------------------- | --------------------------- |
-| `occupations_en.csv`              | definisce i sector          |
-| `ISCOGroups_en.csv`               | rende leggibili i sector    |
-| `occupationSkillRelations_en.csv` | definisce il canonical      |
-| `skillsHierarchy_en.csv`          | permette aggregazione       |
-| Matrix Excel                      | aggiunge pesi (avanzato)    |
-| Job API                           | porta la realtà del mercato |
-
----
-
-# 🔥 Differenza concettuale chiave
-
-| Tipo        | File                     | Significato        |
-| ----------- | ------------------------ | ------------------ |
-| Observed    | Job API                  | domanda reale      |
-| Canonical   | occupationSkillRelations | modello ESCO       |
-| Aggregation | skillsHierarchy          | semplificazione    |
-| Sector      | occupations + ISCOGroups | dimensione analisi |
-| Advanced    | Matrix                   | pesi realistici    |
-
----
-
-# 📌 Esempio end-to-end
-
-## Input
-
-```json
-job:
-{
-  "occupation": "Software Developer",
-  "skills": ["python", "sql"]
-}
-```
-
----
-
-## Mapping
+Skill-group layer:
 
 ```text
-occupations_en.csv:
-Software Developer → 2512
-
-ISCOGroups_en.csv:
-2512 → Software developers
+skillsHierarchy_en.csv -> skill -> ESCO skill group
 ```
 
----
-
-## Canonical
+Official matrix layer:
 
 ```text
-occupationSkillRelations:
-Software Developer → programming, testing
+ESCO matrix workbook -> occupation group -> skill group shares
 ```
 
----
-
-## Skill Groups
+NACE layer:
 
 ```text
-skillsHierarchy:
-python → programming
-sql → data management
+ESCO-NACE crosswalk -> occupation -> one or more NACE codes/titles
 ```
 
----
+## Current NACE Rule
 
-## Output finale
+The ESCO-NACE crosswalk is the preferred source for NACE-facing semantics because it supports one-to-many mappings and titles.
 
-```text
-Sector: Software developers
-
-Observed:
-python, sql
-
-Canonical:
-programming, testing
-
-Skill Groups:
-programming, data management
-```
-
----
-
-# 🎯 TL;DR
-
-> Il sistema combina più file ESCO per trasformare job reali in analisi strutturate tramite mapping occupation → sector, skill → group e canonical knowledge.
-
----
-
-Se vuoi, prossimo step ti faccio:
-
-👉 una versione **super sintetica da README (10 righe)**
-👉 oppure un diagramma tipo architettura per slide/paper
-## Additional source: ESCO-NACE crosswalk
-
-- File type: crosswalk workbook
-- Content: `occupation (ESCO URI) -> one or more NACE codes/titles`
-- Main use: NACE label resolution and NACE sector aggregation
-
-Relational flow:
-
-```text
-occupation (ESCO)
- -> ESCO-NACE crosswalk
-    -> nace_code
-    -> nace_title
-```
-
-Note:
-- `occupations_en.csv` may still expose a single `nace_code`.
-- The crosswalk is now the preferred source for NACE-facing semantics and labels.
+`occupations_en.csv` may still expose a single `naceCode`, but it is treated as fallback support when crosswalk data is unavailable.
