@@ -12,6 +12,7 @@ pipeline {
 
     environment {
         CI_IMAGE = "projector-ci:${env.BUILD_NUMBER}"
+        GITHUB_STATUS_CREDENTIALS_ID = "1efb02bc-566c-433b-9e76-577fcb07cf5b"
     }
 
     stages {
@@ -240,16 +241,45 @@ pipeline {
 
             sh '''
                 set +e
-                docker run --rm \
-                    -u $(id -u):$(id -g) \
-                    -v "$WORKSPACE:/workspace" \
-                    -w /workspace \
-                    ${CI_IMAGE} \
-                    sh -c "python tools/quality_dashboard.py" || true
+                if docker image inspect ${CI_IMAGE} >/dev/null 2>&1; then
+                    docker run --rm \
+                        -u $(id -u):$(id -g) \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c "python tools/quality_dashboard.py" || true
+                else
+                    echo "CI image ${CI_IMAGE} not available; skipping quality dashboard generation."
+                fi
             '''
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
             archiveArtifacts artifacts: 'quality-dashboard/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+
+            script {
+                try {
+                    withCredentials([usernamePassword(credentialsId: env.GITHUB_STATUS_CREDENTIALS_ID, usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            set +e
+                            if docker image inspect ${CI_IMAGE} >/dev/null 2>&1; then
+                                docker run --rm \
+                                    -u $(id -u):$(id -g) \
+                                    -e BUILD_URL="${BUILD_URL}" \
+                                    -e GIT_COMMIT="${GIT_COMMIT}" \
+                                    -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+                                    -v "$WORKSPACE:/workspace" \
+                                    -w /workspace \
+                                    ${CI_IMAGE} \
+                                    sh -c "python tools/github_statuses.py" || true
+                            else
+                                echo "CI image ${CI_IMAGE} not available; skipping GitHub commit statuses."
+                            fi
+                        '''
+                    }
+                } catch (Exception e) {
+                    echo "GitHub commit statuses skipped: ${e.getMessage()}"
+                }
+            }
 
             sh '''
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true
