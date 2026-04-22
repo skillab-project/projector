@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from quality_gates import load_gates
+from quality_gates import load_check_policies, load_gates
 
 
 DASHBOARD_CSS = """
@@ -328,40 +328,47 @@ def render_test_table(tests):
     """
 
 
-def render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory):
-    test_status = "fail" if any(item.status == "fail" for item in tests) else "pass"
+def render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory, check_policies):
+    test_outcome = "fail" if any(item.status == "fail" for item in tests) else "pass"
     if any(item.status == "missing" for item in tests):
-        test_status = "missing" if test_status == "pass" else test_status
+        test_outcome = "missing" if test_outcome == "pass" else test_outcome
 
     if coverage.get("exists"):
-        coverage_status = "pass" if coverage["total_rate"] * 100 >= coverage_gate else "fail"
-        coverage_note = f'{pct(coverage["total_rate"])} >= {coverage_gate:.0f}%'
+        coverage_outcome = "pass" if coverage["total_rate"] * 100 >= coverage_gate else "fail"
+        coverage_note = (
+            f'{check_policies["coverage"]["rule"]}: '
+            f'{pct(coverage["total_rate"])} >= {coverage_gate:.0f}%'
+        )
     else:
-        coverage_status = "missing"
-        coverage_note = "coverage.xml not found"
+        coverage_outcome = "missing"
+        coverage_note = f'{check_policies["coverage"]["rule"]}: coverage.xml not found'
 
     if mutation.get("exists"):
-        mutation_status = "pass" if mutation["score"] * 100 >= mutation_advisory else "below"
+        mutation_outcome = "pass" if mutation["score"] * 100 >= mutation_advisory else "below"
         mutation_note = f'{pct(mutation["score"])} advisory threshold {mutation_advisory:.0f}%'
     else:
-        mutation_status = "missing"
+        mutation_outcome = "missing"
         mutation_note = "mutmut stats not found"
 
     rows = [
-        ("Pytest", test_status, "Enforced", "Controlled by pytest exit code in Jenkins"),
-        ("Coverage", coverage_status, "Enforced", coverage_note),
-        ("Mutation", mutation_status, "Advisory", mutation_note),
-        ("Lint", "info", "Report only", "Reports are archived; no blocking gate configured"),
+        ("tests", test_outcome, test_outcome, check_policies["tests"]["rule"]),
+        ("coverage", coverage_outcome, coverage_outcome, coverage_note),
+        ("mutation", "pass" if mutation.get("exists") else "missing", mutation_outcome, mutation_note),
+        ("lint", "pass", "info", check_policies["lint"]["rule"]),
     ]
     body = "\n".join(
-        f"<tr><td>{e(name)}</td><td>{pill(status)}</td><td>{e(mode)}</td><td>{e(note)}</td></tr>"
-        for name, status, mode, note in rows
+        (
+            f"<tr><td>{e(check_policies[key]['label'])}</td><td>{pill(jenkins_result)}</td>"
+            f"<td>{e(check_policies[key]['jenkins_result'])}</td><td>{e(check_policies[key]['mode'])}</td>"
+            f"<td>{pill(quality_outcome)}</td><td>{e(note)}</td></tr>"
+        )
+        for key, jenkins_result, quality_outcome, note in rows
     )
     return f"""
     <section>
       <h2>Quality Gates</h2>
       <table>
-        <thead><tr><th>Check</th><th>Result</th><th>Mode</th><th>Rule</th></tr></thead>
+        <thead><tr><th>Check</th><th>Jenkins Result</th><th>Jenkins Meaning</th><th>Quality Mode</th><th>Quality Outcome</th><th>Rule</th></tr></thead>
         <tbody>{body}</tbody>
       </table>
     </section>
@@ -447,11 +454,11 @@ def render_links():
     """
 
 
-def render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context):
+def render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context, check_policies):
     body = f"""
     {render_cards(tests, coverage, mutation, coverage_gate, mutation_advisory)}
     {render_build_context(build_context)}
-    {render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory)}
+    {render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory, check_policies)}
     {render_test_table(tests)}
     {render_coverage(coverage, coverage_gate)}
     {render_mutation(mutation, mutation_advisory)}
@@ -485,6 +492,7 @@ def main():
     args = parser.parse_args()
 
     gates = load_gates(args.config)
+    check_policies = load_check_policies(args.config)
     coverage_gate = args.coverage_gate if args.coverage_gate is not None else gates["coverage"]
     mutation_advisory = (
         args.mutation_advisory if args.mutation_advisory is not None else gates["mutation_advisory"]
@@ -502,7 +510,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.css").write_text(DASHBOARD_CSS + "\n", encoding="utf-8")
     (output_dir / "index.html").write_text(
-        render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context),
+        render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context, check_policies),
         encoding="utf-8",
     )
     print(output_dir / "index.html")

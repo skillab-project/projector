@@ -41,3 +41,26 @@ show_missing = true
 [tool.quality_gates]
 coverage = 78
 mutation_advisory = 55
+
+[tool.quality_checks.tests]
+label = "Pytest"
+mode = "Enforced"
+jenkins_result = "SUCCESS when pytest exits with code 0"
+rule = "Controlled by pytest exit code in Jenkins"
+
+[tool.quality_checks.coverage]
+label = "Coverage"
+mode = "Enforced"
+jenkins_result = "SUCCESS when coverage gate passes"
+rule = "Total coverage must meet the configured coverage gate"
+
+[tool.quality_checks.mutation]
+label = "Mutation"
+mode = "Advisory"
+jenkins_result = "SUCCESS when mutation analysis and reports are generated"
+
+[tool.quality_checks.lint]
+label = "Lint"
+mode = "Report only"
+jenkins_result = "SUCCESS when lint reports are generated"
+rule = "Reports are archived; no blocking gate configured"

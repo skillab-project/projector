@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 
 from quality_dashboard import parse_coverage, parse_junit, parse_mutation, pct
-from quality_gates import load_gates
+from quality_gates import load_check_policies, load_gates
 
 
 MAX_DESCRIPTION = 140
@@ -134,12 +134,12 @@ def mutation_status(gates):
     return ("success", description, artifact_url("mutation-report/index.html") or artifact_url("quality-dashboard/index.html"))
 
 
-def code_quality_status():
+def code_quality_status(check_policies):
     has_pylint = os.path.exists("pylint-report.txt")
     has_flake8 = os.path.exists("flake8-report.json")
     if not has_pylint and not has_flake8:
         return ("error", describe("Missing lint reports"), artifact_url("quality-dashboard/index.html"))
-    return ("success", describe("Code quality reports archived; non-blocking"), artifact_url("quality-dashboard/index.html"))
+    return ("success", describe(check_policies["lint"]["rule"]), artifact_url("quality-dashboard/index.html"))
 
 
 def main():
@@ -157,12 +157,13 @@ def main():
     repo = args.repo or infer_repo()
     sha = args.sha or infer_sha()
     gates = load_gates(args.config)
+    check_policies = load_check_policies(args.config)
 
     statuses = [
         ("Jenkins / Tests", *tests_status()),
         ("Jenkins / Coverage Gate", *coverage_status(gates)),
         ("Jenkins / Mutation Advisory", *mutation_status(gates)),
-        ("Jenkins / Code Quality", *code_quality_status()),
+        ("Jenkins / Code Quality", *code_quality_status(check_policies)),
     ]
 
     for context, state, description, target_url in statuses:
