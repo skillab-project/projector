@@ -5,12 +5,16 @@ paths_to_mutate = [
     "app/services/esco_loader.py",
 ]
 also_copy = [
+    "app/__init__.py",
     "app/test.py",
     "app/main.py",
     "app/api/",
     "app/client/",
     "app/core/",
     "app/schemas/",
+    "app/services/analytics/market.py",
+    "app/services/analytics/regional.py",
+    "app/services/analytics/trends.py",
     "app/services/projector_service.py",
 ]
 tests_dir = ["app/test.py"]
