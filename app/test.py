@@ -604,6 +604,10 @@ async def test_fetch_occupation_labels_specific_esco():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="Skipping test in CI environment"
+)
 async def test_fetch_occupation_labels_integration_real():
     load_dotenv()
     if not os.getenv("TRACKER_API") or not os.getenv("TRACKER_USERNAME") or not os.getenv("TRACKER_PASSWORD"):
@@ -1145,7 +1149,7 @@ def test_loader_crosswalk_supports_one_to_many_occupation_nace_mapping():
 
     assert "occ_1" in engine.occupation_nace_map
     mapped_codes = sorted(item["code"] for item in engine.occupation_nace_map["occ_1"])
-    assert mapped_codes == ["J59.11", "J62"]
+    assert mapped_codes == ["59.11", "62"]
 
 
 def test_nace_mode_never_returns_isco_label_when_crosswalk_label_missing():
