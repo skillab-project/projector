@@ -1,0 +1,24 @@
+[tool.mutmut]
+paths_to_mutate = [
+    "app/services/analytics/occupations.py",
+    "app/services/analytics/sectoral.py",
+    "app/services/esco_loader.py",
+]
+also_copy = [
+    "app/test.py",
+    "app/main.py",
+    "app/api/",
+    "app/client/",
+    "app/core/",
+    "app/schemas/",
+    "app/services/projector_service.py",
+]
+tests_dir = ["app/test.py"]
+pytest_add_cli_args_test_selection = [
+    "-m",
+    "not asyncio",
+    "-k",
+    "not endpoint and not dashboard and not test_fetch_occupation_labels_integration_real",
+]
+pytest_add_cli_args = ["-q"]
+mutate_only_covered_lines = true

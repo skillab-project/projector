@@ -48,6 +48,8 @@ pipeline {
                         sh -c "
                             rm -rf \
                                 coverage-report \
+                                mutation-report \
+                                mutants \
                                 .pytest_cache \
                                 test-results.xml \
                                 integration-test-results.xml \
@@ -154,6 +156,70 @@ pipeline {
 //                 }
             }
         }
+
+        stage('Mutation Testing') {
+            steps {
+                echo "🧬 Running mutation test analysis..."
+                sh '''
+                    set +e
+                    docker run --rm \
+                        -u $(id -u):$(id -g) \
+                        -e CI=true \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c '
+                            set +e
+
+                            python -m pip install -r requirements-dev.txt || exit 1
+
+                            mutmut run --max-children 4
+                            MUTMUT_EXIT=$?
+                            echo "mutmut exit code: ${MUTMUT_EXIT}"
+
+                            python tools/mutation_report.py || true
+                            mutmut export-cicd-stats || true
+
+                            echo "--- MUTATION TEST SUMMARY START ---"
+                            if [ -f mutants/mutmut-cicd-stats.json ]; then
+                                cat mutants/mutmut-cicd-stats.json
+                            else
+                                echo "No mutation stats generated"
+                            fi
+                            echo "--- MUTATION TEST SUMMARY END ---"
+
+                            # Quality gate futuro, intenzionalmente disabilitato mentre fissiamo la baseline.
+                            # Soglie suggerite:
+                            # 1. score >= 55 dopo aver coperto i cluster principali di survivor.
+                            # 2. score >= 65 quando sectoral/loader avranno test piu forti.
+                            # 3. score >= 70 solo sul profilo mutmut selezionato, non su tutta l'app.
+                            #
+                            # python - <<'"'"'PY'"'"'
+                            # import json
+                            # from pathlib import Path
+                            #
+                            # stats_path = Path("mutants/mutmut-cicd-stats.json")
+                            # if not stats_path.exists():
+                            #     raise SystemExit("Mutation stats file missing")
+                            #
+                            # stats = json.loads(stats_path.read_text())
+                            # killed = stats.get("killed", 0)
+                            # survived = stats.get("survived", 0)
+                            # effective = killed + survived
+                            # score = (killed / effective * 100) if effective else 0.0
+                            #
+                            # threshold = 55.0
+                            # if score < threshold:
+                            #     raise SystemExit(
+                            #         f"Mutation score {score:.1f}% is below threshold {threshold:.1f}%"
+                            #     )
+                            # PY
+
+                            exit 0
+                        '
+                '''
+            }
+        }
     }
 
     post {
@@ -162,7 +228,7 @@ pipeline {
             junit allowEmptyResults: true, testResults: '*test-results.xml'
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'pylint-report.txt, flake8-report.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'pylint-report.txt, flake8-report.json, mutation-report/index.html, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
 
             sh '''
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true
