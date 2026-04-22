@@ -384,6 +384,7 @@ async def test_fetch_occupation_labels_specific_esco():
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 @pytest.mark.skipif(
     os.getenv("CI") == "true",
     reason="Skipping test in CI environment"
