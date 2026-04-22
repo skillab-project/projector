@@ -411,6 +411,7 @@ If Tracker is down or slow, Projector behavior will also be affected.
 
 Detailed documentation is available in the `/docs` folder:
 
+* `CONTRIBUTING.md`
 * `docs/overview.md`
 * `docs/api-reference.md`
 * `docs/data-model.md`
