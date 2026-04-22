@@ -175,7 +175,7 @@ pipeline {
                         sh -c '
                             set +e
 
-                            python -m pip install -r requirements-dev.txt || exit 1
+                            mutmut --version
 
                             mutmut run --max-children 4
                             MUTMUT_EXIT=$?
@@ -183,6 +183,10 @@ pipeline {
 
                             python tools/mutation_report.py || true
                             mutmut export-cicd-stats || true
+
+                            echo "--- MUTATION REPORT FILES START ---"
+                            find mutation-report -maxdepth 2 -type f -print || true
+                            echo "--- MUTATION REPORT FILES END ---"
 
                             echo "--- MUTATION TEST SUMMARY START ---"
                             if [ -f mutants/mutmut-cicd-stats.json ]; then
@@ -232,7 +236,7 @@ pipeline {
             junit allowEmptyResults: true, testResults: '*test-results.xml'
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/index.html, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
 
             sh '''
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true
