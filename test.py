@@ -42,11 +42,6 @@ async def test_engine_analyze_market_data_logic():
     assert result["rankings"]["sectors"][0]["name"] == "Tech"
 
 
-
-
-
-
-
 @pytest.mark.asyncio
 async def test_fetch_occupation_labels():
     """Verifica popolamento sector_map forzando il reset degli stati."""
@@ -210,6 +205,7 @@ async def test_analyze_market_data_unclassified_sector():
     result = await engine.analyze_market_data(mock_jobs)
     assert result["rankings"]["sectors"] == []
 
+
 # ==========================================
 # 5. INTEGRATION: ENDPOINT EMERGING SKILLS
 # ==========================================
@@ -228,6 +224,7 @@ def test_endpoint_emerging_skills_structure():
 
 import csv
 from pathlib import Path
+
 
 # ==========================================
 # 1.b TWIN TRANSITION CSV LOOKUP
@@ -461,6 +458,7 @@ async def test_engine_analyze_market_data_logic_with_csv_based_tags():
     assert skill_entry["is_green"] is False
     assert skill_entry["is_digital"] is True
 
+
 @pytest.mark.asyncio
 @pytest.mark.skip
 async def test_fetch_skill_names_enriched_logic():
@@ -629,9 +627,9 @@ async def test_regional_decomposition_logic():
     """
     # Mock jobs con codici che simulano NUTS (ITC4C è NUTS3, ITC4 è NUTS2, ITC è NUTS1)
     mock_jobs = [
-        {"location_code": "ITC4C", "skills": ["s1", "s2"]}, # Milano (NUTS3)
-        {"location_code": "ITC4C", "skills": ["s1"]},      # Milano (NUTS3)
-        {"location_code": "SOUTH", "skills": ["s2"]}       # Codice non NUTS (Raw)
+        {"location_code": "ITC4C", "skills": ["s1", "s2"]},  # Milano (NUTS3)
+        {"location_code": "ITC4C", "skills": ["s1"]},  # Milano (NUTS3)
+        {"location_code": "SOUTH", "skills": ["s2"]}  # Codice non NUTS (Raw)
     ]
 
     # Prepariamo la skill_map minima
@@ -681,6 +679,7 @@ async def test_regional_decomposition_logic():
     # ==========================================
     # 6. LOCAL ESCO SUPPORT LOADING
     # ==========================================
+
 
 def test_load_local_esco_support_populates_maps(monkeypatch, tmp_path):
     """
@@ -766,6 +765,7 @@ def test_load_local_esco_support_populates_maps(monkeypatch, tmp_path):
     assert engine.occupation_group_labels["isco_2512"] == "Software developers"
     assert engine.occupation_group_labels["isco_2421"] == "Business professionals"
 
+
 def test_load_local_esco_support_missing_files_is_safe(monkeypatch, tmp_path):
     """
     Verifica che il loader non fallisca se i CSV non esistono.
@@ -788,6 +788,7 @@ def test_load_local_esco_support_missing_files_is_safe(monkeypatch, tmp_path):
     assert engine.skill_hierarchy == {}
     assert dict(engine.occ_skill_relations) == {}
     assert engine.occupation_group_labels == {}
+
 
 def test_load_local_esco_support_ignores_incomplete_rows(monkeypatch, tmp_path):
     """
@@ -837,6 +838,7 @@ def test_load_local_esco_support_ignores_incomplete_rows(monkeypatch, tmp_path):
     assert list(engine.occupation_meta.keys()) == ["occ_valid"]
     assert list(engine.skill_hierarchy.keys()) == ["skill_valid"]
     assert engine.occ_skill_relations["occ_valid"] == {"skill_valid"}
+
 
 def test_load_local_esco_support_accepts_alternative_column_names(monkeypatch, tmp_path):
     """
@@ -890,6 +892,7 @@ def test_load_local_esco_support_accepts_alternative_column_names(monkeypatch, t
     assert engine.skill_hierarchy["skill_alt"]["level_1"] == "S9"
     assert engine.occ_skill_relations["occ_alt"] == {"skill_alt"}
     assert engine.occupation_group_labels["isco_alt"] == "Alt group label"
+
 
 # ==========================================
 # 7. OCCUPATION -> SECTOR RESOLUTION
@@ -1028,6 +1031,7 @@ def test_get_sector_from_occupation_returns_default_when_unknown():
 
     result = engine.get_sector_from_occupation("unknown_occ")
     assert result == "Sector not specified"
+
 
 # ==========================================
 # 8. OBSERVED OCCUPATION -> SKILL MATRIX
@@ -1175,6 +1179,7 @@ def test_get_observed_skills_for_sector_returns_sorted_counts():
     assert result[1]["skill_id"] == "skill_y"
     assert result[1]["count"] == 1
 
+
 # ==========================================
 # 9. OBSERVED SECTOR SKILL SUMMARIES
 # ==========================================
@@ -1312,6 +1317,7 @@ def test_summarize_single_sector_returns_one_sector_summary():
     assert result["top_skills"][0]["label"] == "Docker"
     assert result["top_skills"][0]["count"] == 4
     assert result["top_skills"][0]["frequency"] == 1.0
+
 
 # ==========================================
 # 10. CANONICAL SECTOR SKILLS
@@ -1483,6 +1489,7 @@ def test_compare_observed_and_canonical_for_sector_returns_both_views():
     # 11. SECTOR -> SKILL GROUP MATRICES
     # ==========================================
 
+
 def test_get_skill_group_returns_level_2_by_default():
     from main import ProjectorEngine
 
@@ -1497,6 +1504,7 @@ def test_get_skill_group_returns_level_2_by_default():
 
     result = engine.get_skill_group("skill_a")
     assert result == "S5.1"
+
 
 def test_get_skill_group_can_return_level_1():
     from main import ProjectorEngine
@@ -1513,6 +1521,7 @@ def test_get_skill_group_can_return_level_1():
     result = engine.get_skill_group("skill_a", level=1)
     assert result == "S5"
 
+
 def test_get_skill_group_falls_back_to_label():
     from main import ProjectorEngine
 
@@ -1524,6 +1533,7 @@ def test_get_skill_group_falls_back_to_label():
 
     result = engine.get_skill_group("skill_a", level=2)
     assert result == "Python"
+
 
 def test_build_observed_sector_skillgroup_matrix_counts_correctly():
     from main import ProjectorEngine
@@ -1556,6 +1566,7 @@ def test_build_observed_sector_skillgroup_matrix_counts_correctly():
 
     assert matrix["Software developers"]["S5.1"] == 3
     assert matrix["Software developers"]["S2.4"] == 1
+
 
 def test_build_canonical_sector_skillgroup_matrix_counts_correctly():
     from main import ProjectorEngine
@@ -1590,6 +1601,7 @@ def test_build_canonical_sector_skillgroup_matrix_counts_correctly():
     assert matrix["Software developers"]["S5.1"] == 2
     assert matrix["Software developers"]["S2.4"] == 2
 
+
 def test_summarize_observed_sector_skillgroups_returns_frequencies():
     from main import ProjectorEngine
 
@@ -1607,6 +1619,7 @@ def test_summarize_observed_sector_skillgroups_returns_frequencies():
     assert ict["top_groups"][0]["group_id"] == "S5.1"
     assert ict["top_groups"][0]["frequency"] == 0.75
 
+
 def test_summarize_canonical_sector_skillgroups_returns_frequencies():
     from main import ProjectorEngine
 
@@ -1622,6 +1635,7 @@ def test_summarize_canonical_sector_skillgroups_returns_frequencies():
     assert ict["total_group_mentions"] == 4
     assert ict["unique_groups"] == 2
     assert ict["top_groups"][0]["frequency"] == 0.5
+
 
 def test_compare_observed_and_canonical_groups_for_sector_returns_both_views():
     from main import ProjectorEngine
@@ -1639,6 +1653,7 @@ def test_compare_observed_and_canonical_groups_for_sector_returns_both_views():
     assert result["observed_groups"]["top_groups"][0]["group_id"] == "S5.1"
     assert result["canonical_groups"]["top_groups"][0]["group_id"] == "S2.4"
 
+
 # ==========================================
 # 12. OFFICIAL ESCO MATRIX
 # ==========================================
@@ -1650,6 +1665,7 @@ def test_get_esco_matrix_sheet_name():
 
     assert engine.get_esco_matrix_sheet_name(1, 1) == "Matrix 1.1"
     assert engine.get_esco_matrix_sheet_name(2, 3) == "Matrix 2.3"
+
 
 def test_get_occupation_group_id_for_matrix_reduces_to_requested_level():
     from main import ProjectorEngine
@@ -1667,6 +1683,7 @@ def test_get_occupation_group_id_for_matrix_reduces_to_requested_level():
     assert engine.get_occupation_group_id_for_matrix("occ_1", occupation_level=2) == "C25"
     assert engine.get_occupation_group_id_for_matrix("occ_1", occupation_level=3) == "C251"
     assert engine.get_occupation_group_id_for_matrix("occ_1", occupation_level=4) == "C2512"
+
 
 def test_get_official_esco_profile_for_occupation_returns_profile():
     from main import ProjectorEngine
@@ -1694,6 +1711,7 @@ def test_get_official_esco_profile_for_occupation_returns_profile():
     assert result["sheet_name"] == "Matrix 1.1"
     assert result["occupation_group_label"] == "Professionals"
     assert result["profile"]["skill_group_a"] == 0.4
+
 
 def test_build_official_matrix_sector_skillgroup_profile_counts_correctly():
     from main import ProjectorEngine
@@ -1733,6 +1751,7 @@ def test_build_official_matrix_sector_skillgroup_profile_counts_correctly():
     assert matrix["Professionals"]["group_x"] == 0.6
     assert matrix["Professionals"]["group_y"] == 1.4
 
+
 def test_summarize_official_matrix_sector_skillgroups_returns_sorted_groups():
     from main import ProjectorEngine
 
@@ -1747,6 +1766,7 @@ def test_summarize_official_matrix_sector_skillgroups_returns_sorted_groups():
     assert ict["sector"] == "ICT"
     assert ict["top_groups"][0]["group_id"] == "group_a"
     assert ict["top_groups"][0]["frequency"] == 0.9
+
 
 def test_compare_all_group_profiles_for_sector_returns_three_views():
     from main import ProjectorEngine
@@ -1766,6 +1786,7 @@ def test_compare_all_group_profiles_for_sector_returns_three_views():
     assert result["observed_groups"]["top_groups"][0]["group_id"] == "obs_group"
     assert result["canonical_groups"]["top_groups"][0]["group_id"] == "can_group"
     assert result["official_matrix_groups"]["top_groups"][0]["group_id"] == "off_group"
+
 
 # ==========================================
 # 13. UNIFIED SECTORAL INTELLIGENCE
@@ -1882,6 +1903,7 @@ def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
     assert len(sector["observed_groups"]["top_groups"]) > 0
     assert len(sector["canonical_groups"]["top_groups"]) > 0
     assert len(sector["matrix_groups"]["top_groups"]) > 0
+
 
 # ==========================================
 # 14. MATRIX / SCHEMA CONTRACT / EDGE CASES
@@ -2113,9 +2135,8 @@ def test_endpoint_analyze_skills_sectoral_contract_with_matrix_groups():
     ]
 
     with patch.object(engine, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
-         patch.object(engine, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
-         patch.object(engine, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
-
+            patch.object(engine, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+            patch.object(engine, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
         m_fetch.return_value = fake_jobs
         m_fetch_skills.return_value = None
         m_fetch_occ.return_value = None
@@ -2181,9 +2202,8 @@ def test_endpoint_analyze_skills_sectoral_top_groups_include_group_label():
     ]
 
     with patch.object(engine, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
-         patch.object(engine, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
-         patch.object(engine, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
-
+            patch.object(engine, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+            patch.object(engine, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
         m_fetch.return_value = fake_jobs
         m_fetch_skills.return_value = None
         m_fetch_occ.return_value = None
