@@ -48,6 +48,7 @@ pipeline {
                         ${CI_IMAGE} \
                         sh -c "
                             rm -rf \
+                                test-report \
                                 coverage-report \
                                 mutation-report \
                                 quality-dashboard \
@@ -244,17 +245,24 @@ pipeline {
                 if docker image inspect ${CI_IMAGE} >/dev/null 2>&1; then
                     docker run --rm \
                         -u $(id -u):$(id -g) \
+                        -e BUILD_URL="${BUILD_URL}" \
+                        -e GIT_COMMIT="${GIT_COMMIT}" \
+                        -e BRANCH_NAME="${BRANCH_NAME}" \
+                        -e CHANGE_ID="${CHANGE_ID}" \
+                        -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
+                        -e CHANGE_TARGET="${CHANGE_TARGET}" \
+                        -e JOB_NAME="${JOB_NAME}" \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
-                        sh -c "python tools/quality_dashboard.py" || true
+                        sh -c "python tools/test_report.py && python tools/quality_dashboard.py" || true
                 else
                     echo "CI image ${CI_IMAGE} not available; skipping quality dashboard generation."
                 fi
             '''
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'quality-dashboard/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'quality-dashboard/**, test-report/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
 
             script {
                 try {
@@ -266,6 +274,11 @@ pipeline {
                                     -u $(id -u):$(id -g) \
                                     -e BUILD_URL="${BUILD_URL}" \
                                     -e GIT_COMMIT="${GIT_COMMIT}" \
+                                    -e BRANCH_NAME="${BRANCH_NAME}" \
+                                    -e CHANGE_ID="${CHANGE_ID}" \
+                                    -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
+                                    -e CHANGE_TARGET="${CHANGE_TARGET}" \
+                                    -e JOB_NAME="${JOB_NAME}" \
                                     -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
                                     -v "$WORKSPACE:/workspace" \
                                     -w /workspace \

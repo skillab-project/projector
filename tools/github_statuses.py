@@ -31,10 +31,30 @@ def infer_sha():
 
 
 def artifact_url(path):
-    build_url = os.environ.get("BUILD_URL", "").rstrip("/")
+    build_url = os.environ.get("JENKINS_ARTIFACT_BASE_URL") or os.environ.get("BUILD_URL", "")
+    build_url = build_url.rstrip("/")
     if not build_url:
         return None
     return f"{build_url}/artifact/{path}"
+
+
+def build_mode():
+    if not os.environ.get("CHANGE_ID"):
+        return "Branch"
+
+    marker_source = " ".join(
+        os.environ.get(name, "")
+        for name in ("JOB_NAME", "BUILD_URL", "BRANCH_NAME")
+    ).lower()
+    if "merge" in marker_source:
+        return "PR merge"
+    if "head" in marker_source:
+        return "PR head"
+    return "PR"
+
+
+def describe(message):
+    return f"{build_mode()}: {message}"
 
 
 def clamp_description(value):
@@ -73,37 +93,41 @@ def tests_status():
     ]
     if any(not suite.exists for suite in suites):
         missing = ", ".join(suite.label for suite in suites if not suite.exists)
-        return ("error", f"Missing JUnit report: {missing}", artifact_url("quality-dashboard/index.html"))
+        return ("error", describe(f"Missing JUnit report: {missing}"), artifact_url("test-report/index.html"))
 
     total = sum(suite.tests for suite in suites)
     failed = sum(suite.failures + suite.errors for suite in suites)
     skipped = sum(suite.skipped for suite in suites)
     passed = sum(suite.passed for suite in suites)
     state = "failure" if failed else "success"
-    return (state, f"Tests: {passed}/{total} passed, {failed} failed/errors, {skipped} skipped", artifact_url("quality-dashboard/index.html"))
+    return (
+        state,
+        describe(f"Tests: {passed}/{total} passed, {failed} failed/errors, {skipped} skipped"),
+        artifact_url("test-report/index.html"),
+    )
 
 
 def coverage_status(gates):
     coverage = parse_coverage("coverage.xml")
     if not coverage.get("exists"):
-        return ("error", "Missing coverage.xml", artifact_url("quality-dashboard/index.html"))
+        return ("error", describe("Missing coverage.xml"), artifact_url("quality-dashboard/index.html"))
 
     value = coverage["total_rate"] * 100
     gate = gates["coverage"]
     state = "success" if value >= gate else "failure"
-    description = f"Coverage: {value:.1f}% / gate {gate:g}%; branch {coverage['branch_rate'] * 100:.1f}%"
+    description = describe(f"Coverage: {value:.1f}% / gate {gate:g}%; branch {coverage['branch_rate'] * 100:.1f}%")
     return (state, description, artifact_url("coverage-report/index.html") or artifact_url("quality-dashboard/index.html"))
 
 
 def mutation_status(gates):
     mutation = parse_mutation("mutants/mutmut-cicd-stats.json")
     if not mutation.get("exists"):
-        return ("error", "Missing mutation stats", artifact_url("quality-dashboard/index.html"))
+        return ("error", describe("Missing mutation stats"), artifact_url("quality-dashboard/index.html"))
 
     value = mutation["score"] * 100
     advisory = gates["mutation_advisory"]
     relation = "meets" if value >= advisory else "below"
-    description = (
+    description = describe(
         f"Mutation: {value:.1f}% {relation} advisory {advisory:g}%; "
         f"killed {mutation.get('killed', 0)}, survived {mutation.get('survived', 0)}"
     )
@@ -114,8 +138,8 @@ def code_quality_status():
     has_pylint = os.path.exists("pylint-report.txt")
     has_flake8 = os.path.exists("flake8-report.json")
     if not has_pylint and not has_flake8:
-        return ("error", "Missing lint reports", artifact_url("quality-dashboard/index.html"))
-    return ("success", "Code quality reports archived; non-blocking", artifact_url("quality-dashboard/index.html"))
+        return ("error", describe("Missing lint reports"), artifact_url("quality-dashboard/index.html"))
+    return ("success", describe("Code quality reports archived; non-blocking"), artifact_url("quality-dashboard/index.html"))
 
 
 def main():

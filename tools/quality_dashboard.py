@@ -2,6 +2,7 @@
 import argparse
 import html
 import json
+import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -155,6 +156,39 @@ def pill(status):
     return f'<span class="pill {status}">{labels.get(status, status.upper())}</span>'
 
 
+def get_build_context():
+    change_id = os.environ.get("CHANGE_ID", "")
+    marker_source = " ".join(
+        os.environ.get(name, "")
+        for name in ("JOB_NAME", "BUILD_URL", "BRANCH_NAME")
+    ).lower()
+
+    if change_id:
+        if "merge" in marker_source:
+            mode = "PR merge"
+        elif "head" in marker_source:
+            mode = "PR head"
+        else:
+            mode = "PR"
+        scope = f"PR #{change_id}"
+        source = os.environ.get("CHANGE_BRANCH") or os.environ.get("BRANCH_NAME") or "unknown"
+        target = os.environ.get("CHANGE_TARGET") or "unknown"
+    else:
+        mode = "Branch"
+        scope = os.environ.get("BRANCH_NAME") or "unknown"
+        source = scope
+        target = ""
+
+    return {
+        "mode": mode,
+        "scope": scope,
+        "source": source,
+        "target": target,
+        "sha": os.environ.get("GIT_COMMIT", ""),
+        "build_url": os.environ.get("BUILD_URL", ""),
+    }
+
+
 def parse_junit(path, label):
     file_path = Path(path)
     if not file_path.exists():
@@ -236,6 +270,33 @@ def render_cards(tests, coverage, mutation, coverage_gate, mutation_advisory):
       <div class="card"><strong>{pct(mutation_value) if mutation_value is not None else "missing"}</strong><span>mutation, advisory {mutation_advisory:.0f}%</span></div>
       <div class="card"><strong>{mutation.get("survived", "missing")}</strong><span>survived mutants</span></div>
     </div>
+    """
+
+
+def render_build_context(context):
+    rows = [
+        ("Build mode", context["mode"]),
+        ("Scope", context["scope"]),
+        ("Source branch", context["source"]),
+    ]
+    if context["target"]:
+        rows.append(("Target branch", context["target"]))
+    if context["sha"]:
+        rows.append(("Commit", context["sha"][:12]))
+    if context["build_url"]:
+        rows.append(("Jenkins build", f'<a href="{e(context["build_url"])}">Open build</a>'))
+
+    body = "\n".join(
+        f"<tr><td>{e(label)}</td><td>{value if value.startswith('<a ') else e(value)}</td></tr>"
+        for label, value in rows
+    )
+    return f"""
+    <section>
+      <h2>Build Context</h2>
+      <table>
+        <tbody>{body}</tbody>
+      </table>
+    </section>
     """
 
 
@@ -370,13 +431,12 @@ def render_mutation(mutation, mutation_advisory):
 
 def render_links():
     links = [
+        ("Test report", "../test-report/index.html"),
         ("Coverage report", "../coverage-report/index.html"),
         ("Mutation report", "../mutation-report/index.html"),
         ("Mutation survived", "../mutation-report/status-survived.html"),
         ("Pylint report", "../pylint-report.txt"),
         ("Flake8 report", "../flake8-report.json"),
-        ("JUnit unit XML", "../test-results.xml"),
-        ("JUnit integration XML", "../integration-test-results.xml"),
     ]
     items = "\n".join(f'<a href="{href}">{e(label)}</a>' for label, href in links)
     return f"""
@@ -387,9 +447,10 @@ def render_links():
     """
 
 
-def render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory):
+def render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context):
     body = f"""
     {render_cards(tests, coverage, mutation, coverage_gate, mutation_advisory)}
+    {render_build_context(build_context)}
     {render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory)}
     {render_test_table(tests)}
     {render_coverage(coverage, coverage_gate)}
@@ -435,12 +496,13 @@ def main():
     ]
     coverage = parse_coverage("coverage.xml")
     mutation = parse_mutation("mutants/mutmut-cicd-stats.json")
+    build_context = get_build_context()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.css").write_text(DASHBOARD_CSS + "\n", encoding="utf-8")
     (output_dir / "index.html").write_text(
-        render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory),
+        render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context),
         encoding="utf-8",
     )
     print(output_dir / "index.html")
