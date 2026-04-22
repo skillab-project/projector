@@ -37,3 +37,7 @@ omit = [
 [tool.coverage.report]
 precision = 1
 show_missing = true
+
+[tool.quality_gates]
+coverage = 78
+mutation_advisory = 55

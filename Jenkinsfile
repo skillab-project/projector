@@ -49,6 +49,7 @@ pipeline {
                             rm -rf \
                                 coverage-report \
                                 mutation-report \
+                                quality-dashboard \
                                 mutants \
                                 .pytest_cache \
                                 test-results.xml \
@@ -78,6 +79,8 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c "
+                            COVERAGE_GATE=\$(python tools/quality_gates.py coverage)
+
                             pytest app/test.py -v \
                                 --tb=short \
                                 --junitxml=test-results.xml \
@@ -85,7 +88,7 @@ pipeline {
                                 --cov-branch \
                                 --cov-report=xml \
                                 --cov-report=html:coverage-report \
-                                --cov-fail-under=78 \
+                                --cov-fail-under=\${COVERAGE_GATE} \
                                 -m 'not integration'
                         "
                 '''
@@ -235,8 +238,18 @@ pipeline {
             echo "📝 Publishing test results..."
             junit allowEmptyResults: true, testResults: '*test-results.xml'
 
+            sh '''
+                set +e
+                docker run --rm \
+                    -u $(id -u):$(id -g) \
+                    -v "$WORKSPACE:/workspace" \
+                    -w /workspace \
+                    ${CI_IMAGE} \
+                    sh -c "python tools/quality_dashboard.py" || true
+            '''
+
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'quality-dashboard/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
 
             sh '''
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true

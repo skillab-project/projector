@@ -18,3 +18,4 @@ test-results.xml
 integration-test-results.xml
 mutants/
 mutation-report/
+quality-dashboard/
