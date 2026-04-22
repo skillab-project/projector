@@ -4,3 +4,15 @@
 /app/.env
 /.venv/
 /.idea/
+
+# Python/test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+coverage.xml
+coverage-report/
+htmlcov/
+test-results.xml
+integration-test-results.xml
