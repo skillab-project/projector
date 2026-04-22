@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
-
+gi
 COPY requirements.txt requirements-dev.txt /tmp/
 RUN python -m pip install --upgrade pip setuptools wheel && \
     pip install -r /tmp/requirements-dev.txt && \

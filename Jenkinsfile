@@ -78,8 +78,8 @@ pipeline {
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
-                        sh -c "
-                            COVERAGE_GATE=\$(python tools/quality_gates.py coverage)
+                        sh -c '
+                            COVERAGE_GATE=$(python tools/quality_gates.py coverage)
 
                             pytest app/test.py -v \
                                 --tb=short \
@@ -88,9 +88,9 @@ pipeline {
                                 --cov-branch \
                                 --cov-report=xml \
                                 --cov-report=html:coverage-report \
-                                --cov-fail-under=\${COVERAGE_GATE} \
-                                -m 'not integration'
-                        "
+                                --cov-fail-under="${COVERAGE_GATE}" \
+                                -m "not integration"
+                        '
                 '''
             }
         }
