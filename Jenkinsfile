@@ -73,6 +73,7 @@ pipeline {
                     docker run --rm \
                         -u $(id -u):$(id -g) \
                         -e CI=true \
+                        -e PYTHONPATH=/workspace \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
@@ -80,9 +81,11 @@ pipeline {
                             pytest app/test.py -v \
                                 --tb=short \
                                 --junitxml=test-results.xml \
-                                --cov=. \
+                                --cov=app \
+                                --cov-branch \
                                 --cov-report=xml \
                                 --cov-report=html:coverage-report \
+                                --cov-fail-under=78 \
                                 -m 'not integration'
                         "
                 '''
@@ -97,6 +100,7 @@ pipeline {
                     docker run --rm \
                         -u $(id -u):$(id -g) \
                         -e CI=true \
+                        -e PYTHONPATH=/workspace \
                         -v "$WORKSPACE:/workspace" \
                         -w /workspace \
                         ${CI_IMAGE} \
@@ -228,7 +232,7 @@ pipeline {
             junit allowEmptyResults: true, testResults: '*test-results.xml'
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'pylint-report.txt, flake8-report.json, mutation-report/index.html, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/index.html, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
 
             sh '''
                 docker image rm -f ${CI_IMAGE} 2>/dev/null || true

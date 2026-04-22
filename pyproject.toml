@@ -22,3 +22,14 @@ pytest_add_cli_args_test_selection = [
 ]
 pytest_add_cli_args = ["-q"]
 mutate_only_covered_lines = true
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = [
+    "app/test.py",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
