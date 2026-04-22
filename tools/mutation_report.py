@@ -7,6 +7,143 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
+REPORT_CSS = """
+:root {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --ink: #1f2328;
+  --muted: #667085;
+  --line: #d7dde5;
+  --panel: #ffffff;
+  --green: #237a4b;
+  --red: #b42318;
+  --amber: #a15c00;
+  --blue: #255c99;
+  --violet: #6654a8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.45;
+}
+a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+header {
+  padding: 32px clamp(18px, 4vw, 56px) 22px;
+  border-bottom: 1px solid var(--line);
+  background: #edf2f7;
+}
+main {
+  padding: 24px clamp(18px, 4vw, 56px) 48px;
+  display: grid;
+  gap: 24px;
+}
+h1, h2, h3 {
+  margin: 0;
+  letter-spacing: 0;
+}
+h1 { font-size: clamp(28px, 5vw, 44px); }
+h2 { font-size: 20px; margin-bottom: 12px; }
+h3 { font-size: 16px; margin-bottom: 10px; }
+.meta { color: var(--muted); margin-top: 8px; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+.card strong {
+  display: block;
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+.card span { color: var(--muted); }
+section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  overflow: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 760px;
+}
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  color: var(--muted);
+  font-weight: 650;
+  background: #fbfcfd;
+}
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.score { font-weight: 700; color: var(--blue); }
+.pill {
+  display: inline-block;
+  min-width: 74px;
+  text-align: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+.survived { background: var(--red); }
+.no_tests { background: var(--amber); }
+.pending { background: var(--muted); }
+.killed { background: var(--green); }
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.nav a {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  padding: 7px 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.nav a.current {
+  border-color: var(--blue);
+  color: white;
+  background: var(--blue);
+}
+.note {
+  border-left: 4px solid var(--violet);
+  padding: 10px 12px;
+  background: #f4f2fb;
+  color: #35304f;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.compact { min-width: 0; }
+""".strip()
+
+
 def mutant_status(exit_code):
     if exit_code is None:
         return "pending"
@@ -53,48 +190,117 @@ def pct(killed, survived):
     return f"{(killed / total) * 100:.1f}"
 
 
-def render_report(mutants):
+def slug(value):
+    return re.sub(r"[^a-zA-Z0-9._-]+", "-", value).strip("-")
+
+
+def e(value):
+    return html.escape(str(value))
+
+
+def page(title, current, body, depth=0):
+    prefix = "../" * depth
+    nav = [
+        ("Overview", f"{prefix}index.html", "overview"),
+        ("Survived", f"{prefix}status-survived.html", "survived"),
+        ("No tests", f"{prefix}status-no_tests.html", "no_tests"),
+        ("Pending", f"{prefix}status-pending.html", "pending"),
+    ]
+    nav_links = "\n".join(
+        f'<a class="{"current" if key == current else ""}" href="{href}">{label}</a>'
+        for label, href, key in nav
+    )
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{e(title)}</title>
+  <link rel="stylesheet" href="{prefix}report.css">
+</head>
+<body>
+  <header>
+    <h1>{e(title)}</h1>
+    <div class="meta">Generated from <code>mutants/*.meta</code>. Mutation score excludes no-test and pending mutants.</div>
+    <nav class="nav">{nav_links}</nav>
+  </header>
+  <main>{body}</main>
+</body>
+</html>
+"""
+
+
+def aggregate(mutants):
     totals = Counter(m["status"] for m in mutants)
+    by_file = defaultdict(Counter)
+    by_function = defaultdict(Counter)
+    by_file_function = defaultdict(lambda: defaultdict(Counter))
+    for mutant in mutants:
+        by_file[mutant["file"]][mutant["status"]] += 1
+        function_name = f'{mutant["class"]}.{mutant["function"]}'
+        function_key = f'{mutant["file"]}::{function_name}'
+        by_function[function_key][mutant["status"]] += 1
+        by_file_function[mutant["file"]][function_name][mutant["status"]] += 1
+    return totals, by_file, by_function, by_file_function
+
+
+def status_pill(status):
+    return f'<span class="pill {e(status)}">{e(status)}</span>'
+
+
+def cards(totals):
     killed = totals["killed"]
     survived = totals["survived"]
     effective_total = killed + survived
     score = pct(killed, survived)
+    return f"""
+    <div class="cards">
+      <div class="card"><strong>{score}%</strong><span>mutation score</span></div>
+      <div class="card"><strong>{effective_total}</strong><span>effective mutants</span></div>
+      <div class="card"><strong>{killed}</strong><span>killed</span></div>
+      <div class="card"><strong>{survived}</strong><span>survived</span></div>
+      <div class="card"><strong>{totals['no_tests']}</strong><span>no tests</span></div>
+      <div class="card"><strong>{totals['pending']}</strong><span>pending</span></div>
+    </div>
+    """
 
-    by_file = defaultdict(Counter)
-    by_function = defaultdict(Counter)
-    for mutant in mutants:
-        by_file[mutant["file"]][mutant["status"]] += 1
-        function_key = f'{mutant["file"]}::{mutant["class"]}.{mutant["function"]}'
-        by_function[function_key][mutant["status"]] += 1
 
-    file_rows = []
+def file_summary_rows(by_file):
+    rows = []
     for source_file, counts in sorted(by_file.items()):
         file_score = pct(counts["killed"], counts["survived"])
-        file_rows.append(
+        detail = f"files/{slug(source_file)}.html"
+        rows.append(
             f"""
             <tr>
-              <td>{html.escape(source_file)}</td>
+              <td><a href="{e(detail)}">{e(source_file)}</a></td>
               <td>{sum(counts.values())}</td>
               <td>{counts['killed']}</td>
               <td>{counts['survived']}</td>
               <td>{counts['no_tests']}</td>
+              <td>{counts['pending']}</td>
               <td><span class="score">{file_score}%</span></td>
             </tr>
             """
         )
+    return "".join(rows)
 
-    cluster_rows = []
+
+def cluster_rows(by_function, limit=40):
+    rows = []
     clusters = sorted(
         by_function.items(),
         key=lambda item: (item[1]["survived"], item[1]["no_tests"], sum(item[1].values())),
         reverse=True,
     )
-    for function_key, counts in clusters[:40]:
+    for function_key, counts in clusters[:limit]:
         cluster_score = pct(counts["killed"], counts["survived"])
-        cluster_rows.append(
+        source_file = function_key.split("::", 1)[0]
+        detail = f"files/{slug(source_file)}.html"
+        rows.append(
             f"""
             <tr>
-              <td>{html.escape(function_key)}</td>
+              <td><a href="{e(detail)}">{e(function_key)}</a></td>
               <td>{sum(counts.values())}</td>
               <td>{counts['killed']}</td>
               <td>{counts['survived']}</td>
@@ -103,216 +309,150 @@ def render_report(mutants):
             </tr>
             """
         )
+    return "".join(rows)
 
-    mutant_rows = []
-    interesting = [m for m in mutants if m["status"] in {"survived", "no_tests", "pending"}]
-    for mutant in sorted(interesting, key=lambda m: (m["status"], m["file"], m["function"], m["number"])):
+
+def mutant_rows(mutants, link_prefix="files/"):
+    rows = []
+    for mutant in sorted(mutants, key=lambda m: (m["status"], m["file"], m["function"], m["number"])):
         command = f"mutmut show {mutant['name']}"
-        mutant_rows.append(
+        detail = f"{link_prefix}{slug(mutant['file'])}.html"
+        rows.append(
             f"""
-            <tr data-status="{html.escape(mutant['status'])}">
-              <td><span class="pill {html.escape(mutant['status'])}">{html.escape(mutant['status'])}</span></td>
-              <td>{html.escape(mutant['file'])}</td>
-              <td>{html.escape(mutant['class'])}.{html.escape(mutant['function'])}</td>
-              <td><code>{html.escape(mutant['name'])}</code></td>
-              <td><code>{html.escape(command)}</code></td>
+            <tr>
+              <td>{status_pill(mutant['status'])}</td>
+              <td><a href="{e(detail)}">{e(mutant['file'])}</a></td>
+              <td>{e(mutant['class'])}.{e(mutant['function'])}</td>
+              <td><code>{e(mutant['name'])}</code></td>
+              <td><code>{e(command)}</code></td>
             </tr>
             """
         )
+    return "".join(rows)
 
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mutation Test Report</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --bg: #f7f7f4;
-      --ink: #1f2328;
-      --muted: #667085;
-      --line: #d9ded6;
-      --panel: #ffffff;
-      --green: #2f7d4f;
-      --red: #b42318;
-      --amber: #a15c00;
-      --blue: #315d95;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--ink);
-      line-height: 1.45;
-    }}
-    header {{
-      padding: 32px clamp(18px, 4vw, 56px) 22px;
-      border-bottom: 1px solid var(--line);
-      background: #eef2ec;
-    }}
-    main {{
-      padding: 24px clamp(18px, 4vw, 56px) 48px;
-      display: grid;
-      gap: 24px;
-    }}
-    h1, h2 {{
-      margin: 0;
-      letter-spacing: 0;
-    }}
-    h1 {{ font-size: clamp(28px, 5vw, 48px); }}
-    h2 {{ font-size: 20px; margin-bottom: 12px; }}
-    .meta {{ color: var(--muted); margin-top: 8px; }}
-    .cards {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-    }}
-    .card {{
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-    }}
-    .card strong {{
-      display: block;
-      font-size: 28px;
-      margin-bottom: 4px;
-    }}
-    .card span {{ color: var(--muted); }}
-    section {{
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 18px;
-      overflow: auto;
-    }}
-    table {{
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      min-width: 780px;
-    }}
-    th, td {{
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }}
-    th {{
-      color: var(--muted);
-      font-weight: 650;
-      background: #fbfbf8;
-      position: sticky;
-      top: 0;
-    }}
-    code {{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }}
-    .score {{ font-weight: 700; color: var(--blue); }}
-    .pill {{
-      display: inline-block;
-      min-width: 74px;
-      text-align: center;
-      padding: 3px 8px;
-      border-radius: 999px;
-      color: white;
-      font-size: 12px;
-      font-weight: 700;
-    }}
-    .survived {{ background: var(--red); }}
-    .no_tests {{ background: var(--amber); }}
-    .pending {{ background: var(--muted); }}
-    .killed {{ background: var(--green); }}
-    .toolbar {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-    }}
-    input, select {{
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 9px 10px;
-      font: inherit;
-      background: white;
-    }}
-    input {{ flex: 1 1 260px; }}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>Mutation Test Report</h1>
-    <div class="meta">Generated from <code>mutants/*.meta</code>. Mutation score excludes no-test and pending mutants.</div>
-  </header>
-  <main>
-    <div class="cards">
-      <div class="card"><strong>{score}%</strong><span>mutation score</span></div>
-      <div class="card"><strong>{effective_total}</strong><span>effective mutants</span></div>
-      <div class="card"><strong>{killed}</strong><span>killed</span></div>
-      <div class="card"><strong>{survived}</strong><span>survived</span></div>
-      <div class="card"><strong>{totals['no_tests']}</strong><span>no tests</span></div>
-    </div>
 
+def render_index(mutants):
+    totals, by_file, by_function, _ = aggregate(mutants)
+    actionable = [m for m in mutants if m["status"] in {"survived", "no_tests", "pending"}]
+    body = f"""
+    {cards(totals)}
+    <section class="note compact">
+      <strong>Overview first.</strong>
+      This page contains the quality snapshot, file health, largest survivor clusters, and all actionable mutants.
+      Use file links only when you need deeper detail for a specific source file.
+    </section>
     <section>
       <h2>Files</h2>
       <table>
-        <thead><tr><th>File</th><th>Total</th><th>Killed</th><th>Survived</th><th>No Tests</th><th>Score</th></tr></thead>
-        <tbody>{''.join(file_rows)}</tbody>
+        <thead><tr><th>File</th><th>Total</th><th>Killed</th><th>Survived</th><th>No Tests</th><th>Pending</th><th>Score</th></tr></thead>
+        <tbody>{file_summary_rows(by_file)}</tbody>
       </table>
     </section>
-
     <section>
       <h2>Largest Survivor Clusters</h2>
       <table>
         <thead><tr><th>Function</th><th>Total</th><th>Killed</th><th>Survived</th><th>No Tests</th><th>Score</th></tr></thead>
-        <tbody>{''.join(cluster_rows)}</tbody>
+        <tbody>{cluster_rows(by_function)}</tbody>
       </table>
     </section>
-
     <section>
       <h2>Actionable Mutants</h2>
-      <div class="toolbar">
-        <input id="query" placeholder="Filter by file, function, mutant name, command">
-        <select id="status">
-          <option value="">All statuses</option>
-          <option value="survived">Survived</option>
-          <option value="no_tests">No tests</option>
-          <option value="pending">Pending</option>
-        </select>
-      </div>
-      <table id="mutants">
+      <table>
         <thead><tr><th>Status</th><th>File</th><th>Function</th><th>Mutant</th><th>Inspect</th></tr></thead>
-        <tbody>{''.join(mutant_rows)}</tbody>
+        <tbody>{mutant_rows(actionable)}</tbody>
       </table>
     </section>
-  </main>
-  <script>
-    const query = document.getElementById('query');
-    const status = document.getElementById('status');
-    const rows = [...document.querySelectorAll('#mutants tbody tr')];
-    function update() {{
-      const q = query.value.toLowerCase();
-      const s = status.value;
-      for (const row of rows) {{
-        const matchesText = row.textContent.toLowerCase().includes(q);
-        const matchesStatus = !s || row.dataset.status === s;
-        row.style.display = matchesText && matchesStatus ? '' : 'none';
-      }}
-    }}
-    query.addEventListener('input', update);
-    status.addEventListener('change', update);
-  </script>
-</body>
-</html>
-"""
+    """
+    return page("Mutation Test Report", "overview", body)
+
+
+def render_status_page(mutants, status):
+    filtered = [m for m in mutants if m["status"] == status]
+    body = f"""
+    <section>
+      <h2>{e(status)} mutants</h2>
+      <table>
+        <thead><tr><th>Status</th><th>File</th><th>Function</th><th>Mutant</th><th>Inspect</th></tr></thead>
+        <tbody>{mutant_rows(filtered)}</tbody>
+      </table>
+    </section>
+    """
+    return page(f"Mutation Report: {status}", status, body)
+
+
+def render_file_page(source_file, file_mutants, function_counts):
+    counts = Counter(m["status"] for m in file_mutants)
+    score = pct(counts["killed"], counts["survived"])
+    function_rows = []
+    for function_name, fn_counts in sorted(
+        function_counts.items(),
+        key=lambda item: (item[1]["survived"], item[1]["no_tests"], sum(item[1].values())),
+        reverse=True,
+    ):
+        function_rows.append(
+            f"""
+            <tr>
+              <td>{e(function_name)}</td>
+              <td>{sum(fn_counts.values())}</td>
+              <td>{fn_counts['killed']}</td>
+              <td>{fn_counts['survived']}</td>
+              <td>{fn_counts['no_tests']}</td>
+              <td><span class="score">{pct(fn_counts['killed'], fn_counts['survived'])}%</span></td>
+            </tr>
+            """
+        )
+    body = f"""
+    <div class="cards">
+      <div class="card"><strong>{score}%</strong><span>file mutation score</span></div>
+      <div class="card"><strong>{sum(counts.values())}</strong><span>total mutants</span></div>
+      <div class="card"><strong>{counts['killed']}</strong><span>killed</span></div>
+      <div class="card"><strong>{counts['survived']}</strong><span>survived</span></div>
+      <div class="card"><strong>{counts['no_tests']}</strong><span>no tests</span></div>
+    </div>
+    <section>
+      <h2>Function Summary</h2>
+      <table>
+        <thead><tr><th>Function</th><th>Total</th><th>Killed</th><th>Survived</th><th>No Tests</th><th>Score</th></tr></thead>
+        <tbody>{''.join(function_rows)}</tbody>
+      </table>
+    </section>
+    <section>
+      <h2>All Mutants In This File</h2>
+      <table>
+        <thead><tr><th>Status</th><th>File</th><th>Function</th><th>Mutant</th><th>Inspect</th></tr></thead>
+        <tbody>{mutant_rows(file_mutants, link_prefix="")}</tbody>
+      </table>
+    </section>
+    """
+    return page(f"Mutation Detail: {source_file}", "overview", body, depth=1)
+
+
+def write_report(mutants, output):
+    output.parent.mkdir(parents=True, exist_ok=True)
+    report_dir = output.parent
+    files_dir = report_dir / "files"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "report.css").write_text(REPORT_CSS + "\n", encoding="utf-8")
+    output.write_text(render_index(mutants), encoding="utf-8")
+
+    for status in ("survived", "no_tests", "pending"):
+        (report_dir / f"status-{status}.html").write_text(render_status_page(mutants, status), encoding="utf-8")
+
+    _, _, _, by_file_function = aggregate(mutants)
+    by_file_mutants = defaultdict(list)
+    for mutant in mutants:
+        by_file_mutants[mutant["file"]].append(mutant)
+
+    for source_file, file_mutants in by_file_mutants.items():
+        detail_path = files_dir / f"{slug(source_file)}.html"
+        detail_path.write_text(
+            render_file_page(source_file, file_mutants, by_file_function[source_file]),
+            encoding="utf-8",
+        )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate a static HTML report from mutmut metadata.")
+    parser = argparse.ArgumentParser(description="Generate a Jenkins-friendly HTML report from mutmut metadata.")
     parser.add_argument("--mutants-dir", default="mutants", help="Directory created by mutmut.")
     parser.add_argument("--output", default="mutation-report/index.html", help="Output HTML path.")
     args = parser.parse_args()
@@ -323,8 +463,7 @@ def main():
     if not mutants:
         raise SystemExit(f"No mutmut metadata found under {mutants_dir}. Run mutmut first.")
 
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render_report(mutants), encoding="utf-8")
+    write_report(mutants, output)
     print(output)
 
 
