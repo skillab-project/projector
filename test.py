@@ -7,7 +7,6 @@ import httpx
 import pytest
 import asyncio
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch, MagicMock
 from main import app, engine
 
 client = TestClient(app)
