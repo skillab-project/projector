@@ -25,7 +25,7 @@ async def test_engine_analyze_market_data_logic():
         {"organization_name": "Google", "title": "Dev", "location_code": "IT", "skills": ["s1"],
          "occupation_id": "occ_1"}
     ]
-    # Prepariamo le mappe con la nuova struttura
+    # Prepariamo le mappe con la nuova struttur
     engine.sector_map = {"occ_1": "Tech"}
     engine.skill_map = {"s1": {"label": "Python", "is_green": False, "is_digital": True}}
     engine.stop_requested = False
