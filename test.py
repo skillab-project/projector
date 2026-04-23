@@ -1985,7 +1985,7 @@ def test_build_official_matrix_sector_skillgroup_profile_uses_sector_label_key()
 
     matrix = engine.build_official_matrix_sector_skillgroup_profile(
         jobs=jobs,
-        sector_level="isco_group",
+        sector_level="isco_grup",
         skill_group_level=1,
         occupation_level=1
     )
