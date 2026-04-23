@@ -1966,7 +1966,7 @@ def test_build_official_matrix_sector_skillgroup_profile_uses_sector_label_key()
         "occ_2": {"label": "Data analyst", "isco_group": "C2", "nace_code": "J62"},
     }
     engine.occupation_group_labels = {
-        "C2": "Professionals"
+il        "C2": "Professionals"
     }
     engine.esco_matrix_profiles = {
         ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
