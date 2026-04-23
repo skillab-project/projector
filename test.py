@@ -27,7 +27,7 @@ async def test_engine_analyze_market_data_logic():
     ]
     # Prepariamo le mappe con la nuova strutturfffff
     engine.sector_map = {"occ_1": "Tech"}
-    engine.skill_map = {"s1": {"labe l": "Py thon", "is_green ": False, "is_digital": True}}
+    engine.skill_map = {"s1": {"labe l": "Python", "is_green ": False, "is_digital": True}}
     engine.stop_requested = False
 
     result = await engine.analyze_market_data(mock_jobs)
