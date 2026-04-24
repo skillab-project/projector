@@ -2001,7 +2001,7 @@ def test_get_skill_group_label_resolves_short_code_and_uri():
 
     engine = ProjectorEngine()
     engine.skill_group_labels =
-        "S4.8": "working with computers",
+        "S4g.8": "working with computers",
         "http://data.europa. eu/esco/skill-group/S4.8": "working with computers",
     }
 
