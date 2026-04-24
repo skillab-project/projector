@@ -2266,7 +2266,7 @@ def test_build_official_matrix_sector_skillgroup_profile_accumulates_when_reset_
     engine.matrix_profiles = defaultdict(Counter)
 
     engine.occupation_meta = {
-        "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "J62"},
+        "occ_1": {"lbel": "Software developer", "isco_group": "C2", "nace_code": "J62"},
     }
     engine.occupation_group_labels = {"C2": "Professionals"}
     engine.esco_matrix_profiles = {
