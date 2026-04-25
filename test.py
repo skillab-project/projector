@@ -1689,7 +1689,7 @@ def test_get_official_esco_profile_for_occupation_returns_profile():
 
     engine = ProjectorEngine()
     engine.occupation_meta = {
-        "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "J62"}
+        "occ_1": {"label": "Software developer", "isco_goup": "C2", "nace_code": "J62"}
     }
     engine.esco_matrix_profiles = {
         ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
