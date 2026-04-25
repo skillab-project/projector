@@ -1692,7 +1692,7 @@ def test_get_official_esco_profile_for_occupation_returns_profile():
         "occ_1": {"label": "Software developer", "isco_goup": "C2", "nace_code": "J62"}
     }
     engine.esco_matrix_profiles = {
-        ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
+        ("Matix 1.1", "http://data.europa.eu/esco/isco/C2"): {
             "occupation_group_label": "Professionals",
             "profile": {
                 "skill_group_a": 0.4,
