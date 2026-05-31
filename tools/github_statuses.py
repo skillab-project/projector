@@ -62,6 +62,17 @@ def clamp_description(value):
     return value[:MAX_DESCRIPTION]
 
 
+def skipped_after_early_failure(reason="earlier pipeline failure"):
+    return describe(f"Skipped after {reason}")
+
+
+def coverage_gate_failed(gates):
+    coverage = parse_coverage("coverage.xml")
+    if not coverage.get("exists"):
+        return False
+    return coverage["total_rate"] * 100 < gates["coverage"]
+
+
 def post_status(repo, sha, token, context, state, description, target_url=None):
     payload = {
         "state": state,
@@ -86,12 +97,30 @@ def post_status(repo, sha, token, context, state, description, target_url=None):
         response.read()
 
 
-def tests_status():
+def tests_status(gates):
     suites = [
         parse_junit("test-results.xml", "Unit tests"),
         parse_junit("integration-test-results.xml", "Integration tests"),
     ]
+    existing = [suite for suite in suites if suite.exists]
+    if existing:
+        total = sum(suite.tests for suite in existing)
+        failed = sum(suite.failures + suite.errors for suite in existing)
+        skipped = sum(suite.skipped for suite in existing)
+        passed = sum(suite.passed for suite in existing)
+        if failed:
+            missing = [suite.label for suite in suites if not suite.exists]
+            suffix = f"; skipped: {', '.join(missing)}" if missing else ""
+            return (
+                "failure",
+                describe(f"Tests: {passed}/{total} passed, {failed} failed/errors, {skipped} skipped{suffix}"),
+                artifact_url("test-report/index.html"),
+            )
+
     if any(not suite.exists for suite in suites):
+        if suites[0].exists and not suites[1].exists:
+            reason = "coverage gate failure" if coverage_gate_failed(gates) else "earlier pipeline failure"
+            return ("error", skipped_after_early_failure(reason), artifact_url("test-report/index.html"))
         missing = ", ".join(suite.label for suite in suites if not suite.exists)
         return ("error", describe(f"Missing JUnit report: {missing}"), artifact_url("test-report/index.html"))
 
@@ -122,7 +151,8 @@ def coverage_status(gates):
 def mutation_status(gates):
     mutation = parse_mutation("mutants/mutmut-cicd-stats.json")
     if not mutation.get("exists"):
-        return ("error", describe("Missing mutation stats"), artifact_url("quality-dashboard/index.html"))
+        reason = "coverage gate failure" if coverage_gate_failed(gates) else "earlier pipeline failure"
+        return ("error", skipped_after_early_failure(reason), artifact_url("quality-dashboard/index.html"))
 
     value = mutation["score"] * 100
     advisory = gates["mutation_advisory"]
@@ -134,11 +164,12 @@ def mutation_status(gates):
     return ("success", description, artifact_url("mutation-report/index.html") or artifact_url("quality-dashboard/index.html"))
 
 
-def code_quality_status(check_policies):
+def code_quality_status(check_policies, gates):
     has_pylint = os.path.exists("pylint-report.txt")
     has_flake8 = os.path.exists("flake8-report.json")
     if not has_pylint and not has_flake8:
-        return ("error", describe("Missing lint reports"), artifact_url("quality-dashboard/index.html"))
+        reason = "coverage gate failure" if coverage_gate_failed(gates) else "earlier pipeline failure"
+        return ("error", skipped_after_early_failure(reason), artifact_url("quality-dashboard/index.html"))
     return ("success", describe(check_policies["lint"]["rule"]), artifact_url("quality-dashboard/index.html"))
 
 
@@ -160,10 +191,10 @@ def main():
     check_policies = load_check_policies(args.config)
 
     statuses = [
-        ("Jenkins / Tests", *tests_status()),
+        ("Jenkins / Tests", *tests_status(gates)),
         ("Jenkins / Coverage Gate", *coverage_status(gates)),
         ("Jenkins / Mutation Advisory", *mutation_status(gates)),
-        ("Jenkins / Code Quality", *code_quality_status(check_policies)),
+        ("Jenkins / Code Quality", *code_quality_status(check_policies, gates)),
     ]
 
     for context, state, description, target_url in statuses:
