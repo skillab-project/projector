@@ -47,24 +47,11 @@ class ProjectorService:
                 "insights": self.market._empty_insights_p1()  # <--- Coerenza qui
             }
 
-        # Traduzione settori (Phase 1)
-        all_occs = []
         all_skills = []
         for j in raw:
-            all_occs.extend(self.occupations.get_occupation_ids(j))
-            all_skills.extend(j.get("skills", []))  # <--- Aggiungiamo questo!
+            all_skills.extend(j.get("skills", []))
 
-        # Add canonical ESCO skills from occupation-skill relations so their labels are resolved too
-        canonical_skill_ids = set()
-        for occ_id in set(all_occs):
-            canonical_skill_ids.update(self.engine.occ_skill_relations.get(occ_id, set()))
-
-        all_skills.extend(list(canonical_skill_ids))
-
-        occ_uris = list(set(all_occs))  # Rimuove i duplicati
-
-        await self.tracker.fetch_occupation_labels(occ_uris)
-        await self.tracker.fetch_skill_names(list(set(all_skills)))  # Traduciamo una sola volta il set complessivo
+        await self.tracker.fetch_skill_names(list(set(all_skills)))
         # Analisi globale
         analysis = await self.market.analyze_market_data(raw)
 
@@ -79,60 +66,33 @@ class ProjectorService:
         sector_view_names = None
         if include_sectoral:
             normalized_system = str(sector_system or "isco").strip().lower()
-            if normalized_system not in {"isco", "nace", "both"}:
-                normalized_system = "isco"
+            if normalized_system != "nace":
+                normalized_system = "nace"
 
-            requested_level = str(sector_level or "").strip().lower()
-            allowed_nace_levels = ("nace_section", "nace_division", "nace_group", "nace_class")
-
-            def build_sectoral_for_level(selected_level: str):
-                return self.sectoral.build_sectoral_intelligence(
-                    jobs=raw,
-                    sector_level=selected_level,
-                    skill_group_level=skill_group_level,
-                    occupation_level=occupation_level,
-                    resolve_labels=True,
-                    top_k_skills=10,
-                    top_k_groups=10,
-                    reset=True
-                )
-
-            isco_data = build_sectoral_for_level("isco_group")
-            nace_level = requested_level if requested_level in allowed_nace_levels else "nace_section"
-            nace_levels = {
-                level_name: build_sectoral_for_level(level_name)
-                for level_name in allowed_nace_levels
-            }
-            nace_data = nace_levels[nace_level]
+            nace_data = self.sectoral.build_sectoral_intelligence(
+                jobs=raw,
+                sector_level="nace_section",
+                skill_group_level=skill_group_level,
+                occupation_level=occupation_level,
+                resolve_labels=True,
+                top_k_skills=10,
+                top_k_groups=10,
+                reset=True
+            )
 
             sectoral_mode = normalized_system
             sectoral_views = {
-                "isco": {"sector_level": "isco_group", "items": isco_data},
                 "nace": {
-                    "selected_level": nace_level,
-                    "levels": {
-                        level_name: {"sector_level": level_name, "items": level_items}
-                        for level_name, level_items in nace_levels.items()
-                    }
+                    "sector_level": "tracker_sector",
+                    "items": nace_data
                 }
             }
 
-            if normalized_system == "nace":
-                sectoral_data = nace_data
-            else:
-                # Backward-compatible default remains ISCO.
-                sectoral_data = isco_data
+            sectoral_data = nace_data
 
             sector_view_names = {
-                "isco": {
-                    "observed": "Observed",
-                    "canonical": "Canonical",
-                    "matrix": "Official Matrix"
-                },
                 "nace": {
-                    "observed": "Observed",
-                    "canonical": "Derived Canonical",
-                    "matrix": "Aggregated Official Matrix"
+                    "observed": "Observed"
                 }
             }
 

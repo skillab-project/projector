@@ -10,11 +10,7 @@ from app.services.projector_service import ProjectorService
 
 engine = ProjectorEngine()
 tracker = TrackerClient(engine)
-
-
 loader = EscoLoader(engine)
-loader.load_local_esco_support()
-loader.load_official_esco_matrix()
 
 occupations = OccupationAnalytics(engine)
 regional = RegionalAnalytics(engine)

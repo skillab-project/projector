@@ -173,7 +173,7 @@ class EscoLoader:
 
 
 
-    def load_local_esco_support(self):
+    def load_local_esco_support(self, use_local_sector_files: bool = True):
 
         """
         Load local CSV support files for:
@@ -183,8 +183,11 @@ class EscoLoader:
 
         This step is safe and incremental: if a file is missing, it is skipped.
         """
-        self.load_esco_nace_crosswalk()
-        self.load_nace_labels()
+        if use_local_sector_files:
+            self.load_esco_nace_crosswalk()
+            self.load_nace_labels()
+        else:
+            logger.info("Local ISCO/NACE sector files disabled; Tracker job.sectors will be used for NACE.")
         base_dir = os.getcwd()
 
         occupations_file = os.path.join(base_dir, "complementary_data", "occupations_en.csv")
@@ -193,8 +196,10 @@ class EscoLoader:
         isco_groups_file = os.path.join(base_dir, "complementary_data", "ISCOGroups_en.csv")
         skill_groups_file = os.path.join(base_dir, "complementary_data", "skillGroups_en.csv")
 
-        # 1) Occupation metadata
-        if os.path.exists(occupations_file):
+        # 1) Occupation metadata.
+        # Disabled in app runtime while validating Tracker API job["sectors"] as NACE source.
+        # Restore with SKILLAB_USE_LOCAL_SECTOR_FILES=true.
+        if use_local_sector_files and os.path.exists(occupations_file):
             try:
                 with open(occupations_file, "r", encoding="utf-8-sig") as f:
                     reader = csv.DictReader(f)
@@ -318,8 +323,10 @@ class EscoLoader:
             except Exception as e:
                 logger.warning(f"Could not load occupationSkillRelations_lt.csv: {e}")
 
-        # 4) Optional ISCO group labels
-        if os.path.exists(isco_groups_file):
+        # 5) Optional ISCO group labels.
+        # Disabled in app runtime while validating Tracker API job["sectors"] as NACE source.
+        # Restore with SKILLAB_USE_LOCAL_SECTOR_FILES=true.
+        if use_local_sector_files and os.path.exists(isco_groups_file):
             try:
                 with open(isco_groups_file, "r", encoding="utf-8-sig") as f:
                     reader = csv.DictReader(f)
