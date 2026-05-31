@@ -32,6 +32,7 @@ branch = true
 source = ["app"]
 omit = [
     "app/test.py",
+    "app/example_dashboard/*",
 ]
 
 [tool.coverage.report]
