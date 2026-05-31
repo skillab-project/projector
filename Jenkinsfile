@@ -81,8 +81,6 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c '
-                            COVERAGE_GATE=$(python tools/quality_gates.py coverage)
-
                             pytest app/test.py -v \
                                 --tb=short \
                                 --junitxml=test-results.xml \
@@ -90,7 +88,6 @@ pipeline {
                                 --cov-branch \
                                 --cov-report=xml \
                                 --cov-report=html:coverage-report \
-                                --cov-fail-under="${COVERAGE_GATE}" \
                                 -m "not integration"
                         '
                 '''
@@ -115,6 +112,44 @@ pipeline {
                                 --tb=short \
                                 --junitxml=integration-test-results.xml
                         "
+                '''
+            }
+        }
+
+        stage('Coverage Gate') {
+            steps {
+                echo "📈 Checking coverage gate..."
+                sh '''
+                    set -e
+                    docker run --rm \
+                        -u $(id -u):$(id -g) \
+                        -e CI=true \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c '
+                            python - <<'"'"'PY'"'"'
+import sys
+import xml.etree.ElementTree as ET
+
+from tools.quality_gates import load_gates
+
+coverage_path = "coverage.xml"
+gate = load_gates("pyproject.toml")["coverage"]
+root = ET.parse(coverage_path).getroot()
+lines_valid = int(root.attrib.get("lines-valid", 0))
+lines_covered = int(root.attrib.get("lines-covered", 0))
+branches_valid = int(root.attrib.get("branches-valid", 0))
+branches_covered = int(root.attrib.get("branches-covered", 0))
+total_valid = lines_valid + branches_valid
+total_covered = lines_covered + branches_covered
+coverage = (total_covered / total_valid * 100) if total_valid else 0.0
+
+print(f"Coverage: {coverage:.2f}% / gate {gate:g}%")
+if coverage < gate:
+    sys.exit(f"Required test coverage of {gate:g}% not reached. Total coverage: {coverage:.2f}%")
+PY
+                        '
                 '''
             }
         }
