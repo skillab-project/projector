@@ -17,15 +17,16 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
 ```
 
 Use the response like this:
+
 - `dimension_summary.jobs_analyzed`: KPI tile
 - `insights.ranking`: top-skills chart
-- `insights.sectors`: ISCO-oriented sector bar chart
+- `insights.sectors`: Tracker sector bar chart
 - `insights.job_titles`: title leaderboard
 - `insights.employers`: employer leaderboard
 - `insights.trends`: trend tab
 - `insights.regional`: map and specialization widgets
 
-## Example 2: Full Snapshot With ISCO/NACE Sectoral Views
+## Example 2: Snapshot With Sector Intelligence
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
@@ -35,32 +36,25 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
   -d "min_date=2024-01-01" \
   -d "max_date=2024-12-31" \
   -d "include_sectoral=true" \
-  -d "sector_system=both" \
-  -d "sector_level=nace_section" \
+  -d "sector_system=nace" \
   -d "skill_group_level=1" \
   -d "occupation_level=1"
 ```
 
 Frontend usage:
-- read ISCO from `insights.sectoral_views.isco.items`
-- read NACE levels from `insights.sectoral_views.nace.levels`
-- use `insights.sectoral_views.nace.selected_level` as the default NACE tab or selector value
-- use `insights.sector_view_names` for display labels
 
-## Example 3: NACE Class View
+- read sectors from `insights.sectors`
+- read sector details from `insights.sectoral_views.nace.items`
+- display `observed_skills` for the selected sector
+- display `skill_transversal_insights` to show where selected-sector skills also appear
+
+## Example 3: Backend Health Check
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "keywords=data" \
-  -d "min_date=2024-01-01" \
-  -d "max_date=2024-12-31" \
-  -d "include_sectoral=true" \
-  -d "sector_system=nace" \
-  -d "sector_level=nace_class"
+curl "http://127.0.0.1:8000/projector/health"
 ```
 
-`insights.sectoral` will contain the selected NACE class payload. `insights.sectoral_views` will still contain the full ISCO and NACE level map.
+Use this before running a long dashboard request.
 
 ## Example 4: Trend-Only Widget
 
@@ -75,6 +69,7 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
 ```
 
 Interpretation:
+
 - `market_health.status = expanding`: job volume grew in the second half of the window
 - `trend_type = emerging`: the skill gained relevance
 - `growth = "new_entry"`: the skill was absent in the first half and present in the second
@@ -86,9 +81,10 @@ curl -X POST "http://127.0.0.1:8000/projector/stop"
 ```
 
 Treat this as cooperative cancel:
-- show a stopping state,
-- do not assume instant interruption,
-- inspect the final analysis `status` when the running request returns.
+
+- show a stopping state
+- do not assume instant interruption
+- inspect the final analysis `status` when the running request returns
 
 ## Example 6: Reading Specialization
 
@@ -106,21 +102,12 @@ Suppose a regional item contains:
 ```
 
 Correct interpretation:
-- the area represents `9.6%` of the analyzed batch,
-- `Python` appears 33 times in that area,
-- `specialization = 1.78` means Python is more concentrated there than in the full analyzed market.
+
+- the area represents `9.6%` of the analyzed batch
+- `Python` appears 33 times in that area
+- `specialization = 1.78` means Python is more concentrated there than in the full analyzed market
 
 Do not read specialization as raw popularity alone.
-
-## Example 7: Demo Regional Mode
-
-If `demo=true` and the source jobs only carry country-level location codes, the service distributes jobs across synthetic NUTS-like areas.
-
-Recommended UI wording:
-
-```text
-Regional detail shown in demonstration mode. Sub-national distribution is simulated from country-level data.
-```
 
 ## Recommended Frontend Strategy
 

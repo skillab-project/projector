@@ -21,19 +21,17 @@ If the analyst enables sectoral intelligence, the dashboard sends:
 
 ```text
 include_sectoral=true
-sector_system=both
-sector_level=nace_section
+sector_system=nace
 ```
 
 The response includes:
-- ISCO sectoral data under `insights.sectoral_views.isco`
-- NACE level data under `insights.sectoral_views.nace.levels`
+- observed sectoral data under `insights.sectoral_views.nace.items`
 - display names under `insights.sector_view_names`
 
 ## Acceptance Criteria
 
 - The user can launch a full analysis from the dashboard.
 - The dashboard can render skills, trends, geography, employers and titles.
-- The dashboard can switch between ISCO and NACE sector views.
-- NACE level switching updates the active NACE sectoral payload.
+- The dashboard can render Tracker API sector views.
+- The dashboard does not expose sector hierarchy switching because Tracker returns sector labels.
 - The stop button calls `POST /projector/stop` and treats it as cooperative cancellation.

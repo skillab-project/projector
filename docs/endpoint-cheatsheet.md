@@ -8,7 +8,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 
 | Endpoint | Use it when you need | Returns in one sentence |
 | --- | --- | --- |
-| `POST /projector/analyze-skills` | A full dashboard snapshot | Skills, sectors, employers, titles, trends, geography and optional ISCO/NACE sectoral intelligence |
+| `POST /projector/analyze-skills` | A full dashboard snapshot | Skills, sectors, employers, titles, trends, geography and optional Tracker sector intelligence |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
@@ -35,8 +35,7 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
   -d "min_date=2024-01-01" \
   -d "max_date=2024-12-31" \
   -d "include_sectoral=true" \
-  -d "sector_system=both" \
-  -d "sector_level=nace_section"
+  -d "sector_system=nace"
 ```
 
 ### What It Returns
@@ -71,28 +70,26 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
 | `dimension_summary.jobs_analyzed` | Number of Tracker jobs analyzed | KPI card |
 | `dimension_summary.geo_breakdown` | Raw job counts by location code | Small table or map input |
 | `insights.ranking` | Top skills with count and sector context | Top skills chart |
-| `insights.sectors` | Base ISCO-oriented sector counts | Sector bar chart |
+| `insights.sectors` | Tracker sector counts | Sector bar chart |
 | `insights.job_titles` | Most frequent job titles | Job-title leaderboard |
 | `insights.employers` | Most frequent employers | Employer leaderboard |
 | `insights.trends` | Volume growth and skill trend changes | Trend tab |
 | `insights.regional` | Raw and NUTS-like area breakdowns with specialization | Map and regional detail |
 | `insights.sectoral` | Selected/default sectoral intelligence payload | Backward-compatible sector panel |
-| `insights.sectoral_views` | Full ISCO and NACE sectoral payloads | ISCO/NACE switcher and detail views |
-| `insights.sector_view_names` | Display labels for observed/canonical/matrix views | UI labels |
+| `insights.sectoral_views` | NACE wrapper with Tracker sector items | Sector detail views |
+| `insights.sector_view_names` | Display labels for observed views | UI labels |
 
 ### Sectoral Meaning In One Minute
 
 When `include_sectoral=false`, ignore the `sectoral*` fields.
 
 When `include_sectoral=true`:
-- ISCO answers: "What kind of job is this?"
-- NACE answers: "In which industry does this job operate?"
-- Observed means skills found in Tracker jobs.
-- Canonical means skills from ESCO occupation-skill relations.
-- Official Matrix means ESCO matrix skill-group profiles.
-- NACE Derived Canonical and Aggregated Official Matrix are ESCO-derived views re-aggregated through the ESCO-NACE crosswalk.
+- sectors come from Tracker `job["sectors"]`,
+- skills come from Tracker `job["skills"]`,
+- observed sector-skill counts come from job co-occurrence,
+- no ISCO, canonical, matrix, or ESCO-NACE crosswalk data is used.
 
-Important: NACE supports multiple mappings per occupation, so NACE totals describe skill-sector relationships, not strict unique job counts.
+Important: sector totals are relationship counts. A job with multiple sectors contributes to each listed sector.
 
 ## `POST /projector/emerging-skills`
 
@@ -132,7 +129,7 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
 | `trends[].name` | Skill label |
 | `trends[].growth` | Growth percentage, or `new_entry` |
 | `trends[].trend_type` | `emerging`, `declining`, or `stable` |
-| `trends[].primary_sector` | Main ISCO sector associated with the skill |
+| `trends[].primary_sector` | Main Tracker sector associated with the skill |
 
 ## `POST /projector/stop`
 

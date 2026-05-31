@@ -19,16 +19,10 @@ insights.regional
 ## Sectoral Intelligence
 
 Current support:
-- ISCO sector view,
-- NACE sector view through ESCO-NACE crosswalk,
-- NACE levels: section, division, group, class,
+- observed Tracker API sector view,
 - observed skills,
-- canonical ESCO skills,
 - observed skill groups,
-- canonical skill groups,
-- official ESCO matrix groups,
-- skill breadth and concentration metrics,
-- ISCO observed/canonical gap interpretation.
+- skill breadth and concentration metrics.
 
 Relevant response fields:
 
@@ -61,12 +55,11 @@ Current support:
 - Location Quotient-like specialization,
 - sector breadth,
 - dominant sector share,
-- top-10 sector dominance,
-- observed/canonical overlap for ISCO.
+- top-10 sector dominance.
 
 ## Current Gaps
 
 - Error responses are not standardized.
 - Date ordering is not explicitly validated.
 - Green and digital flags are currently placeholders in runtime enrichment.
-- Automated test coverage should be expanded for all NACE levels and no-data branches.
+- Automated test coverage should be expanded for API-only sector payloads and no-data branches.
