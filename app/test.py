@@ -1081,6 +1081,25 @@ def test_normalize_nace_code_supports_uri_and_numeric_shapes():
     assert occupations.normalize_nace_code("A") == "A"
 
 
+def test_get_nace_mappings_from_job_reads_tracker_sectors_field():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+
+    job = {
+        "sectors": [
+            {"code": "http://data.europa.eu/ux2/nace2.1/6201", "label": "Computer programming activities"},
+            {"naceCode": "J63.1", "naceLabel": "Data processing, hosting and related activities"},
+            "M70.22",
+        ]
+    }
+
+    assert occupations.get_sector_keys_from_job(job, level="nace_section") == ["J", "M"]
+    assert occupations.get_sector_keys_from_job(job, level="nace_division") == ["62", "63", "70"]
+    assert occupations.get_sector_keys_from_job(job, level="nace_class") == ["62.01", "63.1", "70.22"]
+
+
 def test_get_sector_label_uses_nace_dictionary_in_nace_mode():
     from app.core.container import ProjectorEngine
 
@@ -2576,6 +2595,67 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
         assert "dominance_top10_share" in sector["sector_metrics"]
         assert len(sector["skill_transversal_insights"]) >= 1
         assert "sector_breadth" in sector["skill_transversal_insights"][0]
+
+
+@pytest.mark.integration
+def test_endpoint_analyze_skills_sectoral_prefers_tracker_job_sectors_for_nace():
+    form_data = {
+        "keywords": ["developer"],
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "include_sectoral": True,
+        "sector_system": "nace",
+        "sector_level": "nace_class",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {
+            "occupation_id": "occ_1",
+            "skills": ["skill_obs"],
+            "sectors": [{"code": "M70.22", "label": "Business and other management consultancy activities"}],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+         patch.object(tracker, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
+
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        m_fetch_occ.return_value = None
+
+        engine.occupation_meta = {
+            "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "C10.11"},
+        }
+        engine.occupation_group_labels = {"C2": "C2"}
+        engine.occ_skill_relations = defaultdict(set)
+        engine.occ_skill_relations["occ_1"] = {"skill_a"}
+        engine.skill_map = {
+            "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.esco_matrix_profiles = {
+            ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
+                "occupation_group_label": "Professionals",
+                "profile": {"S1": 1.0}
+            }
+        }
+
+        response = client.post("/projector/analyze-skills", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        sector = data["insights"]["sectoral"][0]
+        assert sector["sector"] == "70.22"
+        assert sector["sector_label"] == "Business and other management consultancy activities"
+        assert data["insights"]["sectors"][0]["name"] == "M"
 
 @pytest.mark.integration
 def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():

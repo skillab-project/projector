@@ -220,7 +220,12 @@ class TrackerClient:
 
         if os.path.exists(cache_file):
             logger.info(f"Cache Hit: {query_sig}")
-            with open(cache_file, 'r') as f: return json.load(f)
+            with open(cache_file, 'r') as f:
+                cached_jobs = json.load(f)
+            if cached_jobs and not any("sectors" in job for job in cached_jobs):
+                logger.info(f"Cache stale without job sectors, refetching: {query_sig}")
+            else:
+                return cached_jobs
 
         if not self.engine.token: await self._get_token()
 

@@ -153,10 +153,10 @@ class SectoralSectorItem(BaseModel):
     sector: str
     sector_label: str
     observed_skills: SectorSkillSummary
-    canonical_skills: SectorSkillSummary
     observed_groups: SectorGroupSummary
-    canonical_groups: SectorGroupSummary
-    matrix_groups: SectorGroupSummary
+    canonical_skills: Optional[SectorSkillSummary] = None
+    canonical_groups: Optional[SectorGroupSummary] = None
+    matrix_groups: Optional[SectorGroupSummary] = None
     sector_metrics: Optional[SectorMetrics] = None
     skill_transversal_insights: Optional[List[SkillTransversalInsight]] = None
     isco_interpretation: Optional[IscoInterpretation] = None
@@ -184,19 +184,19 @@ class ProjectorInsights(BaseModel):
     )
     sectoral: Optional[List[SectoralSectorItem]] = Field(
         default=None,
-        description="Sectoral intelligence combining observed, canonical, and official ESCO matrix profiles"
+        description="Observed sectoral intelligence from Tracker job skills and sectors"
     )
     sectoral_mode: Optional[Literal["isco", "nace", "both"]] = Field(
         default=None,
-        description="Selected sector segmentation mode for the response payload."
+        description="Compatibility field. Current runtime returns 'nace' for Tracker sector views."
     )
     sectoral_views: Optional[dict[Literal["isco", "nace"], SectoralView | NaceSectoralViews]] = Field(
         default=None,
-        description="Dual sectoral payloads for ISCO and NACE segmentation modes. NACE includes all hierarchy levels."
+        description="Sectoral payloads. Current runtime exposes the NACE key with Tracker sector labels."
     )
     sector_view_names: Optional[dict[str, dict[str, str]]] = Field(
         default=None,
-        description="Display names for sectoral views by system (e.g. NACE uses derived naming)."
+        description="Display names for observed sectoral views."
     )
 
 

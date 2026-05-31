@@ -93,11 +93,12 @@ class MarketAnalytics:
             if self.engine.stop_requested: break
             if i > 0 and i % 2000 == 0: await asyncio.sleep(0)
 
-            # 1. Occupation -> sector
-            occ_ids = self.occupations.get_occupation_ids(job)
+            # 1. Use Tracker job sectors only.
+            job_sector_names = self.occupations.get_sector_keys_from_job(job, level="nace_section")
 
-            for occ_id in occ_ids:
-                sector_name = self.occupations.get_sector_from_occupation(occ_id, level="isco_group")
+            sector_names = job_sector_names or ["Sector not specified"]
+
+            for sector_name in sector_names:
                 sec_cnt[sector_name] += 1
 
             for s_uri in job.get("skills", []):
@@ -106,8 +107,7 @@ class MarketAnalytics:
                 if s_uri not in skill_sector_map:
                     skill_sector_map[s_uri] = Counter()
 
-                for occ_id in occ_ids:
-                    sector_name = self.occupations.get_sector_from_occupation(occ_id, level="isco_group")
+                for sector_name in sector_names:
                     skill_sector_map[s_uri][sector_name] += 1
 
             e_cnt[job.get("organization_name") or "N/D"] += 1

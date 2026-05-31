@@ -7,6 +7,17 @@ class SectoralAnalytics:
         self.engine = engine
         self.occupations = occupations
 
+    def _get_sector_keys_for_job_occupation(self, job: dict, occ_id: str, sector_level: str):
+        if str(sector_level).startswith("nace"):
+            job_sectors = self.occupations.get_sector_keys_from_job(job, level=sector_level)
+            if job_sectors:
+                return job_sectors
+        return self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+
+    def _get_nace_sector_keys_for_job(self, job: dict, sector_level: str):
+        sector_names = self.occupations.get_sector_keys_from_job(job, level=sector_level)
+        return sector_names or ["Sector not specified"]
+
 
 
     def build_observed_occupation_skill_matrix(self, jobs: List[dict], reset: bool = True):
@@ -94,7 +105,7 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
                 canonical_skills = self.engine.occ_skill_relations.get(occ_id, set())
                 for sector_name in sector_names:
                     for skill_id in canonical_skills:
@@ -243,12 +254,22 @@ class SectoralAnalytics:
             self.engine.sector_skill_observed = defaultdict(Counter)
 
         for job in jobs:
+            if str(sector_level).startswith("nace"):
+                sector_names = self._get_nace_sector_keys_for_job(job, sector_level)
+                for sector_name in sector_names:
+                    for skill_id in job.get("skills", []):
+                        skill_id = str(skill_id).strip()
+                        if not skill_id:
+                            continue
+                        self.engine.sector_skill_observed[sector_name][skill_id] += 1
+                continue
+
             occ_ids = self.occupations.get_occupation_ids(job)
             if not occ_ids:
                 continue
 
             for occ_id in occ_ids:
-                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
                 for sector_name in sector_names:
                     for skill_id in job.get("skills", []):
                         skill_id = str(skill_id).strip()
@@ -717,7 +738,7 @@ class SectoralAnalytics:
                 if not group_code:
                     continue
 
-                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
 
                 official = self.occupations.get_official_esco_profile_for_occupation(
                     occ_id=occ_id,
@@ -813,12 +834,6 @@ class SectoralAnalytics:
             reset=reset
         )
 
-        self.build_canonical_sector_skill_matrix(
-            jobs=jobs,
-            sector_level=sector_level,
-            reset=reset
-        )
-
         self.build_observed_sector_skillgroup_matrix(
             jobs=jobs,
             sector_level=sector_level,
@@ -826,20 +841,10 @@ class SectoralAnalytics:
             reset=reset
         )
 
-        self.build_canonical_sector_skillgroup_matrix(
-            jobs=jobs,
-            sector_level=sector_level,
-            skill_group_level=skill_group_level,
-            reset=reset
-        )
-
-        self.build_official_matrix_sector_skillgroup_profile(
-            jobs=jobs,
-            sector_level=sector_level,
-            skill_group_level=skill_group_level,
-            occupation_level=occupation_level,
-            reset=reset
-        )
+        if reset:
+            self.engine.sector_skill_canonical = defaultdict(Counter)
+            self.engine.sector_skillgroup_canonical = defaultdict(Counter)
+            self.engine.matrix_profiles = defaultdict(Counter)
 
         # 2. Collect all sector names seen in any layer
         sectors = set()
@@ -864,26 +869,19 @@ class SectoralAnalytics:
                 top_k=top_k_skills
             )
 
-            canonical_skills = {
-                "sector": sector_name,
-                "top_skills": self.get_canonical_skills_for_sector(
-                    sector_name=sector_name,
-                    resolve_labels=resolve_labels,
-                    top_k=top_k_skills
-                ),
-                "total_skill_mentions": sum(self.engine.sector_skill_canonical.get(sector_name, Counter()).values()),
-                "unique_skills": len(self.engine.sector_skill_canonical.get(sector_name, Counter()))
-            }
-
-            group_profiles = self.compare_all_group_profiles_for_sector(
-                sector_name=sector_name,
-                top_k=top_k_groups
-            )
-
             sector_total_mentions = observed_skills.get("total_skill_mentions", 0)
             sector_metrics = {
                 "coverage_unique_skills": observed_skills.get("unique_skills", 0),
                 "dominance_top10_share": self.compute_sector_skill_dominance(sector_name, top_k=10)
+            }
+            observed_group_base = self._read_group_counter(
+                self.engine.sector_skillgroup_observed.get(sector_name, Counter()),
+                top_k=top_k_groups
+            )
+            observed_groups = {
+                "total_group_mentions": observed_group_base["total_mentions"],
+                "unique_groups": observed_group_base["unique_groups"],
+                "top_groups": observed_group_base["top_groups"]
             }
 
             skill_transversal_insights = []
@@ -917,12 +915,8 @@ class SectoralAnalytics:
                 "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
 
                 "observed_skills": observed_skills,
-                "canonical_skills": canonical_skills,
+                "observed_groups": observed_groups,
 
-                "observed_groups": group_profiles["observed_groups"],
-                "canonical_groups": group_profiles["canonical_groups"],
-
-                "matrix_groups": group_profiles["official_matrix_groups"],
                 "sector_metrics": sector_metrics,
                 "skill_transversal_insights": skill_transversal_insights,
                 "isco_interpretation": isco_interpretation
@@ -948,22 +942,6 @@ class SectoralAnalytics:
             sector_name=sector_name,
             resolve_labels=resolve_labels,
             top_k=top_k_skills
-        )
-
-        canonical_skills = {
-            "sector": sector_name,
-            "top_skills": self.get_canonical_skills_for_sector(
-                sector_name=sector_name,
-                resolve_labels=resolve_labels,
-                top_k=top_k_skills
-            ),
-            "total_skill_mentions": sum(self.engine.sector_skill_canonical.get(sector_name, Counter()).values()),
-            "unique_skills": len(self.engine.sector_skill_canonical.get(sector_name, Counter()))
-        }
-
-        group_profiles = self.compare_all_group_profiles_for_sector(
-            sector_name=sector_name,
-            top_k=top_k_groups
         )
 
         sector_system = "nace" if str(sector_level).startswith("nace") else "isco"
@@ -992,17 +970,20 @@ class SectoralAnalytics:
             })
 
         isco_interpretation = self.compute_isco_skill_gap_and_stability(sector_name) if sector_system == "isco" else None
+        observed_group_base = self._read_group_counter(
+            self.engine.sector_skillgroup_observed.get(sector_name, Counter()),
+            top_k=top_k_groups
+        )
         return {
             "sector": sector_name,
             "sector_label": self.occupations.get_sector_label(sector_name, system=sector_system),
 
             "observed_skills": observed_skills,
-            "canonical_skills": canonical_skills,
-
-            "observed_groups": group_profiles["observed_groups"],
-            "canonical_groups": group_profiles["canonical_groups"],
-
-            "matrix_groups": group_profiles["official_matrix_groups"],
+            "observed_groups": {
+                "total_group_mentions": observed_group_base["total_mentions"],
+                "unique_groups": observed_group_base["unique_groups"],
+                "top_groups": observed_group_base["top_groups"]
+            },
             "sector_metrics": {
                 "coverage_unique_skills": observed_skills.get("unique_skills", 0),
                 "dominance_top10_share": self.compute_sector_skill_dominance(sector_name, top_k=10)
@@ -1027,7 +1008,7 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
                 canonical_skills = self.engine.occ_skill_relations.get(occ_id, set())
                 for sector_name in sector_names:
                     for skill_id in canonical_skills:
@@ -1050,12 +1031,24 @@ class SectoralAnalytics:
             self.engine.sector_skillgroup_observed = defaultdict(Counter)
 
         for job in jobs:
+            if str(sector_level).startswith("nace"):
+                sector_names = self._get_nace_sector_keys_for_job(job, sector_level)
+                for sector_name in sector_names:
+                    for skill_id in job.get("skills", []):
+                        skill_id = str(skill_id).strip()
+                        if not skill_id:
+                            continue
+
+                        skill_group = self.get_skill_group(skill_id, level=skill_group_level)
+                        self.engine.sector_skillgroup_observed[sector_name][skill_group] += 1
+                continue
+
             occ_ids = self.occupations.get_occupation_ids(job)
             if not occ_ids:
                 continue
 
             for occ_id in occ_ids:
-                sector_names = self.occupations.get_sector_keys_from_occupation(occ_id, level=sector_level)
+                sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
                 for sector_name in sector_names:
                     for skill_id in job.get("skills", []):
                         skill_id = str(skill_id).strip()

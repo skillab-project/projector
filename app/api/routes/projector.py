@@ -8,6 +8,11 @@ from app.core.container import service
 router = APIRouter(prefix="/projector", tags=["Projector"])
 
 
+@router.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @router.post("/emerging-skills", response_model=EmergingSkillsResponse)
 async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
                           keywords: Optional[List[str]] = Form(None)):
@@ -39,7 +44,7 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
                                  keywords)
 
 
-@router.post("/analyze-skills", response_model=ProjectorResponse)
+@router.post("/analyze-skills", response_model=ProjectorResponse, response_model_exclude_none=True)
 async def analyze_skills(
         keywords: Optional[List[str]] = Form(None),
         locations: Optional[List[str]] = Form(None),
@@ -69,10 +74,8 @@ async def analyze_skills(
            max_date (str, optional): End date (YYYY-MM-DD).
            location_code (str, optional): Geographic filter (ISO/NUTS).
            occupation_ids (List[str], optional): Sector filter (ESCO).
-           sector_system (str, optional): Sector taxonomy system. Supported values:
-               `isco`, `nace`, `both`.
-           sector_level (str, optional): Sector taxonomy level. Supported values:
-               `isco_group`, `nace_section`, `nace_division`, `nace_group`, `nace_class` (plus `nace_code` for technical compatibility).
+           sector_system (str, optional): Compatibility field. Runtime uses Tracker sectors under `nace`.
+           sector_level (str, optional): Compatibility field. Runtime uses Tracker sector labels.
 
        Returns:
            ProjectorResponse:
