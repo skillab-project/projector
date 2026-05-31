@@ -32,10 +32,10 @@ Runs the main labor-market analysis.
 | `page_size` | integer | no | `50` | Number of ranking items returned |
 | `demo` | boolean | no | `false` | Enables synthetic NUTS-like projection for country-level locations |
 | `include_sectoral` | boolean | no | `false` | Enables sectoral intelligence payload |
-| `sector_system` | enum | no | `isco` | `isco`, `nace`, or `both` |
-| `sector_level` | enum | no | `isco_group` | `isco_group`, `nace_section`, `nace_division`, `nace_group`, `nace_class`, `nace_code` |
-| `skill_group_level` | integer | no | `1` | ESCO skill group level used in sector group aggregation |
-| `occupation_level` | integer | no | `1` | ESCO occupation level used for official matrix lookup |
+| `sector_system` | enum | no | `isco` | Accepted for compatibility; runtime uses `nace` |
+| `sector_level` | enum | no | `isco_group` | Accepted for compatibility; runtime uses Tracker sector labels |
+| `skill_group_level` | integer | no | `1` | Accepted for compatibility |
+| `occupation_level` | integer | no | `1` | Accepted for compatibility |
 
 `page` and `page_size` do not paginate Tracker fetching. They only slice the returned top-skill ranking.
 
@@ -52,10 +52,7 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
   -d "page_size=20" \
   -d "demo=false" \
   -d "include_sectoral=true" \
-  -d "sector_system=both" \
-  -d "sector_level=nace_section" \
-  -d "skill_group_level=1" \
-  -d "occupation_level=1"
+  -d "sector_system=nace"
 ```
 
 ### Response Shape
@@ -78,7 +75,7 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
         "is_green": false,
         "is_digital": false,
         "sector_spread": 4,
-        "primary_sector": "Software developers"
+        "primary_sector": "Information and communication"
       }
     ],
     "sectors": [],
@@ -98,32 +95,16 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
       "nuts3": []
     },
     "sectoral": [],
-    "sectoral_mode": "both",
+    "sectoral_mode": "nace",
     "sectoral_views": {
-      "isco": {
-        "sector_level": "isco_group",
-        "items": []
-      },
       "nace": {
-        "selected_level": "nace_section",
-        "levels": {
-          "nace_section": { "sector_level": "nace_section", "items": [] },
-          "nace_division": { "sector_level": "nace_division", "items": [] },
-          "nace_group": { "sector_level": "nace_group", "items": [] },
-          "nace_class": { "sector_level": "nace_class", "items": [] }
-        }
+        "sector_level": "tracker_sector",
+        "items": []
       }
     },
     "sector_view_names": {
-      "isco": {
-        "observed": "Observed",
-        "canonical": "Canonical",
-        "matrix": "Official Matrix"
-      },
       "nace": {
-        "observed": "Observed",
-        "canonical": "Derived Canonical",
-        "matrix": "Aggregated Official Matrix"
+        "observed": "Observed"
       }
     }
   }
@@ -133,6 +114,18 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
 When `include_sectoral=false`, `sectoral`, `sectoral_mode`, `sectoral_views` and `sector_view_names` are returned as `null`.
 
 When no jobs are found, the service returns a completed response with `jobs_analyzed=0` and empty insight lists.
+
+## GET `/projector/health`
+
+Checks whether the Projector app is reachable.
+
+### Response Shape
+
+```json
+{
+  "status": "ok"
+}
+```
 
 ## POST `/projector/emerging-skills`
 
