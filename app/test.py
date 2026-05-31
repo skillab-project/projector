@@ -498,11 +498,10 @@ async def test_fetch_skill_names_enriched_logic():
 async def test_calculate_smart_trends_intelligence_overlap():
     """Verifica che il settore primario sia presente nei risultati dei trend."""
     # Mock jobs con settori specifici
-    mock_jobs_a = [{"occupation_id": "occ_1", "skills": ["s1"]}]
-    mock_jobs_b = [{"occupation_id": "occ_1", "skills": ["s1"], "organization_name": "Test"}]
+    mock_jobs_a = [{"occupation_id": "occ_1", "skills": ["s1"], "sectors": ["Automotive"]}]
+    mock_jobs_b = [{"occupation_id": "occ_1", "skills": ["s1"], "sectors": ["Automotive"], "organization_name": "Test"}]
 
     engine.token = "fake"
-    engine.sector_map = {"occ_1": "Automotive"}
     engine.skill_map = {"s1": {"label": "Battery Tech", "is_green": True, "is_digital": False}}
 
     with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as mock_fetch:
@@ -2077,16 +2076,10 @@ def test_build_single_sector_intelligence_returns_all_sections():
     }
 
     engine.sector_skill_observed = defaultdict(Counter)
-    engine.sector_skill_canonical = defaultdict(Counter)
     engine.sector_skillgroup_observed = defaultdict(Counter)
-    engine.sector_skillgroup_canonical = defaultdict(Counter)
-    engine.matrix_profiles = defaultdict(Counter)
 
     engine.sector_skill_observed["ICT"]["skill_a"] = 3
-    engine.sector_skill_canonical["ICT"]["skill_b"] = 2
     engine.sector_skillgroup_observed["ICT"]["S5.1"] = 3
-    engine.sector_skillgroup_canonical["ICT"]["S2.4"] = 2
-    engine.matrix_profiles["ICT"]["S1"] = 1.5
 
     result = sectoral.build_single_sector_intelligence(
         sector_name="ICT",
@@ -2097,16 +2090,16 @@ def test_build_single_sector_intelligence_returns_all_sections():
 
     assert result["sector"] == "ICT"
     assert "observed_skills" in result
-    assert "canonical_skills" in result
     assert "observed_groups" in result
-    assert "canonical_groups" in result
-    assert "matrix_groups" in result
+    assert "sector_metrics" in result
+    assert "skill_transversal_insights" in result
+    assert "canonical_skills" not in result
+    assert "canonical_groups" not in result
+    assert "matrix_groups" not in result
 
     assert result["observed_skills"]["top_skills"][0]["skill_id"] == "skill_a"
-    assert result["canonical_skills"]["top_skills"][0]["skill_id"] == "skill_b"
     assert result["observed_groups"]["top_groups"][0]["group_id"] == "S5.1"
-    assert result["canonical_groups"]["top_groups"][0]["group_id"] == "S2.4"
-    assert result["matrix_groups"]["top_groups"][0]["group_id"] == "S1"
+    assert result["sector_metrics"]["coverage_unique_skills"] == 1
 
 
 def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
@@ -2116,46 +2109,24 @@ def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
     occupations = OccupationAnalytics(engine)
     sectoral = SectoralAnalytics(engine, occupations)
 
-    engine.occupation_meta = {
-        "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "J62"},
-    }
-    engine.occupation_group_labels = {
-        "C2": "C2"
-    }
-
-    engine.occ_skill_relations = defaultdict(set)
-    engine.occ_skill_relations["occ_1"] = {"skill_a", "skill_b"}
-
     engine.skill_map = {
         "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
-        "skill_b": {"label": "SQL", "is_green": False, "is_digital": True},
         "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
     }
 
     engine.skill_hierarchy = {
         "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
-        "skill_b": {"level_1": "S2", "level_2": "S2.2", "level_3": "S2.2.1"},
         "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
     }
 
-    engine.esco_matrix_profiles = {
-        ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
-            "occupation_group_label": "Professionals",
-            "profile": {
-                "S1": 0.4,
-                "S2": 0.6
-            }
-        }
-    }
-
     jobs = [
-        {"occupation_id": "occ_1", "skills": ["skill_obs"]},
-        {"occupation_id": "occ_1", "skills": ["skill_obs", "skill_a"]},
+        {"skills": ["skill_obs"], "sectors": ["ICT"]},
+        {"skills": ["skill_obs", "skill_a"], "sectors": ["ICT"]},
     ]
 
     result = sectoral.build_sectoral_intelligence(
         jobs=jobs,
-        sector_level="isco_group",
+        sector_level="nace_section",
         skill_group_level=1,
         occupation_level=1,
         resolve_labels=True,
@@ -2167,19 +2138,17 @@ def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
     assert len(result) == 1
     sector = result[0]
 
-    assert sector["sector"] == "C2"
+    assert sector["sector"] == "ICT"
 
     # observed skills
     assert sector["observed_skills"]["total_skill_mentions"] == 3
     assert sector["observed_skills"]["top_skills"][0]["label"] == "Docker"
 
-    # canonical skills
-    assert sector["canonical_skills"]["unique_skills"] == 2
-
-    # groups
     assert len(sector["observed_groups"]["top_groups"]) > 0
-    assert len(sector["canonical_groups"]["top_groups"]) > 0
-    assert len(sector["matrix_groups"]["top_groups"]) > 0
+    assert "canonical_skills" not in sector
+    assert "canonical_groups" not in sector
+    assert "matrix_groups" not in sector
+    assert "skill_transversal_insights" in sector
 
 # ==========================================
 # 14. MATRIX / SCHEMA CONTRACT / EDGE CASES
@@ -2377,16 +2346,10 @@ def test_build_single_sector_intelligence_contains_sector_label_and_matrix_group
     }
 
     engine.sector_skill_observed = defaultdict(Counter)
-    engine.sector_skill_canonical = defaultdict(Counter)
     engine.sector_skillgroup_observed = defaultdict(Counter)
-    engine.sector_skillgroup_canonical = defaultdict(Counter)
-    engine.matrix_profiles = defaultdict(Counter)
 
     engine.sector_skill_observed["ICT"]["skill_a"] = 3
-    engine.sector_skill_canonical["ICT"]["skill_b"] = 2
     engine.sector_skillgroup_observed["ICT"]["S5.1"] = 3
-    engine.sector_skillgroup_canonical["ICT"]["S2.4"] = 2
-    engine.matrix_profiles["ICT"]["S1"] = 1.5
 
     result = sectoral.build_single_sector_intelligence(
         sector_name="ICT",
@@ -2397,7 +2360,9 @@ def test_build_single_sector_intelligence_contains_sector_label_and_matrix_group
 
     assert result["sector"] == "ICT"
     assert "sector_label" in result
-    assert "matrix_groups" in result
+    assert "matrix_groups" not in result
+    assert "observed_groups" in result
+    assert result["sector_metrics"]["coverage_unique_skills"] == 1
 
 
 @pytest.mark.integration
@@ -2412,16 +2377,16 @@ def test_endpoint_analyze_skills_sectoral_contract_with_matrix_groups():
     }
 
     fake_jobs = [
-        {
-            "occupation_id": "occ_1",
-            "skills": ["skill_obs"],
-            "upload_date": "2024-01-02",
-        },
-        {
-            "occupation_id": "occ_1",
-            "skills": ["skill_obs", "skill_a"],
-            "upload_date": "2024-01-08",
-        },
+            {
+                "skills": ["skill_obs"],
+                "sectors": ["Information Technology"],
+                "upload_date": "2024-01-02",
+            },
+            {
+                "skills": ["skill_obs", "skill_a"],
+                "sectors": ["Information Technology"],
+                "upload_date": "2024-01-08",
+            },
     ]
 
     with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
@@ -2467,10 +2432,13 @@ def test_endpoint_analyze_skills_sectoral_contract_with_matrix_groups():
         assert "sector" in sector
         assert "sector_label" in sector
         assert "observed_skills" in sector
-        assert "canonical_skills" in sector
         assert "observed_groups" in sector
-        assert "canonical_groups" in sector
-        assert "matrix_groups" in sector
+        assert "sector_metrics" in sector
+        assert "skill_transversal_insights" in sector
+        assert "canonical_skills" not in sector
+        assert "canonical_groups" not in sector
+        assert "matrix_groups" not in sector
+        assert sector["sector"] == "Information Technology"
 
 
 @pytest.mark.integration
@@ -2485,11 +2453,11 @@ def test_endpoint_analyze_skills_sectoral_top_groups_include_group_label():
     }
 
     fake_jobs = [
-        {
-            "occupation_id": "occ_1",
-            "skills": ["skill_obs"],
-            "upload_date": "2024-01-02",
-        }
+            {
+                "skills": ["skill_obs"],
+                "sectors": ["Information Technology"],
+                "upload_date": "2024-01-02",
+            }
     ]
 
     with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
@@ -2532,12 +2500,12 @@ def test_endpoint_analyze_skills_sectoral_top_groups_include_group_label():
         sector = data["insights"]["sectoral"][0]
 
         assert "group_label" in sector["observed_groups"]["top_groups"][0]
-        assert "group_label" in sector["canonical_groups"]["top_groups"][0]
-        assert "group_label" in sector["matrix_groups"]["top_groups"][0]
+        assert "canonical_groups" not in sector
+        assert "matrix_groups" not in sector
 
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
+def test_endpoint_analyze_skills_sectoral_uses_tracker_sector_labels_without_hierarchy():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2551,8 +2519,8 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
 
     fake_jobs = [
         {
-            "occupation_id": "occ_1",
             "skills": ["skill_obs"],
+            "sectors": ["Professional services"],
             "upload_date": "2024-01-02",
         }
     ]
@@ -2591,7 +2559,9 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "10.11"
+        assert sector["sector"] == "Professional services"
+        assert data["insights"]["sectoral_views"]["nace"]["sector_level"] == "tracker_sector"
+        assert "levels" not in data["insights"]["sectoral_views"]["nace"]
         assert sector["sector_metrics"]["coverage_unique_skills"] >= 1
         assert "dominance_top10_share" in sector["sector_metrics"]
         assert len(sector["skill_transversal_insights"]) >= 1
@@ -2654,12 +2624,12 @@ def test_endpoint_analyze_skills_sectoral_prefers_tracker_job_sectors_for_nace()
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "70.22"
-        assert sector["sector_label"] == "Business and other management consultancy activities"
+        assert sector["sector"] == "M"
+        assert sector["sector_label"] == "Professional, scientific and technical activities"
         assert data["insights"]["sectors"][0]["name"] == "M"
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
+def test_endpoint_analyze_skills_sectoral_forces_tracker_sector_view_when_sector_system_is_isco():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2673,8 +2643,8 @@ def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco()
 
     fake_jobs = [
         {
-            "occupation_id": "occ_1",
             "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
             "upload_date": "2024-01-02",
         }
     ]
@@ -2713,15 +2683,14 @@ def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco()
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "C2"
-        assert sector["isco_interpretation"] is not None
-        assert "emerging_skills" in sector["isco_interpretation"]
-        assert "missing_skills" in sector["isco_interpretation"]
-        assert "stability_overlap" in sector["isco_interpretation"]
+        assert data["insights"]["sectoral_mode"] == "nace"
+        assert set(data["insights"]["sectoral_views"].keys()) == {"nace"}
+        assert sector["sector"] == "Information Technology"
+        assert "isco_interpretation" not in sector
 
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
+def test_endpoint_analyze_skills_sectoral_exposes_tracker_nace_view_only():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2735,8 +2704,8 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
 
     fake_jobs = [
         {
-            "occupation_id": "occ_1",
             "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
             "upload_date": "2024-01-02",
         }
     ]
@@ -2774,20 +2743,17 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
         assert response.status_code == 200
 
         data = response.json()
-        assert data["insights"]["sectoral_mode"] == "both"
-        assert set(data["insights"]["sectoral_views"].keys()) == {"isco", "nace"}
-        assert data["insights"]["sectoral_views"]["isco"]["items"][0]["sector"] == "C2"
-        assert "levels" in data["insights"]["sectoral_views"]["nace"]
-        assert set(data["insights"]["sectoral_views"]["nace"]["levels"].keys()) == {
-            "nace_section", "nace_division", "nace_group", "nace_class"
-        }
-        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "10.11"
+        assert data["insights"]["sectoral_mode"] == "nace"
+        assert set(data["insights"]["sectoral_views"].keys()) == {"nace"}
+        assert data["insights"]["sectoral_views"]["nace"]["sector_level"] == "tracker_sector"
+        assert data["insights"]["sectoral_views"]["nace"]["items"][0]["sector"] == "Information Technology"
+        assert "levels" not in data["insights"]["sectoral_views"]["nace"]
         # Backward compatibility: primary `sectoral` remains list format.
         assert isinstance(data["insights"]["sectoral"], list)
 
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
+def test_endpoint_analyze_skills_sectoral_tracker_labels_define_sector_keys():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2800,8 +2766,8 @@ def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
     }
 
     fake_jobs = [
-        {"occupation_id": "occ_1", "skills": ["skill_obs"], "upload_date": "2024-01-02"},
-        {"occupation_id": "occ_2", "skills": ["skill_obs"], "upload_date": "2024-01-03"},
+        {"skills": ["skill_obs"], "sectors": ["Manufacturing"], "upload_date": "2024-01-02"},
+        {"skills": ["skill_obs"], "sectors": ["Information and communication"], "upload_date": "2024-01-03"},
     ]
 
     with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
@@ -2837,14 +2803,13 @@ def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
         assert response.status_code == 200
         data = response.json()
 
-        nace_levels = data["insights"]["sectoral_views"]["nace"]["levels"]
-        section_keys = {x["sector"] for x in nace_levels["nace_section"]["items"]}
-        division_keys = {x["sector"] for x in nace_levels["nace_division"]["items"]}
-        class_keys = {x["sector"] for x in nace_levels["nace_class"]["items"]}
-
-        assert section_keys == {"C", "J"}
-        assert division_keys == {"10", "62"}
-        assert class_keys == {"10.11", "62.01"}
+        nace_view = data["insights"]["sectoral_views"]["nace"]
+        assert nace_view["sector_level"] == "tracker_sector"
+        assert "levels" not in nace_view
+        assert {x["sector"] for x in nace_view["items"]} == {
+            "Manufacturing",
+            "Information and communication",
+        }
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():
@@ -2911,37 +2876,23 @@ def test_build_sectoral_intelligence_and_single_sector_are_consistent():
     occupations = OccupationAnalytics(engine)
     sectoral = SectoralAnalytics(engine, occupations)
 
-    engine.occupation_meta = {
-        "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "J62"},
-    }
-    engine.occupation_group_labels = {"C2": "C2"}
-    engine.occ_skill_relations = defaultdict(set)
-    engine.occ_skill_relations["occ_1"] = {"skill_a", "skill_b"}
     engine.skill_map = {
         "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
-        "skill_b": {"label": "SQL", "is_green": False, "is_digital": True},
         "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
     }
     engine.skill_hierarchy = {
         "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
-        "skill_b": {"level_1": "S2", "level_2": "S2.2", "level_3": "S2.2.1"},
         "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
-    }
-    engine.esco_matrix_profiles = {
-        ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
-            "occupation_group_label": "Professionals",
-            "profile": {"S1": 0.4, "S2": 0.6}
-        }
     }
 
     jobs = [
-        {"occupation_id": "occ_1", "skills": ["skill_obs"]},
-        {"occupation_id": "occ_1", "skills": ["skill_obs", "skill_a"]},
+        {"skills": ["skill_obs"], "sectors": ["Information Technology"]},
+        {"skills": ["skill_obs", "skill_a"], "sectors": ["Information Technology"]},
     ]
 
     result = sectoral.build_sectoral_intelligence(
         jobs=jobs,
-        sector_level="isco_group",
+        sector_level="nace_section",
         skill_group_level=1,
         occupation_level=1,
         resolve_labels=True,
@@ -2961,5 +2912,7 @@ def test_build_sectoral_intelligence_and_single_sector_are_consistent():
 
     assert single["sector"] == sector["sector"]
     assert single["observed_skills"]["total_skill_mentions"] == sector["observed_skills"]["total_skill_mentions"]
-    assert single["canonical_skills"]["unique_skills"] == sector["canonical_skills"]["unique_skills"]
-    assert single["matrix_groups"]["unique_groups"] == sector["matrix_groups"]["unique_groups"]
+    assert single["observed_groups"]["unique_groups"] == sector["observed_groups"]["unique_groups"]
+    assert single["sector_metrics"] == sector["sector_metrics"]
+    assert "canonical_skills" not in single
+    assert "matrix_groups" not in single
