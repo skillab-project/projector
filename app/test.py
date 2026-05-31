@@ -34,7 +34,7 @@ async def test_engine_analyze_market_data_logic():
     """
     mock_jobs = [
         {"organization_name": "Google", "title": "Dev", "location_code": "IT", "skills": ["s1"],
-         "occupation_id": "occ_1"}
+         "occupation_id": "occ_1", "sectors": ["Tech"]}
     ]
     # Prepariamo le mappe con la nuova struttura
     engine.sector_map = {"occ_1": "Tech"}
@@ -214,11 +214,11 @@ async def test_analyze_market_data_empty_jobs():
 async def test_analyze_market_data_unclassified_sector():
     """Verifica il fallback 'Settore non specificato' se manca occupation_id."""
     mock_jobs = [{"skills": ["s1"]}]  # Manca occupation_id
-    engine.skill_map = {"s1": {"label": "Test", "is_green": False, "is_digital": False}}
+    engine.skill_map = {"s1": {"label": "Test", "is_green": False, "is_digital": False, "sectors": "[]"}}
     engine.sector_map = {}
 
     result = await market.analyze_market_data(mock_jobs)
-    assert result["rankings"]["sectors"] == []
+    assert result["rankings"]["sectors"][0]['name'] == "Sector not specified"
 
 # ==========================================
 # 5. INTEGRATION: ENDPOINT EMERGING SKILLS
@@ -525,9 +525,8 @@ def test_dashboard_phase1_contract():
     form_data = {"keywords": ["data scientist"], "min_date": "2024-01-01", "max_date": "2024-01-02"}
 
     with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as m_fetch:
-        # Simulo un job con occupazione e skill
-        m_fetch.return_value = [{"occupation_id": "occ_1", "skills": ["s1"]}]
-        engine.sector_map = {"occ_1": "Information Technology"}
+        # New sector model: sectors arrive directly from the Tracker job payload.
+        m_fetch.return_value = [{"skills": ["s1"], "sectors": ["Information Technology"]}]
         engine.skill_map = {"s1": {"label": "AI", "is_green": False, "is_digital": True}}
 
         response = client.post("/projector/analyze-skills", data=form_data)
@@ -538,6 +537,8 @@ def test_dashboard_phase1_contract():
         assert "is_green" in skill_sample
         assert "is_digital" in skill_sample
         assert "sector_spread" in skill_sample
+        assert skill_sample["sector_spread"] == 1
+        assert skill_sample["primary_sector"] == "Information Technology"
 
         # Verifica dati per Grafico Settori (Nuova Tab 4)
         assert "sectors" in res_data["insights"]
