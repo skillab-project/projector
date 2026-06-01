@@ -50,11 +50,24 @@ When `include_sectoral=true`, `/projector/analyze-skills` returns:
   "sectoral_views": {
     "nace": {
       "sector_level": "tracker_sector",
+      "time_mode": "latest",
+      "window": {
+        "label": "Last six months",
+        "min_date": "2025-11-30",
+        "max_date": "2026-06-01"
+      },
       "items": []
     }
   }
 }
 ```
+
+Sectoral intelligence has an independent time mode:
+
+- `latest`: last six months, default.
+- `selected_period`: same window as the main dashboard request.
+- `year`: full calendar year snapshot.
+- `comparison`: two explicit windows plus sector deltas.
 
 Each item contains:
 - `sector`

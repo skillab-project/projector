@@ -56,6 +56,12 @@ async def analyze_skills(
         include_sectoral: bool = Form(False),
         sector_system: Literal["isco", "nace", "both"] = Form("isco"),
         sector_level: Literal["isco_group", "nace_section", "nace_division", "nace_group", "nace_class", "nace_code"] = Form("isco_group"),
+        sectoral_time_mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        sectoral_snapshot_year: Optional[int] = Form(None),
+        sectoral_compare_a_min_date: Optional[str] = Form(None),
+        sectoral_compare_a_max_date: Optional[str] = Form(None),
+        sectoral_compare_b_min_date: Optional[str] = Form(None),
+        sectoral_compare_b_max_date: Optional[str] = Form(None),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),
 ):
@@ -99,6 +105,12 @@ async def analyze_skills(
                                  include_sectoral,
                                  sector_system,
                                  sector_level,
+                                 sectoral_time_mode,
+                                 sectoral_snapshot_year,
+                                 sectoral_compare_a_min_date,
+                                 sectoral_compare_a_max_date,
+                                 sectoral_compare_b_min_date,
+                                 sectoral_compare_b_max_date,
                                  skill_group_level,
                                  occupation_level)
 

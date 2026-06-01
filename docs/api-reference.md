@@ -34,6 +34,12 @@ Runs the main labor-market analysis.
 | `include_sectoral` | boolean | no | `false` | Enables sectoral intelligence payload |
 | `sector_system` | enum | no | `isco` | Accepted for compatibility; runtime uses `nace` |
 | `sector_level` | enum | no | `isco_group` | Accepted for compatibility; runtime uses Tracker sector labels |
+| `sectoral_time_mode` | enum | no | `latest` | Sectoral window: `latest`, `selected_period`, `year`, or `comparison` |
+| `sectoral_snapshot_year` | integer | no | year of `max_date` | Year used when `sectoral_time_mode=year` |
+| `sectoral_compare_a_min_date` | string | no | `min_date` | Baseline start for `comparison` |
+| `sectoral_compare_a_max_date` | string | no | `max_date` | Baseline end for `comparison` |
+| `sectoral_compare_b_min_date` | string | no | last six months start | Current start for `comparison` |
+| `sectoral_compare_b_max_date` | string | no | today | Current end for `comparison` |
 | `skill_group_level` | integer | no | `1` | Accepted for compatibility |
 | `occupation_level` | integer | no | `1` | Accepted for compatibility |
 
@@ -99,6 +105,12 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
     "sectoral_views": {
       "nace": {
         "sector_level": "tracker_sector",
+        "time_mode": "latest",
+        "window": {
+          "label": "Last six months",
+          "min_date": "2025-11-30",
+          "max_date": "2026-06-01"
+        },
         "items": []
       }
     },
@@ -112,6 +124,13 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
 ```
 
 When `include_sectoral=false`, `sectoral`, `sectoral_mode`, `sectoral_views` and `sector_view_names` are returned as `null`.
+
+When `include_sectoral=true`, sectoral intelligence uses its own time window:
+
+- `latest`: last six months, default.
+- `selected_period`: uses the main `min_date` / `max_date`.
+- `year`: uses `sectoral_snapshot_year`, or the year from `max_date`.
+- `comparison`: fetches two independent periods and returns `sectoral_views.nace.comparison`.
 
 When no jobs are found, the service returns a completed response with `jobs_analyzed=0` and empty insight lists.
 

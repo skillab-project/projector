@@ -80,11 +80,20 @@ Current sectoral view is observed-only and API-only:
   "sectoral_views": {
     "nace": {
       "sector_level": "tracker_sector",
+      "time_mode": "latest",
+      "window": {
+        "label": "Last six months",
+        "min_date": "2025-11-30",
+        "max_date": "2026-06-01"
+      },
       "items": []
     }
   }
 }
 ```
+
+`time_mode` can be `latest`, `selected_period`, `year`, or `comparison`.
+For `comparison`, `sectoral_views.nace.comparison` contains sector deltas between two independent windows.
 
 ## Sectoral Item
 

@@ -1,4 +1,5 @@
 from typing import Optional, List, Literal
+from datetime import date, timedelta
 
 from fastapi import Form
 
@@ -23,6 +24,12 @@ class ProjectorService:
         include_sectoral: bool = Form(False),
         sector_system: Literal["isco", "nace", "both"] = Form("isco"),
         sector_level: Literal["isco_group", "nace_section", "nace_division", "nace_group", "nace_class", "nace_code"] = Form("isco_group"),
+        sectoral_time_mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        sectoral_snapshot_year: Optional[int] = Form(None),
+        sectoral_compare_a_min_date: Optional[str] = Form(None),
+        sectoral_compare_a_max_date: Optional[str] = Form(None),
+        sectoral_compare_b_min_date: Optional[str] = Form(None),
+        sectoral_compare_b_max_date: Optional[str] = Form(None),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),):
         self.engine.stop_requested = False
@@ -69,30 +76,43 @@ class ProjectorService:
             if normalized_system != "nace":
                 normalized_system = "nace"
 
-            nace_data = self.sectoral.build_sectoral_intelligence(
-                jobs=raw,
-                sector_level="nace_section",
+            base_sectoral_payload = {
+                k: v
+                for k, v in payload.items()
+                if k not in {"min_upload_date", "max_upload_date"} and v is not None
+            }
+            sectoral_payload = await self._build_temporal_sectoral_payload(
+                base_payload=base_sectoral_payload,
+                selected_jobs=raw,
+                selected_min_date=min_date,
+                selected_max_date=max_date,
+                time_mode=sectoral_time_mode,
+                snapshot_year=sectoral_snapshot_year,
+                compare_a_min_date=sectoral_compare_a_min_date,
+                compare_a_max_date=sectoral_compare_a_max_date,
+                compare_b_min_date=sectoral_compare_b_min_date,
+                compare_b_max_date=sectoral_compare_b_max_date,
                 skill_group_level=skill_group_level,
                 occupation_level=occupation_level,
-                resolve_labels=True,
-                top_k_skills=10,
-                top_k_groups=10,
-                reset=True
             )
 
             sectoral_mode = normalized_system
             sectoral_views = {
                 "nace": {
                     "sector_level": "tracker_sector",
-                    "items": nace_data
+                    **sectoral_payload
                 }
             }
 
-            sectoral_data = nace_data
+            sectoral_data = sectoral_payload["items"]
 
             sector_view_names = {
                 "nace": {
-                    "observed": "Observed"
+                    "observed": "Observed",
+                    "latest": "Last six months",
+                    "selected_period": "Selected period",
+                    "year": "Year snapshot",
+                    "comparison": "Period comparison"
                 }
             }
 
@@ -125,6 +145,167 @@ class ProjectorService:
         self.engine.stop_requested = False
         res = await self.trends.calculate_smart_trends({"keywords": keywords} if keywords else {}, min_date, max_date)
         return {"status": "completed" if not self.engine.stop_requested else "stopped", "insights": res}
+
+    def _today(self):
+        return date.today()
+
+    def _latest_window(self):
+        end = self._today()
+        start = end - timedelta(days=183)
+        return start.isoformat(), end.isoformat()
+
+    def _year_window(self, snapshot_year: Optional[int], fallback_date: str):
+        year = snapshot_year
+        if year is None:
+            year = int(str(fallback_date)[:4])
+        return f"{year:04d}-01-01", f"{year:04d}-12-31"
+
+    async def _fetch_jobs_for_window(self, base_payload: dict, min_date: str, max_date: str):
+        payload = {
+            **base_payload,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+        }
+        return await self.tracker.fetch_all_jobs(payload)
+
+    async def _ensure_skill_labels(self, jobs: List[dict]):
+        skill_ids = {
+            str(skill_id).strip()
+            for job in jobs
+            for skill_id in job.get("skills", [])
+            if str(skill_id).strip()
+        }
+        if skill_ids:
+            await self.tracker.fetch_skill_names(list(skill_ids))
+
+    def _build_sectoral_items(self, jobs: List[dict], skill_group_level: int, occupation_level: int):
+        return self.sectoral.build_sectoral_intelligence(
+            jobs=jobs,
+            sector_level="nace_section",
+            skill_group_level=skill_group_level,
+            occupation_level=occupation_level,
+            resolve_labels=True,
+            top_k_skills=10,
+            top_k_groups=10,
+            reset=True
+        )
+
+    def _sectoral_window_meta(self, label: str, min_date: str, max_date: str):
+        return {
+            "label": label,
+            "min_date": min_date,
+            "max_date": max_date,
+        }
+
+    def _compare_sectoral_items(self, period_a_items: List[dict], period_b_items: List[dict]):
+        by_a = {item["sector"]: item for item in period_a_items}
+        by_b = {item["sector"]: item for item in period_b_items}
+        rows = []
+
+        for sector in sorted(set(by_a) | set(by_b)):
+            item_a = by_a.get(sector, {})
+            item_b = by_b.get(sector, {})
+            count_a = item_a.get("observed_skills", {}).get("total_skill_mentions", 0)
+            count_b = item_b.get("observed_skills", {}).get("total_skill_mentions", 0)
+            delta = count_b - count_a
+            if count_a == 0 and count_b > 0:
+                growth = "new_entry"
+            elif count_a:
+                growth = round((delta / count_a) * 100, 2)
+            else:
+                growth = 0.0
+            rows.append({
+                "sector": sector,
+                "sector_label": item_b.get("sector_label") or item_a.get("sector_label") or sector,
+                "period_a_total_skill_mentions": count_a,
+                "period_b_total_skill_mentions": count_b,
+                "delta_total_skill_mentions": delta,
+                "growth_percentage": growth,
+            })
+
+        return sorted(rows, key=lambda row: row["period_b_total_skill_mentions"], reverse=True)
+
+    async def _build_temporal_sectoral_payload(
+            self,
+            base_payload: dict,
+            selected_jobs: List[dict],
+            selected_min_date: str,
+            selected_max_date: str,
+            time_mode: str,
+            snapshot_year: Optional[int],
+            compare_a_min_date: Optional[str],
+            compare_a_max_date: Optional[str],
+            compare_b_min_date: Optional[str],
+            compare_b_max_date: Optional[str],
+            skill_group_level: int,
+            occupation_level: int,
+    ):
+        mode = str(time_mode or "latest").strip().lower()
+        if mode not in {"latest", "selected_period", "year", "comparison"}:
+            mode = "latest"
+
+        if mode == "selected_period":
+            items = self._build_sectoral_items(selected_jobs, skill_group_level, occupation_level)
+            return {
+                "time_mode": mode,
+                "window": self._sectoral_window_meta("Selected period", selected_min_date, selected_max_date),
+                "items": items,
+            }
+
+        if mode == "year":
+            min_date, max_date = self._year_window(snapshot_year, selected_max_date)
+            jobs = await self._fetch_jobs_for_window(base_payload, min_date, max_date)
+            await self._ensure_skill_labels(jobs)
+            items = self._build_sectoral_items(jobs, skill_group_level, occupation_level)
+            return {
+                "time_mode": mode,
+                "window": self._sectoral_window_meta(f"{min_date[:4]} snapshot", min_date, max_date),
+                "items": items,
+            }
+
+        if mode == "comparison":
+            a_min = compare_a_min_date or selected_min_date
+            a_max = compare_a_max_date or selected_max_date
+            b_min = compare_b_min_date
+            b_max = compare_b_max_date
+            if not b_min or not b_max:
+                b_min, b_max = self._latest_window()
+
+            jobs_a = await self._fetch_jobs_for_window(base_payload, a_min, a_max)
+            jobs_b = await self._fetch_jobs_for_window(base_payload, b_min, b_max)
+            await self._ensure_skill_labels(jobs_a + jobs_b)
+            items_a = self._build_sectoral_items(jobs_a, skill_group_level, occupation_level)
+            items_b = self._build_sectoral_items(jobs_b, skill_group_level, occupation_level)
+            return {
+                "time_mode": mode,
+                "window": self._sectoral_window_meta("Comparison current", b_min, b_max),
+                "items": items_b,
+                "snapshots": {
+                    "period_a": {
+                        "window": self._sectoral_window_meta("Comparison baseline", a_min, a_max),
+                        "items": items_a,
+                    },
+                    "period_b": {
+                        "window": self._sectoral_window_meta("Comparison current", b_min, b_max),
+                        "items": items_b,
+                    },
+                },
+                "comparison": {
+                    "period_a": self._sectoral_window_meta("Comparison baseline", a_min, a_max),
+                    "period_b": self._sectoral_window_meta("Comparison current", b_min, b_max),
+                    "sectors": self._compare_sectoral_items(items_a, items_b),
+                },
+            }
+
+        min_date, max_date = self._latest_window()
+        jobs = await self._fetch_jobs_for_window(base_payload, min_date, max_date)
+        await self._ensure_skill_labels(jobs)
+        items = self._build_sectoral_items(jobs, skill_group_level, occupation_level)
+        return {
+            "time_mode": "latest",
+            "window": self._sectoral_window_meta("Last six months", min_date, max_date),
+            "items": items,
+        }
 
 
     def stop(self):

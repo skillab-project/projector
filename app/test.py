@@ -35,10 +35,12 @@ class _FakeServiceTracker:
     def __init__(self, jobs):
         self.jobs = jobs
         self.fetch_payload = None
+        self.fetch_payloads = []
         self.skill_names_requested = None
 
     async def fetch_all_jobs(self, payload):
         self.fetch_payload = payload
+        self.fetch_payloads.append(payload)
         return self.jobs
 
     async def fetch_skill_names(self, skill_ids):
@@ -84,7 +86,16 @@ class _FakeServiceSectoral:
 
     def build_sectoral_intelligence(self, **kwargs):
         self.kwargs = kwargs
-        return [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}]
+        return [{
+            "sector": "Education",
+            "sector_label": "Education",
+            "observed_skills": {
+                "sector": "Education",
+                "total_skill_mentions": 1,
+                "unique_skills": 1,
+                "top_skills": [{"skill_id": "skill-python", "count": 1, "frequency": 1.0}],
+            },
+        }]
 
 
 def _make_projector_service(jobs):
@@ -179,15 +190,85 @@ async def test_projector_service_sectoral_uses_tracker_sectors_view():
     assert result["insights"]["sectoral_views"] == {
         "nace": {
             "sector_level": "tracker_sector",
-            "items": [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}],
+            "time_mode": "latest",
+            "window": {
+                "label": "Last six months",
+                "min_date": result["insights"]["sectoral_views"]["nace"]["window"]["min_date"],
+                "max_date": result["insights"]["sectoral_views"]["nace"]["window"]["max_date"],
+            },
+            "items": [{
+                "sector": "Education",
+                "sector_label": "Education",
+                "observed_skills": {
+                    "sector": "Education",
+                    "total_skill_mentions": 1,
+                    "unique_skills": 1,
+                    "top_skills": [{"skill_id": "skill-python", "count": 1, "frequency": 1.0}],
+                },
+            }],
         }
     }
-    assert result["insights"]["sector_view_names"] == {"nace": {"observed": "Observed"}}
+    assert result["insights"]["sector_view_names"]["nace"]["observed"] == "Observed"
+    assert result["insights"]["sector_view_names"]["nace"]["latest"] == "Last six months"
     assert fake_sectoral.kwargs["jobs"] == jobs
     assert fake_sectoral.kwargs["sector_level"] == "nace_section"
     assert fake_sectoral.kwargs["skill_group_level"] == 2
     assert fake_sectoral.kwargs["occupation_level"] == 3
     assert fake_sectoral.kwargs["reset"] is True
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_selected_period_reuses_main_jobs():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, fake_tracker, fake_sectoral = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=True,
+        sectoral_time_mode="selected_period",
+    )
+
+    view = result["insights"]["sectoral_views"]["nace"]
+    assert view["time_mode"] == "selected_period"
+    assert view["window"] == {
+        "label": "Selected period",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+    }
+    assert len(fake_tracker.fetch_payloads) == 1
+    assert fake_sectoral.kwargs["jobs"] == jobs
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_comparison_fetches_independent_periods():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        keywords=["data"],
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=True,
+        sectoral_time_mode="comparison",
+        sectoral_compare_a_min_date="2023-01-01",
+        sectoral_compare_a_max_date="2023-06-30",
+        sectoral_compare_b_min_date="2024-01-01",
+        sectoral_compare_b_max_date="2024-06-30",
+    )
+
+    view = result["insights"]["sectoral_views"]["nace"]
+    assert view["time_mode"] == "comparison"
+    assert view["comparison"]["period_a"]["min_date"] == "2023-01-01"
+    assert view["comparison"]["period_b"]["max_date"] == "2024-06-30"
+    assert "period_a" in view["snapshots"]
+    assert "period_b" in view["snapshots"]
+    assert fake_tracker.fetch_payloads[1]["min_upload_date"] == "2023-01-01"
+    assert fake_tracker.fetch_payloads[2]["max_upload_date"] == "2024-06-30"
 
 
 @pytest.mark.asyncio

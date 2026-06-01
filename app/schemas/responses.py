@@ -165,6 +165,10 @@ class SectoralSectorItem(BaseModel):
 class SectoralView(BaseModel):
     sector_level: str
     items: List[SectoralSectorItem]
+    time_mode: Optional[Literal["latest", "selected_period", "year", "comparison"]] = None
+    window: Optional[dict[str, str]] = None
+    snapshots: Optional[dict[str, dict]] = None
+    comparison: Optional[dict] = None
 
 
 class NaceSectoralViews(BaseModel):
