@@ -79,7 +79,7 @@ docker compose up -d projector-db
 Connection string:
 
 ```text
-DATABASE_URL=postgresql://skillab:skillab@localhost:5432/skillab_projector
+DATABASE_URL=postgresql://skillab:skillab@localhost:5433/skillab_projector
 ```
 
 The Docker database seeds fake 2024 snapshots for the global view and `location_code=DEMO`. The dashboard flag "demo sector snapshot" uses `DEMO`.

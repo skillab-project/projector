@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: skillab
       POSTGRES_PASSWORD: skillab
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - projector-db-data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
