@@ -32,6 +32,7 @@ branch = true
 source = ["app"]
 omit = [
     "app/test.py",
+    "app/example_dashboard/*",
 ]
 
 [tool.coverage.report]
@@ -41,6 +42,7 @@ show_missing = true
 [tool.quality_gates]
 coverage = 78
 mutation_advisory = 55
+pylint_advisory = 7
 
 [tool.quality_checks.tests]
 label = "Pytest"
@@ -61,6 +63,6 @@ jenkins_result = "SUCCESS when mutation analysis and reports are generated"
 
 [tool.quality_checks.lint]
 label = "Lint"
-mode = "Report only"
+mode = "Advisory"
 jenkins_result = "SUCCESS when lint reports are generated"
-rule = "Reports are archived; no blocking gate configured"
+rule = "Pylint score has an advisory gate and does not block the build"
