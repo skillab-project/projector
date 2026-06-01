@@ -8,6 +8,7 @@ from pathlib import Path
 DEFAULT_GATES = {
     "coverage": 78.0,
     "mutation_advisory": 55.0,
+    "pylint_advisory": 7.0,
 }
 
 DEFAULT_CHECK_POLICIES = {
@@ -31,9 +32,9 @@ DEFAULT_CHECK_POLICIES = {
     },
     "lint": {
         "label": "Lint",
-        "mode": "Report only",
+        "mode": "Advisory",
         "jenkins_result": "SUCCESS when lint reports are generated",
-        "rule": "Reports are archived; no blocking gate configured",
+        "rule": "Pylint score has an advisory gate and does not block the build",
     },
 }
 

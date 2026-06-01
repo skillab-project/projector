@@ -3,6 +3,7 @@ import argparse
 import html
 import json
 import os
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -253,6 +254,17 @@ def parse_mutation(path):
     return {"exists": True, "score": score, **data}
 
 
+def parse_pylint(path):
+    file_path = Path(path)
+    if not file_path.exists():
+        return {"exists": False}
+
+    text = file_path.read_text(encoding="utf-8", errors="replace")
+    match = re.search(r"rated at\s+(-?\d+(?:\.\d+)?)/10", text)
+    score = float(match.group(1)) if match else None
+    return {"exists": True, "score": score}
+
+
 def render_cards(tests, coverage, mutation, coverage_gate, mutation_advisory):
     total_tests = sum(item.tests for item in tests if item.exists)
     total_failed = sum(item.failures + item.errors for item in tests if item.exists)
@@ -328,7 +340,16 @@ def render_test_table(tests):
     """
 
 
-def render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory, check_policies):
+def render_gate_table(
+    tests,
+    coverage,
+    mutation,
+    lint,
+    coverage_gate,
+    mutation_advisory,
+    pylint_advisory,
+    check_policies,
+):
     test_outcome = "fail" if any(item.status == "fail" for item in tests) else "pass"
     if any(item.status == "missing" for item in tests):
         test_outcome = "missing" if test_outcome == "pass" else test_outcome
@@ -350,11 +371,21 @@ def render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisor
         mutation_outcome = "missing"
         mutation_note = "mutmut stats not found"
 
+    if lint.get("exists") and lint.get("score") is not None:
+        lint_outcome = "pass" if lint["score"] >= pylint_advisory else "below"
+        lint_note = f'Pylint score {lint["score"]:.2f}/10 advisory gate {pylint_advisory:g}/10'
+    elif lint.get("exists"):
+        lint_outcome = "missing"
+        lint_note = "pylint-report.txt found, but score was not detected"
+    else:
+        lint_outcome = "missing"
+        lint_note = "pylint-report.txt not found"
+
     rows = [
         ("tests", test_outcome, test_outcome, check_policies["tests"]["rule"]),
         ("coverage", coverage_outcome, coverage_outcome, coverage_note),
         ("mutation", "pass" if mutation.get("exists") else "missing", mutation_outcome, mutation_note),
-        ("lint", "pass", "info", check_policies["lint"]["rule"]),
+        ("lint", "pass" if lint.get("exists") else "missing", lint_outcome, lint_note),
     ]
     body = "\n".join(
         (
@@ -436,6 +467,34 @@ def render_mutation(mutation, mutation_advisory):
     """
 
 
+def render_lint(lint, pylint_advisory):
+    if not lint.get("exists"):
+        return "<section><h2>Lint</h2><p>pylint-report.txt missing.</p></section>"
+
+    if lint.get("score") is None:
+        score = "missing"
+        relation = "score not detected"
+    else:
+        score = f'{lint["score"]:.2f}/10'
+        relation = "meets advisory gate" if lint["score"] >= pylint_advisory else "below advisory gate"
+
+    rows = [
+        ("Pylint score", score),
+        ("Advisory gate", f"{pylint_advisory:g}/10"),
+        ("Outcome", relation),
+    ]
+    body = "\n".join(f"<tr><td>{e(name)}</td><td>{e(value)}</td></tr>" for name, value in rows)
+    return f"""
+    <section>
+      <h2>Lint</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+        <tbody>{body}</tbody>
+      </table>
+    </section>
+    """
+
+
 def render_links():
     links = [
         ("Test report", "../test-report/index.html"),
@@ -454,14 +513,25 @@ def render_links():
     """
 
 
-def render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context, check_policies):
+def render_dashboard(
+    tests,
+    coverage,
+    mutation,
+    lint,
+    coverage_gate,
+    mutation_advisory,
+    pylint_advisory,
+    build_context,
+    check_policies,
+):
     body = f"""
     {render_cards(tests, coverage, mutation, coverage_gate, mutation_advisory)}
     {render_build_context(build_context)}
-    {render_gate_table(tests, coverage, mutation, coverage_gate, mutation_advisory, check_policies)}
+    {render_gate_table(tests, coverage, mutation, lint, coverage_gate, mutation_advisory, pylint_advisory, check_policies)}
     {render_test_table(tests)}
     {render_coverage(coverage, coverage_gate)}
     {render_mutation(mutation, mutation_advisory)}
+    {render_lint(lint, pylint_advisory)}
     {render_links()}
     """
     return f"""<!doctype html>
@@ -489,6 +559,7 @@ def main():
     parser.add_argument("--config", default="pyproject.toml")
     parser.add_argument("--coverage-gate", type=float)
     parser.add_argument("--mutation-advisory", type=float)
+    parser.add_argument("--pylint-advisory", type=float)
     args = parser.parse_args()
 
     gates = load_gates(args.config)
@@ -497,6 +568,7 @@ def main():
     mutation_advisory = (
         args.mutation_advisory if args.mutation_advisory is not None else gates["mutation_advisory"]
     )
+    pylint_advisory = args.pylint_advisory if args.pylint_advisory is not None else gates["pylint_advisory"]
 
     tests = [
         parse_junit("test-results.xml", "Unit tests"),
@@ -504,13 +576,24 @@ def main():
     ]
     coverage = parse_coverage("coverage.xml")
     mutation = parse_mutation("mutants/mutmut-cicd-stats.json")
+    lint = parse_pylint("pylint-report.txt")
     build_context = get_build_context()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.css").write_text(DASHBOARD_CSS + "\n", encoding="utf-8")
     (output_dir / "index.html").write_text(
-        render_dashboard(tests, coverage, mutation, coverage_gate, mutation_advisory, build_context, check_policies),
+        render_dashboard(
+            tests,
+            coverage,
+            mutation,
+            lint,
+            coverage_gate,
+            mutation_advisory,
+            pylint_advisory,
+            build_context,
+            check_policies,
+        ),
         encoding="utf-8",
     )
     print(output_dir / "index.html")
