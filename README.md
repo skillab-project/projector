@@ -54,6 +54,24 @@ Create a `.env` file in the repository root:
 TRACKER_API=https://your-tracker-url
 TRACKER_USERNAME=your_username
 TRACKER_PASSWORD=your_password
+DATABASE_URL=postgresql://skillab:skillab@localhost:5432/skillab_projector
+```
+
+## Local Database
+
+Only PostgreSQL is dockerized for now:
+
+```bash
+docker compose up -d projector-db
+```
+
+The container applies `migrations/*.sql` on first boot and seeds a fake 2024 sector snapshot. Use the dashboard's "demo sector snapshot" flag to read the seeded `DEMO` dataset.
+
+To reseed from scratch:
+
+```bash
+docker compose down -v
+docker compose up -d projector-db
 ```
 
 ## Repository Layout

@@ -70,6 +70,27 @@ Optional location-specific refresh:
 python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
 ```
 
+Local demo database:
+
+```bash
+docker compose up -d projector-db
+```
+
+Connection string:
+
+```text
+DATABASE_URL=postgresql://skillab:skillab@localhost:5432/skillab_projector
+```
+
+The Docker database seeds fake 2024 snapshots for the global view and `location_code=DEMO`. The dashboard flag "demo sector snapshot" uses `DEMO`.
+
+To reseed:
+
+```bash
+docker compose down -v
+docker compose up -d projector-db
+```
+
 Storage tables:
 
 - `sector_snapshot_runs`: immutable refresh runs and status

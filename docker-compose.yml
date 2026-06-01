@@ -1,0 +1,21 @@
+services:
+  projector-db:
+    image: postgres:16
+    container_name: skillab-projector-db
+    environment:
+      POSTGRES_DB: skillab_projector
+      POSTGRES_USER: skillab
+      POSTGRES_PASSWORD: skillab
+    ports:
+      - "5432:5432"
+    volumes:
+      - projector-db-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillab -d skillab_projector"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  projector-db-data:

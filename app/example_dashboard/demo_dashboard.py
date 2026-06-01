@@ -115,6 +115,8 @@ translations = {
         'demo_settings': "Impostazioni demo",
         'demo_mode': "Abilita dati NUTS demo",
         'demo_mode_help': "Attiva l'iniezione di codici NUTS fittizi per testare la gerarchia del Task 3.5",
+        'sector_demo_mode': "Abilita snapshot settori demo",
+        'sector_demo_mode_help': "Usa il dataset fake seedato nel database Docker per provare la Sector Overview senza dati Tracker reali.",
         'regional_task_header': "🌍 Intelligence regionale e proiezioni NUTS (Task 3.5)",
         'regional_strategy': "Seleziona granularità della proiezione:",
         'regional_strategy_help': "Scegli il livello di scomposizione dei dati come richiesto dal Task 3.5",
@@ -216,6 +218,8 @@ translations = {
         'demo_settings': "Demo Settings",
         'demo_mode': "Enable NUTS Demo Data",
         'demo_mode_help': "Injects synthetic NUTS codes to test Task 3.5 hierarchy.",
+        'sector_demo_mode': "Enable demo sector snapshot",
+        'sector_demo_mode_help': "Uses the fake dataset seeded in the Docker database to test Sector Overview without real Tracker data.",
         'regional_task_header': "🌍 Regional Intelligence & NUTS Projections (Task 3.5)",
         'regional_strategy': "Select projection granularity:",
         'regional_strategy_help': "Choose the data decomposition level required by Task 3.5.",
@@ -459,6 +463,7 @@ with st.sidebar:
     sectoral_mode = "year"
     sectoral_snapshot_year = 2024
     sectoral_date_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
+    sector_demo_mode = False
     compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
     compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
     submit_button = False
@@ -471,6 +476,11 @@ with st.sidebar:
         submit_button = st.button(T["submit_general"], use_container_width=True)
     else:
         sectoral_location = st.text_input(T['location'], "", key="sectoral_location")
+        sector_demo_mode = st.checkbox(
+            T["sector_demo_mode"],
+            value=False,
+            help=T["sector_demo_mode_help"],
+        )
         sectoral_snapshot_year = st.number_input(
             T["sectoral_snapshot_year"],
             min_value=2000,
@@ -563,7 +573,7 @@ sectoral_payload = {
 
 sectoral_snapshot_payload = {
     "year": int(sectoral_snapshot_year),
-    "locations": [sectoral_location] if sectoral_location else None,
+    "locations": ["DEMO"] if sector_demo_mode else ([sectoral_location] if sectoral_location else None),
 }
 
 # --- LOGICA DI ACQUISIZIONE DATI ---
