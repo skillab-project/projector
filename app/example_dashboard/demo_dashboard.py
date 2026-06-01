@@ -629,293 +629,297 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
-    tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
+    if dashboard_view == "sector":
+        tab4 = st.container()
+    else:
+        tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
 
-    # --- TAB 1: RANKING SKILLS ---
-    with tab1:
-        h_main, h_info = st.columns([8, 1])
-        with h_main:
-            st.header(T['top_skills'], help=STAT_HELP["skill_frequency"])
-        with h_info:
-            dev_info(
-                "Skill ranking",
-                ANALYZE_ENDPOINT,
-                {
-                    "insights": {
-                        "ranking": [
-                            {
-                                "name": "Python",
-                                "frequency": 120,
-                                "primary_sector": "Information and communication",
-                                "sector_spread": 4,
-                                "is_green": False,
-                                "is_digital": False
-                            }
-                        ]
-                    },
-                    "dimension_summary": {"jobs_analyzed": 1250}
-                },
-                [
-                    "insights.ranking[].name",
-                    "insights.ranking[].frequency",
-                    "insights.ranking[].primary_sector",
-                    "insights.ranking[].sector_spread",
-                    "insights.ranking[].is_green",
-                    "insights.ranking[].is_digital",
-                    "dimension_summary.jobs_analyzed"
-                ],
-                payload
-            )
-        ranking = ins.get("ranking", [])
-        if ranking:
-            df_ranking = pd.DataFrame(ranking).head(15)
-
-            # Tag Twin Transition
-            df_ranking['Twin'] = df_ranking.apply(
-                lambda x: ("🍃" if x.get('is_green') else "") + ("💻" if x.get('is_digital') else ""), axis=1
-            )
-
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                fig = px.bar(df_ranking, x='frequency', y='name', orientation='h',
-                             title=f"Top 15 Skills per '{keywords}'",
-                             color='frequency', color_continuous_scale='Viridis',
-                             hover_data=["primary_sector", "sector_spread"])
-                fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                metric_with_info(T['jobs_analyzed'], summary.get("jobs_analyzed", 0), STAT_HELP["jobs_analyzed"])
-                st.subheader(T['intelligence_label'], help=STAT_HELP["skill_frequency"])
-                st.dataframe(
-                    df_ranking[['name', 'frequency', 'primary_sector', 'Twin']],
-                    use_container_width=True,
-                    column_config={
-                        "frequency": st.column_config.NumberColumn(
-                            "frequency (i)",
-                            help=STAT_HELP["skill_frequency"]
-                        )
-                    }
-                )
-
-    # --- TAB 2: TRENDS ---
-    with tab2:
-        h_main, h_info = st.columns([8, 1])
-        with h_main:
-            st.header(T['trends_header'], help=f"{STAT_HELP['volume_growth']} {STAT_HELP['skill_growth']}")
-        with h_info:
-            dev_info(
-                "Trend view",
-                ANALYZE_ENDPOINT,
-                {
-                    "insights": {
-                        "trends": {
-                            "market_health": {
-                                "status": "expanding",
-                                "volume_growth_percentage": 12.5
-                            },
-                            "trends": [
-                                {
-                                    "name": "Python",
-                                    "growth": 20.0,
-                                    "trend_type": "emerging",
-                                    "primary_sector": "Information and communication"
-                                }
-                            ]
-                        }
-                    }
-                },
-                [
-                    "insights.trends.market_health.status",
-                    "insights.trends.market_health.volume_growth_percentage",
-                    "insights.trends.trends[].name",
-                    "insights.trends.trends[].growth",
-                    "insights.trends.trends[].trend_type",
-                    "insights.trends.trends[].primary_sector"
-                ],
-                payload
-            )
-        trend_data = ins.get("trends", {})
-
-        if trend_data:
-            mh = trend_data.get("market_health", {})
-            st.info(f"{T['market_status']}: **{mh.get('status', '').upper()}** | {T['volume_var']}: **{mh.get('volume_growth_percentage', 0)}%**")
-
-            trends_list = trend_data.get("trends", [])
-            if trends_list:
-                df_trends = pd.DataFrame.from_records(trends_list)
-                if 'growth' in df_trends.columns:
-                    new_entries = df_trends[df_trends['growth'] == 'new_entry']
-                    df_numeric = df_trends[df_trends['growth'] != 'new_entry'].copy()
-                    df_numeric['growth'] = pd.to_numeric(df_numeric['growth'], errors='coerce')
-                    df_numeric = df_numeric.dropna(subset=['growth'])
-
-                    if not df_numeric.empty:
-                        df_plot = pd.concat([df_numeric.head(10), df_numeric.tail(10)])
-                        fig_trend = px.bar(df_plot, x='growth', y='name', orientation='h',
-                                           color='trend_type',
-                                           hover_data=["primary_sector"],
-                                           color_discrete_map={'emerging': '#2ecc71', 'declining': '#e74c3c'},
-                                           title=T['delta_title'])
-                        st.plotly_chart(fig_trend, use_container_width=True)
-
-                    if not new_entries.empty:
-                        st.subheader(T['new_entries'])
-                        st.success(", ".join(new_entries['name'].astype(str).tolist()))
-
-    # --- TAB 3: GEOGRAFIA ---
-    with tab3:
-        h_main, h_info = st.columns([8, 1])
-        with h_main:
-            st.header(T['geo_header'], help=STAT_HELP["geo_job_count"])
-        with h_info:
-            dev_info(
-                "Geographic summary",
-                ANALYZE_ENDPOINT,
-                {
-                    "dimension_summary": {
-                        "geo_breakdown": [
-                            {"location": "IT", "job_count": 820}
-                        ]
-                    }
-                },
-                [
-                    "dimension_summary.geo_breakdown[].location",
-                    "dimension_summary.geo_breakdown[].job_count"
-                ],
-                payload
-            )
-        geo = summary.get("geo_breakdown", [])
-
-        # --- PARTE A: Mappa Globale ---
-        if geo:
-            df_geo = pd.DataFrame(geo)
-            iso_mapping = {"IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP", "GB": "GBR", "EL": "GRC", "SE": "SWE"}
-            df_geo['iso_alpha_3'] = df_geo['location'].map(iso_mapping).fillna(df_geo['location'])
-
-            c_map, c_stat = st.columns([2, 1])
-            with c_map:
-                fig_map = px.choropleth(df_geo, locations="iso_alpha_3", color="job_count",
-                                        hover_name="location", color_continuous_scale="Viridis",
-                                        projection="natural earth", title=T['map_title'])
-                st.plotly_chart(fig_map, use_container_width=True)
-            with c_stat:
-                st.plotly_chart(px.pie(df_geo, values='job_count', names='location', hole=0.4),
-                                use_container_width=True)
-        else:
-            st.warning(T['no_geo'])
-
-        # --- PARTE B: Task 3.5 - REGIONAL LANDSCAPE ---
-        regional_dict = ins.get("regional", {})
-
-        if regional_dict:
-            st.markdown("---")
+    if dashboard_view != "sector":
+        # --- TAB 1: RANKING SKILLS ---
+        with tab1:
             h_main, h_info = st.columns([8, 1])
             with h_main:
-                st.header(
-                    T["regional_task_header"],
-                    help=f"{STAT_HELP['market_share']} {STAT_HELP['specialization']}"
-                )
+                st.header(T['top_skills'], help=STAT_HELP["skill_frequency"])
             with h_info:
                 dev_info(
-                    "Regional intelligence",
+                    "Skill ranking",
                     ANALYZE_ENDPOINT,
                     {
                         "insights": {
-                            "regional": {
-                                "raw": [
+                            "ranking": [
+                                {
+                                    "name": "Python",
+                                    "frequency": 120,
+                                    "primary_sector": "Information and communication",
+                                    "sector_spread": 4,
+                                    "is_green": False,
+                                    "is_digital": False
+                                }
+                            ]
+                        },
+                        "dimension_summary": {"jobs_analyzed": 1250}
+                    },
+                    [
+                        "insights.ranking[].name",
+                        "insights.ranking[].frequency",
+                        "insights.ranking[].primary_sector",
+                        "insights.ranking[].sector_spread",
+                        "insights.ranking[].is_green",
+                        "insights.ranking[].is_digital",
+                        "dimension_summary.jobs_analyzed"
+                    ],
+                    payload
+                )
+            ranking = ins.get("ranking", [])
+            if ranking:
+                df_ranking = pd.DataFrame(ranking).head(15)
+
+                # Tag Twin Transition
+                df_ranking['Twin'] = df_ranking.apply(
+                    lambda x: ("🍃" if x.get('is_green') else "") + ("💻" if x.get('is_digital') else ""), axis=1
+                )
+
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    fig = px.bar(df_ranking, x='frequency', y='name', orientation='h',
+                                 title=f"Top 15 Skills per '{keywords}'",
+                                 color='frequency', color_continuous_scale='Viridis',
+                                 hover_data=["primary_sector", "sector_spread"])
+                    fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+                with col2:
+                    metric_with_info(T['jobs_analyzed'], summary.get("jobs_analyzed", 0), STAT_HELP["jobs_analyzed"])
+                    st.subheader(T['intelligence_label'], help=STAT_HELP["skill_frequency"])
+                    st.dataframe(
+                        df_ranking[['name', 'frequency', 'primary_sector', 'Twin']],
+                        use_container_width=True,
+                        column_config={
+                            "frequency": st.column_config.NumberColumn(
+                                "frequency (i)",
+                                help=STAT_HELP["skill_frequency"]
+                            )
+                        }
+                    )
+
+        # --- TAB 2: TRENDS ---
+        with tab2:
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T['trends_header'], help=f"{STAT_HELP['volume_growth']} {STAT_HELP['skill_growth']}")
+            with h_info:
+                dev_info(
+                    "Trend view",
+                    ANALYZE_ENDPOINT,
+                    {
+                        "insights": {
+                            "trends": {
+                                "market_health": {
+                                    "status": "expanding",
+                                    "volume_growth_percentage": 12.5
+                                },
+                                "trends": [
                                     {
-                                        "code": "IT",
-                                        "total_jobs": 120,
-                                        "market_share": 9.6,
-                                        "top_skills": [
-                                            {
-                                                "skill": "Python",
-                                                "count": 33,
-                                                "specialization": 1.78
-                                            }
-                                        ]
+                                        "name": "Python",
+                                        "growth": 20.0,
+                                        "trend_type": "emerging",
+                                        "primary_sector": "Information and communication"
                                     }
-                                ],
-                                "nuts1": [],
-                                "nuts2": [],
-                                "nuts3": []
+                                ]
                             }
                         }
                     },
                     [
-                        "insights.regional.raw[]",
-                        "insights.regional.nuts1[]",
-                        "insights.regional.nuts2[]",
-                        "insights.regional.nuts3[]",
-                        "regional item.code",
-                        "regional item.market_share",
-                        "regional item.top_skills[].skill",
-                        "regional item.top_skills[].count",
-                        "regional item.top_skills[].specialization"
+                        "insights.trends.market_health.status",
+                        "insights.trends.market_health.volume_growth_percentage",
+                        "insights.trends.trends[].name",
+                        "insights.trends.trends[].growth",
+                        "insights.trends.trends[].trend_type",
+                        "insights.trends.trends[].primary_sector"
                     ],
                     payload
                 )
+            trend_data = ins.get("trends", {})
 
-            strategy = st.radio(
-                T["regional_strategy"],
-                T["regional_options"],
-                horizontal=True,
-                help=T["regional_strategy_help"]
-            )
+            if trend_data:
+                mh = trend_data.get("market_health", {})
+                st.info(f"{T['market_status']}: **{mh.get('status', '').upper()}** | {T['volume_var']}: **{mh.get('volume_growth_percentage', 0)}%**")
 
-            strat_map = {
-                T["regional_options"][0]: "raw",
-                T["regional_options"][1]: "nuts1",
-                T["regional_options"][2]: "nuts2",
-                T["regional_options"][3]: "nuts3"
-            }
+                trends_list = trend_data.get("trends", [])
+                if trends_list:
+                    df_trends = pd.DataFrame.from_records(trends_list)
+                    if 'growth' in df_trends.columns:
+                        new_entries = df_trends[df_trends['growth'] == 'new_entry']
+                        df_numeric = df_trends[df_trends['growth'] != 'new_entry'].copy()
+                        df_numeric['growth'] = pd.to_numeric(df_numeric['growth'], errors='coerce')
+                        df_numeric = df_numeric.dropna(subset=['growth'])
 
-            selected_list = regional_dict.get(strat_map[strategy], [])
+                        if not df_numeric.empty:
+                            df_plot = pd.concat([df_numeric.head(10), df_numeric.tail(10)])
+                            fig_trend = px.bar(df_plot, x='growth', y='name', orientation='h',
+                                               color='trend_type',
+                                               hover_data=["primary_sector"],
+                                               color_discrete_map={'emerging': '#2ecc71', 'declining': '#e74c3c'},
+                                               title=T['delta_title'])
+                            st.plotly_chart(fig_trend, use_container_width=True)
 
-            if selected_list:
-                area_codes = [item["code"] for item in selected_list]
-                col_sel, col_met = st.columns([2, 1])
+                        if not new_entries.empty:
+                            st.subheader(T['new_entries'])
+                            st.success(", ".join(new_entries['name'].astype(str).tolist()))
 
-                with col_sel:
-                    target_code = st.selectbox(
-                        f"{T['regional_select_area']} ({strategy}):",
-                        area_codes
+        # --- TAB 3: GEOGRAFIA ---
+        with tab3:
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T['geo_header'], help=STAT_HELP["geo_job_count"])
+            with h_info:
+                dev_info(
+                    "Geographic summary",
+                    ANALYZE_ENDPOINT,
+                    {
+                        "dimension_summary": {
+                            "geo_breakdown": [
+                                {"location": "IT", "job_count": 820}
+                            ]
+                        }
+                    },
+                    [
+                        "dimension_summary.geo_breakdown[].location",
+                        "dimension_summary.geo_breakdown[].job_count"
+                    ],
+                    payload
+                )
+            geo = summary.get("geo_breakdown", [])
+
+            # --- PARTE A: Mappa Globale ---
+            if geo:
+                df_geo = pd.DataFrame(geo)
+                iso_mapping = {"IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP", "GB": "GBR", "EL": "GRC", "SE": "SWE"}
+                df_geo['iso_alpha_3'] = df_geo['location'].map(iso_mapping).fillna(df_geo['location'])
+
+                c_map, c_stat = st.columns([2, 1])
+                with c_map:
+                    fig_map = px.choropleth(df_geo, locations="iso_alpha_3", color="job_count",
+                                            hover_name="location", color_continuous_scale="Viridis",
+                                            projection="natural earth", title=T['map_title'])
+                    st.plotly_chart(fig_map, use_container_width=True)
+                with c_stat:
+                    st.plotly_chart(px.pie(df_geo, values='job_count', names='location', hole=0.4),
+                                    use_container_width=True)
+            else:
+                st.warning(T['no_geo'])
+
+            # --- PARTE B: Task 3.5 - REGIONAL LANDSCAPE ---
+            regional_dict = ins.get("regional", {})
+
+            if regional_dict:
+                st.markdown("---")
+                h_main, h_info = st.columns([8, 1])
+                with h_main:
+                    st.header(
+                        T["regional_task_header"],
+                        help=f"{STAT_HELP['market_share']} {STAT_HELP['specialization']}"
+                    )
+                with h_info:
+                    dev_info(
+                        "Regional intelligence",
+                        ANALYZE_ENDPOINT,
+                        {
+                            "insights": {
+                                "regional": {
+                                    "raw": [
+                                        {
+                                            "code": "IT",
+                                            "total_jobs": 120,
+                                            "market_share": 9.6,
+                                            "top_skills": [
+                                                {
+                                                    "skill": "Python",
+                                                    "count": 33,
+                                                    "specialization": 1.78
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    "nuts1": [],
+                                    "nuts2": [],
+                                    "nuts3": []
+                                }
+                            }
+                        },
+                        [
+                            "insights.regional.raw[]",
+                            "insights.regional.nuts1[]",
+                            "insights.regional.nuts2[]",
+                            "insights.regional.nuts3[]",
+                            "regional item.code",
+                            "regional item.market_share",
+                            "regional item.top_skills[].skill",
+                            "regional item.top_skills[].count",
+                            "regional item.top_skills[].specialization"
+                        ],
+                        payload
                     )
 
-                target = next(i for i in selected_list if i["code"] == target_code)
-
-                with col_met:
-                    metric_with_info(T["market_share"], f"{target['market_share']}%", STAT_HELP["market_share"])
-
-                st.subheader(
-                    f"{T['key_skills_in']} {target_code}",
-                    help=f"{STAT_HELP['regional_skill_count']} {STAT_HELP['specialization']}"
+                strategy = st.radio(
+                    T["regional_strategy"],
+                    T["regional_options"],
+                    horizontal=True,
+                    help=T["regional_strategy_help"]
                 )
-                df_reg_skills = pd.DataFrame(target["top_skills"])
 
-                fig_reg = px.bar(
-                    df_reg_skills,
-                    x="count",
-                    y="skill",
-                    orientation='h',
-                    text="count",
-                    color="specialization",
-                    color_continuous_scale="RdYlGn",
-                    labels={
-                        "skill": T["skill_label"],
-                        "count": T["job_post_label"],
-                        "specialization": T["specialization_label"]
-                    },
-                    title=f"{T['workforce_profile']}: {target_code}"
-                )
-                fig_reg.update_layout(yaxis={'categoryorder': 'total ascending'}, height=400)
-                st.plotly_chart(fig_reg, use_container_width=True)
+                strat_map = {
+                    T["regional_options"][0]: "raw",
+                    T["regional_options"][1]: "nuts1",
+                    T["regional_options"][2]: "nuts2",
+                    T["regional_options"][3]: "nuts3"
+                }
 
-                st.info(f"💡 **Insight Task 3.5**: {T['regional_insight'].format(target_code=target_code)}")
+                selected_list = regional_dict.get(strat_map[strategy], [])
+
+                if selected_list:
+                    area_codes = [item["code"] for item in selected_list]
+                    col_sel, col_met = st.columns([2, 1])
+
+                    with col_sel:
+                        target_code = st.selectbox(
+                            f"{T['regional_select_area']} ({strategy}):",
+                            area_codes
+                        )
+
+                    target = next(i for i in selected_list if i["code"] == target_code)
+
+                    with col_met:
+                        metric_with_info(T["market_share"], f"{target['market_share']}%", STAT_HELP["market_share"])
+
+                    st.subheader(
+                        f"{T['key_skills_in']} {target_code}",
+                        help=f"{STAT_HELP['regional_skill_count']} {STAT_HELP['specialization']}"
+                    )
+                    df_reg_skills = pd.DataFrame(target["top_skills"])
+
+                    fig_reg = px.bar(
+                        df_reg_skills,
+                        x="count",
+                        y="skill",
+                        orientation='h',
+                        text="count",
+                        color="specialization",
+                        color_continuous_scale="RdYlGn",
+                        labels={
+                            "skill": T["skill_label"],
+                            "count": T["job_post_label"],
+                            "specialization": T["specialization_label"]
+                        },
+                        title=f"{T['workforce_profile']}: {target_code}"
+                    )
+                    fig_reg.update_layout(yaxis={'categoryorder': 'total ascending'}, height=400)
+                    st.plotly_chart(fig_reg, use_container_width=True)
+
+                    st.info(f"💡 **Insight Task 3.5**: {T['regional_insight'].format(target_code=target_code)}")
+                else:
+                    st.warning(T["regional_no_level"].format(strategy=strategy))
             else:
-                st.warning(T["regional_no_level"].format(strategy=strategy))
-        else:
-            st.info(T["regional_run_first"])
+                st.info(T["regional_run_first"])
 
     # --- TAB 4: SETTORI, JOBS & EMPLOYERS ---
     with tab4:
