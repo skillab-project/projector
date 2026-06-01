@@ -38,6 +38,8 @@ translations = {
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
         'date_range': "Intervallo Temporale",
+        'submit_general': "Lancia analisi generale",
+        'submit_sectoral': "Lancia analisi settoriale",
         'sectoral_time_mode': "Finestra settoriale",
         'sectoral_time_options': {
             "latest": "Ultimi 6 mesi",
@@ -123,6 +125,8 @@ translations = {
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
         'date_range': "Time Range",
+        'submit_general': "Run general analysis",
+        'submit_sectoral': "Run sectoral analysis",
         'sectoral_time_mode': "Sectoral window",
         'sectoral_time_options': {
             "latest": "Last 6 months",
@@ -386,29 +390,39 @@ with st.sidebar:
                  on_change=change_lang, key="lang_choice")
     st.markdown("---")
 
-    with st.form("my_filters"):
-        st.header(T['filters_header'])
-        keywords = st.text_input(T['keywords'], "software")
-        location = st.text_input(T['location'], "")
-        date_range = st.date_input(T['date_range'], [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")])
-        sectoral_options = T["sectoral_time_options"]
-        sectoral_mode_label = st.selectbox(T["sectoral_time_mode"], list(sectoral_options.values()))
-        sectoral_mode = next(key for key, value in sectoral_options.items() if value == sectoral_mode_label)
-        sectoral_snapshot_year = pd.to_datetime(date_range[1]).year
-        compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
-        compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
-        if sectoral_mode == "year":
-            sectoral_snapshot_year = st.number_input(
-                T["sectoral_snapshot_year"],
-                min_value=2000,
-                max_value=2100,
-                value=pd.to_datetime(date_range[1]).year,
-                step=1,
-            )
-        if sectoral_mode == "comparison":
-            compare_a_range = st.date_input(T["sectoral_compare_a"], compare_a_range)
-            compare_b_range = st.date_input(T["sectoral_compare_b"], compare_b_range)
-        submit_button = st.form_submit_button(T['submit'])
+    st.header(T['filters_header'])
+    keywords = st.text_input(T['keywords'], "software")
+    location = st.text_input(T['location'], "")
+    date_range = st.date_input(T['date_range'], [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")])
+
+    submit_button = st.button(T["submit_general"], use_container_width=True)
+
+    st.markdown("---")
+    sectoral_keywords = st.text_input(T['keywords'], "software", key="sectoral_keywords")
+    sectoral_location = st.text_input(T['location'], "", key="sectoral_location")
+    sectoral_date_range = st.date_input(
+        T['date_range'],
+        [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")],
+        key="sectoral_date_range",
+    )
+    sectoral_options = T["sectoral_time_options"]
+    sectoral_mode_label = st.selectbox(T["sectoral_time_mode"], list(sectoral_options.values()))
+    sectoral_mode = next(key for key, value in sectoral_options.items() if value == sectoral_mode_label)
+    sectoral_snapshot_year = pd.to_datetime(sectoral_date_range[1]).year
+    compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
+    compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
+    if sectoral_mode == "year":
+        sectoral_snapshot_year = st.number_input(
+            T["sectoral_snapshot_year"],
+            min_value=2000,
+            max_value=2100,
+            value=pd.to_datetime(sectoral_date_range[1]).year,
+            step=1,
+        )
+    if sectoral_mode == "comparison":
+        compare_a_range = st.date_input(T["sectoral_compare_a"], compare_a_range)
+        compare_b_range = st.date_input(T["sectoral_compare_b"], compare_b_range)
+    sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
 
     st.markdown("---")
     st.text_input(T["backend_url"], key="api_base_url")
@@ -468,11 +482,11 @@ payload = {
 }
 
 sectoral_payload = {
-    "keywords": [keywords] if keywords else None,
-    "locations": [location] if location else None,
+    "keywords": [sectoral_keywords] if sectoral_keywords else None,
+    "locations": [sectoral_location] if sectoral_location else None,
     "mode": sectoral_mode,
-    "min_date": date_range[0].strftime("%Y-%m-%d"),
-    "max_date": date_range[1].strftime("%Y-%m-%d"),
+    "min_date": sectoral_date_range[0].strftime("%Y-%m-%d"),
+    "max_date": sectoral_date_range[1].strftime("%Y-%m-%d"),
     "snapshot_year": int(sectoral_snapshot_year),
     "compare_a_min_date": compare_a_range[0].strftime("%Y-%m-%d"),
     "compare_a_max_date": compare_a_range[1].strftime("%Y-%m-%d"),
@@ -490,16 +504,19 @@ if submit_button:
             payload,
             st.session_state.backend_timeout
         )
-        sectoral_response = get_sectoral_data(
-            st.session_state.api_base_url,
-            sectoral_payload,
-            st.session_state.backend_timeout
-        )
         if data and "_error" not in data:
             st.session_state.all_data = data
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
             st.error(error_msg)
+
+if sectoral_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        sectoral_response = get_sectoral_data(
+            st.session_state.api_base_url,
+            sectoral_payload,
+            st.session_state.backend_timeout
+        )
         if sectoral_response and "_error" not in sectoral_response:
             st.session_state.sectoral_data = sectoral_response
         else:
@@ -507,9 +524,22 @@ if submit_button:
             st.error(error_msg)
 
 # --- LOGICA DI RENDERING ---
-# Mostriamo i risultati solo se all_data è presente nello stato della sessione
-if st.session_state.all_data:
-    all_data = st.session_state.all_data
+# Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
+if st.session_state.all_data or st.session_state.sectoral_data:
+    all_data = st.session_state.all_data or {
+        "insights": {
+            "ranking": [],
+            "sectors": [],
+            "job_titles": [],
+            "employers": [],
+            "trends": {},
+            "regional": {},
+        },
+        "dimension_summary": {
+            "jobs_analyzed": 0,
+            "geo_breakdown": [],
+        },
+    }
     sectoral_response = st.session_state.sectoral_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
