@@ -37,6 +37,13 @@ SECTOR_REGION_OPTIONS = {
     "DE": "DE",
     "FR": "FR",
 }
+SECTOR_FOCUS_OPTIONS = [
+    "Information and communication",
+    "Education",
+    "Manufacturing",
+    "Professional, scientific and technical activities",
+    "Administrative and support service activities",
+]
 
 def change_lang():
     if st.session_state.lang_choice == "Italiano":
@@ -73,6 +80,7 @@ translations = {
         'sectoral_year_bar_caption': "Snapshot settoriale {year}",
         'region_filter': "Region",
         'region_filter_help': "Filtra lo snapshot settoriale per location_code. GLOBAL usa lo snapshot aggregato.",
+        'sector_focus_help': "Scegli prima il settore da esplorare; anno e region filtrano il contesto storico.",
         'sectoral_snapshot_header': "Snapshot annuale settori",
         'sectoral_snapshot_help': "Vista aggregata annuale: una riga per settore Tracker con volume job, quota, skill più richieste e titoli più frequenti.",
         'sectoral_snapshot_table': "Overview settori",
@@ -182,6 +190,7 @@ translations = {
         'sectoral_year_bar_caption': "Sector snapshot {year}",
         'region_filter': "Region",
         'region_filter_help': "Filter the sector snapshot by location_code. GLOBAL uses the aggregated snapshot.",
+        'sector_focus_help': "Choose the sector first; year and region filter the historical context.",
         'sectoral_snapshot_header': "Yearly sector snapshot",
         'sectoral_snapshot_help': "Aggregated yearly view: one row per Tracker sector with job volume, share, top requested skills, and most frequent job titles.",
         'sectoral_snapshot_table': "Sector overview",
@@ -593,6 +602,12 @@ sectoral_snapshot_payload = {
 }
 
 if dashboard_view == "sector":
+    st.selectbox(
+        T["sectoral_snapshot_detail"],
+        SECTOR_FOCUS_OPTIONS,
+        help=T["sector_focus_help"],
+        key="sector_focus_choice",
+    )
     current_year = int(st.session_state.sectoral_snapshot_year)
     selected_year = st.select_slider(
         T["sectoral_snapshot_year"],
@@ -1019,12 +1034,17 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 f"{item.get('sector_label', item['sector'])} ({item['job_count']})": item
                 for item in snapshot_sectors
             }
-            selected_snapshot = st.selectbox(
-                T["sectoral_snapshot_detail"],
-                list(snapshot_options.keys()),
-                key="snapshot_sector_focus",
+            preferred_sector = st.session_state.get("sector_focus_choice")
+            option_labels = list(snapshot_options.keys())
+            preferred_option = next(
+                (
+                    label for label, item in snapshot_options.items()
+                    if item.get("sector_label") == preferred_sector or item.get("sector") == preferred_sector
+                ),
+                option_labels[0],
             )
-            snapshot_target = snapshot_options[selected_snapshot]
+            snapshot_target = snapshot_options[preferred_option]
+            st.caption(f"{T['sectoral_snapshot_detail']}: {preferred_option}")
 
         c1, c2, c3 = st.columns(3)
 
