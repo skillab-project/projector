@@ -7,7 +7,7 @@ import subprocess
 import urllib.error
 import urllib.request
 
-from quality_dashboard import parse_coverage, parse_junit, parse_mutation, pct
+from quality_dashboard import parse_coverage, parse_junit, parse_mutation
 from quality_gates import load_check_policies, load_gates
 
 
@@ -97,6 +97,23 @@ def post_status(repo, sha, token, context, state, description, target_url=None):
         response.read()
 
 
+def post_pr_comment(repo, issue_number, token, body):
+    payload = {"body": body}
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/issues/{issue_number}/comments",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "projector-jenkins-quality-statuses",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=20) as response:
+        response.read()
+
+
 def tests_status(gates):
     suites = [
         parse_junit("test-results.xml", "Unit tests"),
@@ -151,8 +168,9 @@ def coverage_status(gates):
 def mutation_status(gates):
     mutation = parse_mutation("mutants/mutmut-cicd-stats.json")
     if not mutation.get("exists"):
-        reason = "coverage gate failure" if coverage_gate_failed(gates) else "earlier pipeline failure"
-        return ("error", skipped_after_early_failure(reason), artifact_url("quality-dashboard/index.html"))
+        if coverage_gate_failed(gates):
+            return ("error", skipped_after_early_failure("coverage gate failure"), artifact_url("quality-dashboard/index.html"))
+        return ("error", describe("Missing mutation stats"), artifact_url("quality-dashboard/index.html"))
 
     value = mutation["score"] * 100
     advisory = gates["mutation_advisory"]
@@ -168,9 +186,71 @@ def code_quality_status(check_policies, gates):
     has_pylint = os.path.exists("pylint-report.txt")
     has_flake8 = os.path.exists("flake8-report.json")
     if not has_pylint and not has_flake8:
-        reason = "coverage gate failure" if coverage_gate_failed(gates) else "earlier pipeline failure"
-        return ("error", skipped_after_early_failure(reason), artifact_url("quality-dashboard/index.html"))
+        if coverage_gate_failed(gates):
+            return ("error", skipped_after_early_failure("coverage gate failure"), artifact_url("quality-dashboard/index.html"))
+        return ("error", describe("Missing lint reports"), artifact_url("quality-dashboard/index.html"))
     return ("success", describe(check_policies["lint"]["rule"]), artifact_url("quality-dashboard/index.html"))
+
+
+def strip_build_mode(description):
+    prefix = f"{build_mode()}: "
+    if description.startswith(prefix):
+        return description[len(prefix):]
+    return description
+
+
+def ci_status(statuses):
+    tests_state = statuses["Tests"][0]
+    coverage_state = statuses["Coverage Gate"][0]
+    tests_description = strip_build_mode(statuses["Tests"][1])
+    coverage_description = strip_build_mode(statuses["Coverage Gate"][1])
+
+    if tests_state != "success":
+        return (tests_state, describe(tests_description), artifact_url("quality-dashboard/index.html"))
+    if coverage_state != "success":
+        return (coverage_state, describe(coverage_description), artifact_url("quality-dashboard/index.html"))
+    return ("success", describe("Tests and coverage passed"), artifact_url("quality-dashboard/index.html"))
+
+
+def markdown_link(label, url):
+    if not url:
+        return label
+    return f"[{label}]({url})"
+
+
+def render_pr_comment(statuses):
+    state_icons = {
+        "success": "PASS",
+        "failure": "FAIL",
+        "error": "ERROR",
+        "pending": "PENDING",
+    }
+    build_url = os.environ.get("BUILD_URL", "").rstrip("/")
+    sha = infer_sha()
+    short_sha = sha[:7] if sha else "unknown"
+    lines = [
+        "## Jenkins CI result",
+        "",
+        f"- Build: {build_mode()}",
+        f"- Commit: `{short_sha}`",
+    ]
+    if build_url:
+        lines.append(f"- Jenkins build: {markdown_link(build_url, build_url)}")
+
+    lines.extend(["", "| Check | Result | Summary | Report |", "| --- | --- | --- | --- |"])
+    for label, (state, description, target_url) in statuses.items():
+        summary = strip_build_mode(description)
+        result = "SKIPPED" if summary.startswith("Skipped after ") else state_icons.get(state, state.upper())
+        lines.append(
+            f"| {label} | {result} | {summary} | "
+            f"{markdown_link('open', target_url) if target_url else '-'} |"
+        )
+
+    dashboard_url = artifact_url("quality-dashboard/index.html")
+    if dashboard_url:
+        lines.extend(["", f"Quality dashboard: {markdown_link('open dashboard', dashboard_url)}"])
+
+    return "\n".join(lines)
 
 
 def main():
@@ -190,22 +270,33 @@ def main():
     gates = load_gates(args.config)
     check_policies = load_check_policies(args.config)
 
-    statuses = [
-        ("Jenkins / Tests", *tests_status(gates)),
-        ("Jenkins / Coverage Gate", *coverage_status(gates)),
-        ("Jenkins / Mutation Advisory", *mutation_status(gates)),
-        ("Jenkins / Code Quality", *code_quality_status(check_policies, gates)),
-    ]
+    statuses = {
+        "Tests": tests_status(gates),
+        "Coverage Gate": coverage_status(gates),
+        "Mutation Advisory": mutation_status(gates),
+        "Lint Reports": code_quality_status(check_policies, gates),
+    }
 
-    for context, state, description, target_url in statuses:
+    state, description, target_url = ci_status(statuses)
+    try:
+        post_status(repo, sha, token, "Jenkins / CI", state, description, target_url)
+        print(f"Published Jenkins / CI: {state} - {description}")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        print(f"Failed to publish Jenkins / CI: HTTP {exc.code} {body}")
+    except Exception as exc:
+        print(f"Failed to publish Jenkins / CI: {exc}")
+
+    issue_number = os.environ.get("CHANGE_ID")
+    if issue_number:
         try:
-            post_status(repo, sha, token, context, state, description, target_url)
-            print(f"Published {context}: {state} - {description}")
+            post_pr_comment(repo, issue_number, token, render_pr_comment(statuses))
+            print(f"Published Jenkins CI comment on PR #{issue_number}.")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
-            print(f"Failed to publish {context}: HTTP {exc.code} {body}")
+            print(f"Failed to publish Jenkins CI comment: HTTP {exc.code} {body}")
         except Exception as exc:
-            print(f"Failed to publish {context}: {exc}")
+            print(f"Failed to publish Jenkins CI comment: {exc}")
 
 
 if __name__ == "__main__":
