@@ -171,6 +171,17 @@ class SectoralView(BaseModel):
     comparison: Optional[dict] = None
 
 
+class SectoralIntelligenceResponse(BaseModel):
+    status: str
+    mode: Literal["latest", "selected_period", "year", "comparison"]
+    sector_level: str
+    window: dict[str, str]
+    items: List[SectoralSectorItem]
+    snapshots: Optional[dict[str, dict]] = None
+    comparison: Optional[dict] = None
+    sector_view_names: dict[str, str]
+
+
 class NaceSectoralViews(BaseModel):
     selected_level: str
     levels: dict[str, SectoralView]

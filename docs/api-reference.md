@@ -31,7 +31,7 @@ Runs the main labor-market analysis.
 | `page` | integer | no | `1` | Page for returned `insights.ranking` only |
 | `page_size` | integer | no | `50` | Number of ranking items returned |
 | `demo` | boolean | no | `false` | Enables synthetic NUTS-like projection for country-level locations |
-| `include_sectoral` | boolean | no | `false` | Enables sectoral intelligence payload |
+| `include_sectoral` | boolean | no | `false` | Compatibility field. New frontend should call `/projector/sectoral-intelligence` |
 | `sector_system` | enum | no | `isco` | Accepted for compatibility; runtime uses `nace` |
 | `sector_level` | enum | no | `isco_group` | Accepted for compatibility; runtime uses Tracker sector labels |
 | `sectoral_time_mode` | enum | no | `latest` | Sectoral window: `latest`, `selected_period`, `year`, or `comparison` |
@@ -133,6 +133,77 @@ When `include_sectoral=true`, sectoral intelligence uses its own time window:
 - `comparison`: fetches two independent periods and returns `sectoral_views.nace.comparison`.
 
 When no jobs are found, the service returns a completed response with `jobs_analyzed=0` and empty insight lists.
+
+## POST `/projector/sectoral-intelligence`
+
+Computes the sector dimension only.
+
+Use this endpoint for the final frontend sector view instead of embedding sectoral intelligence inside `/projector/analyze-skills`.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `keywords` | list of strings | no | `null` | Search terms forwarded to Tracker |
+| `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
+| `mode` | enum | no | `latest` | `latest`, `selected_period`, `year`, or `comparison` |
+| `min_date` | string | no | latest window start | Used by `selected_period`, and as comparison baseline fallback |
+| `max_date` | string | no | latest window end | Used by `selected_period`, and as comparison baseline fallback |
+| `snapshot_year` | integer | no | year of `max_date` | Full calendar year for `mode=year` |
+| `compare_a_min_date` | string | no | `min_date` | Baseline start for `comparison` |
+| `compare_a_max_date` | string | no | `max_date` | Baseline end for `comparison` |
+| `compare_b_min_date` | string | no | last six months start | Current start for `comparison` |
+| `compare_b_max_date` | string | no | today | Current end for `comparison` |
+| `skill_group_level` | integer | no | `1` | Skill group aggregation level |
+| `occupation_level` | integer | no | `1` | Compatibility field |
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sectoral-intelligence" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "locations=IT" \
+  -d "mode=latest"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "mode": "latest",
+  "sector_level": "tracker_sector",
+  "window": {
+    "label": "Last six months",
+    "min_date": "2025-11-30",
+    "max_date": "2026-06-01"
+  },
+  "items": [],
+  "sector_view_names": {
+    "latest": "Last six months",
+    "selected_period": "Selected period",
+    "year": "Year snapshot",
+    "comparison": "Period comparison"
+  }
+}
+```
+
+For `mode=comparison`, the response also includes:
+
+```json
+{
+  "snapshots": {
+    "period_a": { "window": {}, "items": [] },
+    "period_b": { "window": {}, "items": [] }
+  },
+  "comparison": {
+    "period_a": {},
+    "period_b": {},
+    "sectors": []
+  }
+}
+```
 
 ## GET `/projector/health`
 

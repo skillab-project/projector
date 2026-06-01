@@ -2,7 +2,12 @@ from typing import Optional, List, Literal
 from fastapi import APIRouter
 from fastapi import Form
 
-from app.schemas.responses import EmergingSkillsResponse, ProjectorResponse, StopResponse
+from app.schemas.responses import (
+    EmergingSkillsResponse,
+    ProjectorResponse,
+    SectoralIntelligenceResponse,
+    StopResponse,
+)
 from app.core.container import service
 
 router = APIRouter(prefix="/projector", tags=["Projector"])
@@ -113,6 +118,47 @@ async def analyze_skills(
                                  sectoral_compare_b_max_date,
                                  skill_group_level,
                                  occupation_level)
+
+
+@router.post(
+    "/sectoral-intelligence",
+    response_model=SectoralIntelligenceResponse,
+    response_model_exclude_none=True,
+)
+async def sectoral_intelligence(
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        min_date: Optional[str] = Form(None),
+        max_date: Optional[str] = Form(None),
+        snapshot_year: Optional[int] = Form(None),
+        compare_a_min_date: Optional[str] = Form(None),
+        compare_a_max_date: Optional[str] = Form(None),
+        compare_b_min_date: Optional[str] = Form(None),
+        compare_b_max_date: Optional[str] = Form(None),
+        skill_group_level: int = Form(1),
+        occupation_level: int = Form(1),
+):
+    """
+       Computes Tracker API sector intelligence as a dedicated sector dimension.
+
+       The endpoint is independent from `/projector/analyze-skills` and supports
+       latest, selected-period, yearly snapshot, and two-period comparison modes.
+    """
+    return await service.sectoral_intelligence(
+        keywords=keywords,
+        locations=locations,
+        mode=mode,
+        min_date=min_date,
+        max_date=max_date,
+        snapshot_year=snapshot_year,
+        compare_a_min_date=compare_a_min_date,
+        compare_a_max_date=compare_a_max_date,
+        compare_b_min_date=compare_b_min_date,
+        compare_b_max_date=compare_b_max_date,
+        skill_group_level=skill_group_level,
+        occupation_level=occupation_level,
+    )
 
 
 @router.post("/stop", response_model=StopResponse)

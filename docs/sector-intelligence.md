@@ -2,6 +2,14 @@
 
 Sector intelligence is now built from Tracker API job payloads only.
 
+The preferred endpoint for frontend sector views is:
+
+```text
+POST /projector/sectoral-intelligence
+```
+
+`POST /projector/analyze-skills` still supports `include_sectoral=true` for compatibility.
+
 ## Source
 
 Each job can contain:

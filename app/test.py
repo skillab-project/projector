@@ -272,6 +272,35 @@ async def test_projector_service_sectoral_comparison_fetches_independent_periods
 
 
 @pytest.mark.asyncio
+async def test_projector_service_sectoral_intelligence_endpoint_contract():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.sectoral_intelligence(
+        keywords=["data"],
+        mode="selected_period",
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+    )
+
+    assert result["status"] == "completed"
+    assert result["mode"] == "selected_period"
+    assert result["sector_level"] == "tracker_sector"
+    assert result["window"] == {
+        "label": "Selected period",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+    }
+    assert result["items"][0]["sector"] == "Education"
+    assert result["sector_view_names"]["comparison"] == "Period comparison"
+    assert fake_tracker.fetch_payloads == [{
+        "keywords": ["data"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-01-31",
+    }]
+
+
+@pytest.mark.asyncio
 async def test_projector_service_emerging_skills_and_stop_status():
     fake_service, fake_engine, _, _ = _make_projector_service([])
 
@@ -3194,6 +3223,54 @@ def test_endpoint_analyze_skills_sectoral_tracker_labels_define_sector_keys():
             "Manufacturing",
             "Information and communication",
         }
+
+
+@pytest.mark.integration
+def test_endpoint_sectoral_intelligence_selected_period_contract():
+    form_data = {
+        "keywords": ["developer"],
+        "mode": "selected_period",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {
+            "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills:
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        engine.skill_map = {
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.skill_group_labels = {"S3": "digital content creation"}
+
+        response = client.post("/projector/sectoral-intelligence", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["mode"] == "selected_period"
+        assert data["sector_level"] == "tracker_sector"
+        assert data["window"] == {
+            "label": "Selected period",
+            "min_date": "2024-01-01",
+            "max_date": "2024-01-10",
+        }
+        assert data["items"][0]["sector"] == "Information Technology"
+        assert data["items"][0]["observed_skills"]["total_skill_mentions"] == 1
+        assert data["sector_view_names"]["latest"] == "Last six months"
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():

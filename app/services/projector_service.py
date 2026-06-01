@@ -146,6 +146,70 @@ class ProjectorService:
         res = await self.trends.calculate_smart_trends({"keywords": keywords} if keywords else {}, min_date, max_date)
         return {"status": "completed" if not self.engine.stop_requested else "stopped", "insights": res}
 
+    async def sectoral_intelligence(
+            self,
+            keywords: Optional[List[str]] = None,
+            locations: Optional[List[str]] = None,
+            mode: Literal["latest", "selected_period", "year", "comparison"] = "latest",
+            min_date: Optional[str] = None,
+            max_date: Optional[str] = None,
+            snapshot_year: Optional[int] = None,
+            compare_a_min_date: Optional[str] = None,
+            compare_a_max_date: Optional[str] = None,
+            compare_b_min_date: Optional[str] = None,
+            compare_b_max_date: Optional[str] = None,
+            skill_group_level: int = 1,
+            occupation_level: int = 1,
+    ):
+        self.engine.stop_requested = False
+
+        latest_min, latest_max = self._latest_window()
+        selected_min = min_date or latest_min
+        selected_max = max_date or latest_max
+        normalized_mode = str(mode or "latest").strip().lower()
+
+        base_payload = {
+            "keywords": keywords,
+            "location_code": locations,
+        }
+        clean_base_payload = {k: v for k, v in base_payload.items() if v is not None}
+
+        selected_jobs = []
+        if normalized_mode == "selected_period":
+            selected_jobs = await self._fetch_jobs_for_window(clean_base_payload, selected_min, selected_max)
+            await self._ensure_skill_labels(selected_jobs)
+
+        payload = await self._build_temporal_sectoral_payload(
+            base_payload=clean_base_payload,
+            selected_jobs=selected_jobs,
+            selected_min_date=selected_min,
+            selected_max_date=selected_max,
+            time_mode=normalized_mode,
+            snapshot_year=snapshot_year,
+            compare_a_min_date=compare_a_min_date,
+            compare_a_max_date=compare_a_max_date,
+            compare_b_min_date=compare_b_min_date,
+            compare_b_max_date=compare_b_max_date,
+            skill_group_level=skill_group_level,
+            occupation_level=occupation_level,
+        )
+
+        return {
+            "status": "completed" if not self.engine.stop_requested else "stopped",
+            "mode": payload["time_mode"],
+            "sector_level": "tracker_sector",
+            "window": payload["window"],
+            "items": payload["items"],
+            "snapshots": payload.get("snapshots"),
+            "comparison": payload.get("comparison"),
+            "sector_view_names": {
+                "latest": "Last six months",
+                "selected_period": "Selected period",
+                "year": "Year snapshot",
+                "comparison": "Period comparison",
+            },
+        }
+
     def _today(self):
         return date.today()
 
