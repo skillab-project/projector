@@ -15,6 +15,7 @@ from app.main import  app
 from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
+from app.services.projector_service import ProjectorService
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -22,10 +23,189 @@ load_dotenv()
 client = TestClient(app)
 
 
+class _FakeServiceEngine:
+    def __init__(self):
+        self.stop_requested = False
+
+    def request_stop(self):
+        self.stop_requested = True
+
+
+class _FakeServiceTracker:
+    def __init__(self, jobs):
+        self.jobs = jobs
+        self.fetch_payload = None
+        self.skill_names_requested = None
+
+    async def fetch_all_jobs(self, payload):
+        self.fetch_payload = payload
+        return self.jobs
+
+    async def fetch_skill_names(self, skill_ids):
+        self.skill_names_requested = skill_ids
+
+
+class _FakeServiceMarket:
+    def _empty_insights_p1(self):
+        return {"ranking": [], "sectors": [], "job_titles": [], "employers": []}
+
+    async def analyze_market_data(self, jobs):
+        return {
+            "total_jobs": len(jobs),
+            "geo": [{"name": "IT", "count": len(jobs)}],
+            "rankings": {
+                "skills": [
+                    {"id": "skill-python", "name": "Python"},
+                    {"id": "skill-sql", "name": "SQL"},
+                ],
+                "sectors": [{"name": "Education", "count": 1}],
+                "job_titles": [{"name": "Data Scientist", "count": 1}],
+                "employers": [{"name": "ACME", "count": 1}],
+            },
+        }
+
+
+class _FakeServiceTrends:
+    async def calculate_trends_from_data(self, jobs, min_date, max_date):
+        return [{"name": "Python", "growth": 10.0, "window": [min_date, max_date]}]
+
+    async def calculate_smart_trends(self, filters, min_date, max_date):
+        return {"filters": filters, "market_health": {"status": "stable"}, "trends": []}
+
+
+class _FakeServiceRegional:
+    def get_regional_projections(self, jobs, demo=False):
+        return [{"location": "IT", "demo": demo, "count": len(jobs)}]
+
+
+class _FakeServiceSectoral:
+    def __init__(self):
+        self.kwargs = None
+
+    def build_sectoral_intelligence(self, **kwargs):
+        self.kwargs = kwargs
+        return [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}]
+
+
+def _make_projector_service(jobs):
+    fake_engine = _FakeServiceEngine()
+    fake_tracker = _FakeServiceTracker(jobs)
+    fake_sectoral = _FakeServiceSectoral()
+    fake_service = ProjectorService(
+        fake_engine,
+        fake_tracker,
+        occupations=None,
+        regional=_FakeServiceRegional(),
+        market=_FakeServiceMarket(),
+        trends=_FakeServiceTrends(),
+        sectoral=fake_sectoral,
+    )
+    return fake_service, fake_engine, fake_tracker, fake_sectoral
+
+
 
 # ==========================================
 # 1. TEST UNITARI (Engine & Intelligence)
 # ==========================================
+
+@pytest.mark.asyncio
+async def test_projector_service_empty_jobs_returns_empty_insights():
+    fake_service, _, fake_tracker, _ = _make_projector_service([])
+
+    result = await fake_service.analyze_skills(
+        keywords=["data"],
+        locations=["IT"],
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=False,
+    )
+
+    assert result["status"] == "completed"
+    assert result["dimension_summary"]["jobs_analyzed"] == 0
+    assert result["insights"]["ranking"] == []
+    assert fake_tracker.fetch_payload == {
+        "keywords": ["data"],
+        "location_code": ["IT"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-01-31",
+    }
+
+
+@pytest.mark.asyncio
+async def test_projector_service_analyze_skills_paginates_and_enriches_api_skills():
+    jobs = [
+        {"skills": ["skill-python", "skill-sql"], "sectors": ["Education"]},
+        {"skills": ["skill-python"], "sectors": ["Research"]},
+    ]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=2,
+        page_size=1,
+        demo=True,
+        include_sectoral=False,
+    )
+
+    assert result["status"] == "completed"
+    assert result["dimension_summary"]["jobs_analyzed"] == 2
+    assert result["insights"]["ranking"] == [{"id": "skill-sql", "name": "SQL"}]
+    assert result["insights"]["regional"] == [{"location": "IT", "demo": True, "count": 2}]
+    assert result["insights"]["sectoral"] is None
+    assert set(fake_tracker.skill_names_requested) == {"skill-python", "skill-sql"}
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_uses_tracker_sectors_view():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, _, fake_sectoral = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=True,
+        sector_system="isco",
+        sector_level="nace_class",
+        skill_group_level=2,
+        occupation_level=3,
+    )
+
+    assert result["insights"]["sectoral_mode"] == "nace"
+    assert result["insights"]["sectoral_views"] == {
+        "nace": {
+            "sector_level": "tracker_sector",
+            "items": [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}],
+        }
+    }
+    assert result["insights"]["sector_view_names"] == {"nace": {"observed": "Observed"}}
+    assert fake_sectoral.kwargs["jobs"] == jobs
+    assert fake_sectoral.kwargs["sector_level"] == "nace_section"
+    assert fake_sectoral.kwargs["skill_group_level"] == 2
+    assert fake_sectoral.kwargs["occupation_level"] == 3
+    assert fake_sectoral.kwargs["reset"] is True
+
+
+@pytest.mark.asyncio
+async def test_projector_service_emerging_skills_and_stop_status():
+    fake_service, fake_engine, _, _ = _make_projector_service([])
+
+    emerging = await fake_service.emerging_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        keywords=["python"],
+    )
+    stop_result = fake_service.stop()
+
+    assert emerging["status"] == "completed"
+    assert emerging["insights"]["filters"] == {"keywords": ["python"]}
+    assert stop_result == {"status": "signal_sent"}
+    assert fake_engine.stop_requested is True
+
 
 @pytest.mark.asyncio
 async def test_engine_analyze_market_data_logic():
@@ -200,6 +380,129 @@ async def test_fetch_all_jobs_read_timeout_resilience():
         # Deve catturare l'errore, loggare e restituire i job accumulati finora (vuoti)
         result = await tracker.fetch_all_jobs({"kw": "test"})
         assert result == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_skill_names_enriches_api_skills_and_requests_token():
+    engine.skill_map = {}
+    engine.token = None
+    engine.stop_requested = False
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "items": [
+            {"id": "skill-python", "label": "Python"},
+            {"id": "skill-sql", "label": "SQL"},
+        ]
+    }
+
+    async def fake_token():
+        engine.token = "fresh-token"
+        return engine.token
+
+    with patch.object(tracker, "_get_token", new_callable=AsyncMock) as mock_token, \
+         patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_token.side_effect = fake_token
+        mock_post.return_value = response
+
+        await tracker.fetch_skill_names(["skill-python", "skill-sql", "skill-python"])
+
+    assert mock_token.await_count == 1
+    assert mock_post.await_count == 1
+    assert mock_post.await_args.kwargs["headers"] == {"Authorization": "Bearer fresh-token"}
+    assert mock_post.await_args.kwargs["data"] == {
+        "ids": ["skill-python", "skill-sql", "skill-python"],
+        "keywords_logic": "or",
+    }
+    assert engine.skill_map["skill-python"] == {
+        "label": "Python",
+        "is_green": False,
+        "is_digital": False,
+    }
+    assert engine.skill_map["skill-sql"]["label"] == "SQL"
+
+
+@pytest.mark.asyncio
+async def test_fetch_skill_names_skips_cached_and_stopped_requests():
+    engine.skill_map = {"skill-python": {"label": "Python"}}
+    engine.stop_requested = False
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        await tracker.fetch_skill_names(["skill-python"])
+        mock_post.assert_not_awaited()
+
+    engine.stop_requested = True
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        await tracker.fetch_skill_names(["skill-sql"])
+        mock_post.assert_not_awaited()
+
+    engine.stop_requested = False
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_paginates_and_writes_sector_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "skills": ["skill-a"], "sectors": ["Education"]},
+            {"id": 2, "skills": ["skill-b"], "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {
+        "count": 3,
+        "items": [{"id": 3, "skills": ["skill-c"], "sectors": ["Manufacturing"]}],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [first, second]
+        result = await tracker.fetch_all_jobs({"keywords": ["data"]}, page_size=2)
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 2
+    assert mock_post.await_args_list[0].kwargs["params"] == {"page": 1, "page_size": 2}
+    assert mock_post.await_args_list[1].kwargs["params"] == {"page": 2, "page_size": 2}
+    cache_files = list((tmp_path / "cache_data").glob("search_*.json"))
+    assert len(cache_files) == 1
+    assert json.loads(cache_files[0].read_text()) == result
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_uses_sector_cache_and_refetches_stale_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    query_sig = hashlib.md5(json.dumps({"keywords": ["data"]}, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    cache_file.write_text(json.dumps([{"id": 1, "sectors": ["Education"]}]))
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        cached = await tracker.fetch_all_jobs({"keywords": ["data"]})
+        mock_post.assert_not_awaited()
+    assert cached == [{"id": 1, "sectors": ["Education"]}]
+
+    cache_file.write_text(json.dumps([{"id": 2, "occupation_id": "old"}]))
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"count": 1, "items": [{"id": 3, "sectors": ["Research"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = response
+        refreshed = await tracker.fetch_all_jobs({"keywords": ["data"]})
+
+    assert refreshed == [{"id": 3, "sectors": ["Research"]}]
+    assert mock_post.await_count == 1
 
 
 @pytest.mark.asyncio
