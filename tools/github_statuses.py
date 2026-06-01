@@ -7,7 +7,7 @@ import subprocess
 import urllib.error
 import urllib.request
 
-from quality_dashboard import parse_coverage, parse_junit, parse_mutation
+from quality_dashboard import parse_coverage, parse_junit, parse_mutation, parse_pylint
 from quality_gates import load_check_policies, load_gates
 
 
@@ -210,6 +210,18 @@ def code_quality_status(check_policies, gates):
         if coverage_gate_failed(gates):
             return ("error", skipped_after_early_failure("coverage gate failure"), artifact_url("quality-dashboard/index.html"))
         return ("error", describe("Missing lint reports"), artifact_url("quality-dashboard/index.html"))
+
+    lint = parse_pylint("pylint-report.txt")
+    if lint.get("score") is not None:
+        score = lint["score"]
+        advisory = gates["pylint_advisory"]
+        relation = "meets" if score >= advisory else "below"
+        return (
+            "success",
+            describe(f"Pylint: {score:.2f}/10 {relation} advisory gate {advisory:g}/10"),
+            artifact_url("quality-dashboard/index.html"),
+        )
+
     return ("success", describe(check_policies["lint"]["rule"]), artifact_url("quality-dashboard/index.html"))
 
 
@@ -264,6 +276,8 @@ def render_pr_comment(statuses):
     for label, (state, description, target_url) in statuses.items():
         summary = strip_build_mode(description)
         result = "SKIPPED" if summary.startswith("Skipped after ") else state_icons.get(state, state.upper())
+        if " below advisory " in summary:
+            result = "BELOW"
         lines.append(
             f"| {label} | {result} | {summary} | "
             f"{markdown_link('open', target_url) if target_url else '-'} |"
