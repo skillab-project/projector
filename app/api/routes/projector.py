@@ -6,6 +6,7 @@ from app.schemas.responses import (
     EmergingSkillsResponse,
     ProjectorResponse,
     SectoralIntelligenceResponse,
+    SectoralSnapshotResponse,
     StopResponse,
 )
 from app.core.container import service
@@ -162,6 +163,33 @@ async def sectoral_intelligence(
         compare_b_max_date=compare_b_max_date,
         skill_group_level=skill_group_level,
         occupation_level=occupation_level,
+    )
+
+
+@router.post(
+    "/sectoral-snapshot",
+    response_model=SectoralSnapshotResponse,
+    response_model_exclude_none=True,
+)
+async def sectoral_snapshot(
+        year: int = Form(...),
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        data_source: Literal["cache", "live"] = Form("cache"),
+):
+    """
+       Computes a simple yearly sector overview for the final frontend.
+
+       This endpoint is intentionally aggregated: one row per Tracker sector,
+       with job volume, share, top skills, and top job titles.
+    """
+    return await service.sectoral_snapshot(
+        year=year,
+        keywords=keywords,
+        locations=locations,
+        sectors=sectors,
+        data_source=data_source,
     )
 
 

@@ -2,7 +2,22 @@
 
 Sector intelligence is now built from Tracker API job payloads only.
 
-The preferred endpoint for frontend sector views is:
+The preferred endpoint for the default frontend sector overview is:
+
+```text
+POST /projector/sectoral-snapshot
+```
+
+It returns one annual aggregate row per sector:
+
+- `job_count`: jobs linked to that sector
+- `job_share`: sector jobs / all sector assignments
+- `total_skill_mentions`: skill occurrences in that sector
+- `unique_skills`: distinct skills in that sector
+- `top_skills`: most requested skills in that sector
+- `top_job_titles`: most frequent titles in that sector
+
+Use the detailed endpoint only for drill-downs:
 
 ```text
 POST /projector/sectoral-intelligence

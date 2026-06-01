@@ -20,6 +20,9 @@ if 'all_data' not in st.session_state:
 if 'sectoral_data' not in st.session_state:
     st.session_state.sectoral_data = None
 
+if 'sectoral_snapshot_data' not in st.session_state:
+    st.session_state.sectoral_snapshot_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -54,6 +57,14 @@ translations = {
             "comparison": "Confronto periodi",
         },
         'sectoral_snapshot_year': "Anno snapshot settoriale",
+        'sectoral_snapshot_header': "Snapshot annuale settori",
+        'sectoral_snapshot_help': "Vista aggregata annuale: una riga per settore Tracker con volume job, quota, skill più richieste e titoli più frequenti.",
+        'sectoral_snapshot_table': "Overview settori",
+        'sectoral_snapshot_detail': "Focus settore",
+        'sectoral_job_share': "Quota job",
+        'sectoral_top_skills': "Top skill settore",
+        'sectoral_top_titles': "Top titoli settore",
+        'technical_sectoral_detail': "Dettaglio tecnico sectoral intelligence",
         'sectoral_compare_a': "Periodo baseline",
         'sectoral_compare_b': "Periodo confronto",
         'sectoral_window': "Finestra settoriale",
@@ -147,6 +158,14 @@ translations = {
             "comparison": "Period comparison",
         },
         'sectoral_snapshot_year': "Sectoral snapshot year",
+        'sectoral_snapshot_header': "Yearly sector snapshot",
+        'sectoral_snapshot_help': "Aggregated yearly view: one row per Tracker sector with job volume, share, top requested skills, and most frequent job titles.",
+        'sectoral_snapshot_table': "Sector overview",
+        'sectoral_snapshot_detail': "Sector focus",
+        'sectoral_job_share': "Job share",
+        'sectoral_top_skills': "Top sector skills",
+        'sectoral_top_titles': "Top sector job titles",
+        'technical_sectoral_detail': "Technical sectoral intelligence detail",
         'sectoral_compare_a': "Baseline period",
         'sectoral_compare_b': "Comparison period",
         'sectoral_window': "Sectoral window",
@@ -246,6 +265,7 @@ DEV_LABELS = {
         "Regional intelligence": "Intelligence regionale",
         "Sectors, titles, employers": "Settori, titoli, aziende",
         "Sector distribution chart": "Grafico distribuzione settori",
+        "Sectoral snapshot": "Snapshot settoriale",
         "Sector comparison": "Confronto settoriale",
         "Job titles": "Titoli lavoro",
         "Employers": "Aziende",
@@ -265,6 +285,7 @@ STAT_HELP_BY_LANG = {
         "skill_growth": "Variazione percentuale della skill tra seconda metà e prima metà del periodo. Se prima metà = 0 e seconda > 0: new_entry.",
         "geo_job_count": "Numero di job per location_code. Formula: count(jobs where job.location_code = area).",
         "market_share": "Quota dell'area sul totale job analizzati. Formula: jobs_area / all_jobs * 100.",
+        "sectoral_job_share": "Quota del settore sul totale delle assegnazioni settoriali. Formula: sector_jobs / sum(all_sector_jobs).",
         "regional_skill_count": "Numero di job nell'area che contengono quella skill.",
         "specialization": "Concentrazione relativa della skill nell'area. Formula: (skill_area/jobs_area) / (skill_global/all_jobs). Sopra 1 = sopra media.",
         "sector_mentions": "Totale menzioni skill nel settore. Formula: sum(sector_skill_count[sector].values()).",
@@ -288,6 +309,7 @@ STAT_HELP_BY_LANG = {
         "skill_growth": "Skill percentage change between second half and first half of the period. If first half = 0 and second half > 0: new_entry.",
         "geo_job_count": "Number of jobs by location_code. Formula: count(jobs where job.location_code = area).",
         "market_share": "Area share of all analyzed jobs. Formula: jobs_area / all_jobs * 100.",
+        "sectoral_job_share": "Sector share of all sector assignments. Formula: sector_jobs / sum(all_sector_jobs).",
         "regional_skill_count": "Number of jobs in the area that contain that skill.",
         "specialization": "Relative concentration of the skill in the area. Formula: (skill_area/jobs_area) / (skill_global/all_jobs). Above 1 = above average.",
         "sector_mentions": "Total skill mentions in the sector. Formula: sum(sector_skill_count[sector].values()).",
@@ -368,6 +390,24 @@ def get_sectoral_data(api_base_url: str, payload: dict, timeout_seconds: int):
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
 
 
+def get_sectoral_snapshot_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/sectoral-snapshot",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
 def dev_info(label: str, endpoint: str, response_example: dict, used_fields: list[str], payload_example: dict | None = None):
     with st.popover("API", use_container_width=False):
         dev_text = DEV_TEXT[st.session_state.lang]
@@ -391,6 +431,7 @@ def metric_with_info(label: str, value, info: str, **kwargs):
 
 ANALYZE_ENDPOINT = "POST /projector/analyze-skills"
 SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
+SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
@@ -416,28 +457,20 @@ with st.sidebar:
     sectoral_source_options = T["sectoral_data_source_options"]
     sectoral_source_label = st.selectbox(T["sectoral_data_source"], list(sectoral_source_options.values()))
     sectoral_data_source = next(key for key, value in sectoral_source_options.items() if value == sectoral_source_label)
-    sectoral_date_range = st.date_input(
-        T['date_range'],
-        [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")],
-        key="sectoral_date_range",
+    sectoral_mode = "year"
+    sectoral_snapshot_year = st.number_input(
+        T["sectoral_snapshot_year"],
+        min_value=2000,
+        max_value=2100,
+        value=2024,
+        step=1,
     )
-    sectoral_options = T["sectoral_time_options"]
-    sectoral_mode_label = st.selectbox(T["sectoral_time_mode"], list(sectoral_options.values()))
-    sectoral_mode = next(key for key, value in sectoral_options.items() if value == sectoral_mode_label)
-    sectoral_snapshot_year = pd.to_datetime(sectoral_date_range[1]).year
+    sectoral_date_range = [
+        pd.to_datetime(f"{int(sectoral_snapshot_year)}-01-01"),
+        pd.to_datetime(f"{int(sectoral_snapshot_year)}-12-31"),
+    ]
     compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
     compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
-    if sectoral_mode == "year":
-        sectoral_snapshot_year = st.number_input(
-            T["sectoral_snapshot_year"],
-            min_value=2000,
-            max_value=2100,
-            value=pd.to_datetime(sectoral_date_range[1]).year,
-            step=1,
-        )
-    if sectoral_mode == "comparison":
-        compare_a_range = st.date_input(T["sectoral_compare_a"], compare_a_range)
-        compare_b_range = st.date_input(T["sectoral_compare_b"], compare_b_range)
     sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
 
     st.markdown("---")
@@ -514,6 +547,14 @@ sectoral_payload = {
     "occupation_level": 1
 }
 
+sectoral_snapshot_payload = {
+    "year": int(sectoral_snapshot_year),
+    "keywords": [sectoral_keywords] if sectoral_keywords else None,
+    "locations": [sectoral_location] if sectoral_location else None,
+    "sectors": [s.strip() for s in sectoral_sector_filter.split(",") if s.strip()],
+    "data_source": sectoral_data_source,
+}
+
 # --- LOGICA DI ACQUISIZIONE DATI ---
 if submit_button:
     with st.spinner(f"🚀 {T['loading']}"):
@@ -530,20 +571,21 @@ if submit_button:
 
 if sectoral_submit_button:
     with st.spinner(f"🚀 {T['loading']}"):
-        sectoral_response = get_sectoral_data(
+        sectoral_response = get_sectoral_snapshot_data(
             st.session_state.api_base_url,
-            sectoral_payload,
+            sectoral_snapshot_payload,
             st.session_state.backend_timeout
         )
         if sectoral_response and "_error" not in sectoral_response:
-            st.session_state.sectoral_data = sectoral_response
+            st.session_state.sectoral_snapshot_data = sectoral_response
+            st.session_state.sectoral_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
 
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
-if st.session_state.all_data or st.session_state.sectoral_data:
+if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data:
     all_data = st.session_state.all_data or {
         "insights": {
             "ranking": [],
@@ -559,6 +601,7 @@ if st.session_state.all_data or st.session_state.sectoral_data:
         },
     }
     sectoral_response = st.session_state.sectoral_data or {}
+    sectoral_snapshot_response = st.session_state.sectoral_snapshot_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
@@ -881,15 +924,19 @@ if st.session_state.all_data or st.session_state.sectoral_data:
             )
 
         active_sectoral = sectoral_response.get("items", [])
+        snapshot_sectors = sectoral_snapshot_response.get("sectors", [])
         sectoral_window = sectoral_response.get("window", {})
+        snapshot_window = sectoral_snapshot_response.get("window", {})
         sectoral_mode_name = sectoral_response.get("mode", sectoral_payload.get("mode", "latest"))
 
         st.caption(
             f"Sector system: NACE | "
             f"{T['agg_level']}: Tracker API job sectors | "
-            f"{T['categories_found']}: {len(active_sectoral)} | "
-            f"{T['sectoral_window']}: {sectoral_window.get('label', sectoral_mode_name)} "
-            f"({sectoral_window.get('min_date', '-') } → {sectoral_window.get('max_date', '-')})"
+            f"{T['categories_found']}: {len(snapshot_sectors) or len(active_sectoral)} | "
+            f"{T['sectoral_window']}: "
+            f"{snapshot_window.get('label') or sectoral_window.get('label', sectoral_mode_name)} "
+            f"({snapshot_window.get('min_date') or sectoral_window.get('min_date', '-') } → "
+            f"{snapshot_window.get('max_date') or sectoral_window.get('max_date', '-')})"
         )
         c1, c2, c3 = st.columns(3)
 
@@ -897,32 +944,54 @@ if st.session_state.all_data or st.session_state.sectoral_data:
             st.subheader(T['top_sectors'], help=STAT_HELP["sector_mentions"])
             dev_info(
                 "Sector distribution chart",
-                SECTORAL_ENDPOINT,
+                SECTORAL_SNAPSHOT_ENDPOINT,
                 {
-                    "mode": "latest",
+                    "year": 2024,
                     "window": {
-                        "label": "Last six months",
-                        "min_date": "2025-11-30",
-                        "max_date": "2026-06-01"
+                        "label": "2024 snapshot",
+                        "min_date": "2024-01-01",
+                        "max_date": "2024-12-31"
                     },
-                    "items": [
+                    "sectors": [
                         {
                             "sector": "Education",
                             "sector_label": "Education",
-                            "observed_skills": {
-                                "total_skill_mentions": 100
-                            }
+                            "job_count": 42,
+                            "job_share": 0.18,
+                            "total_skill_mentions": 100
                         }
                     ]
                 },
                 [
-                    "items[].sector",
-                    "items[].sector_label",
-                    "items[].observed_skills.total_skill_mentions"
+                    "sectors[].sector",
+                    "sectors[].sector_label",
+                    "sectors[].job_count",
+                    "sectors[].job_share",
+                    "sectors[].total_skill_mentions"
                 ],
-                sectoral_payload
+                sectoral_snapshot_payload
             )
-            if active_sectoral:
+            if snapshot_sectors:
+                df_sec = pd.DataFrame([
+                    {
+                        "name": item.get("sector_label", item.get("sector")),
+                        "count": item.get("job_count", 0)
+                    }
+                    for item in snapshot_sectors
+                ])
+                df_sec = df_sec[df_sec["count"] > 0]
+                fig_sec = px.pie(
+                    df_sec,
+                    values='count',
+                    names='name',
+                    title=T["sector_title"],
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_sec.update_traces(textposition='inside', textinfo='percent+label')
+                fig_sec.update_layout(showlegend=False)
+                st.plotly_chart(fig_sec, use_container_width=True)
+            elif active_sectoral:
                 df_sec = pd.DataFrame([
                     {
                         "name": item.get("sector_label", item.get("sector")),
@@ -994,6 +1063,117 @@ if st.session_state.all_data or st.session_state.sectoral_data:
                                        title=T['active_emp'], hole=0.3))
             else:
                 st.write(T['no_data'])
+
+        if snapshot_sectors:
+            st.markdown("---")
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["sectoral_snapshot_header"], help=T["sectoral_snapshot_help"])
+            with h_info:
+                dev_info(
+                    "Sectoral snapshot",
+                    SECTORAL_SNAPSHOT_ENDPOINT,
+                    {
+                        "year": 2024,
+                        "total_jobs": 1200,
+                        "sectors": [
+                            {
+                                "sector": "Education",
+                                "job_count": 220,
+                                "job_share": 0.18,
+                                "top_skills": [{"label": "Python", "count": 35}],
+                                "top_job_titles": [{"name": "Teacher", "count": 12}]
+                            }
+                        ]
+                    },
+                    [
+                        "year",
+                        "total_jobs",
+                        "sectors[].sector",
+                        "sectors[].job_count",
+                        "sectors[].job_share",
+                        "sectors[].top_skills[].label",
+                        "sectors[].top_skills[].count",
+                        "sectors[].top_job_titles[].name",
+                        "sectors[].top_job_titles[].count"
+                    ],
+                    sectoral_snapshot_payload
+                )
+
+            df_snapshot = pd.DataFrame(snapshot_sectors)
+            st.dataframe(
+                df_snapshot[[
+                    "sector_label",
+                    "job_count",
+                    "job_share",
+                    "total_skill_mentions",
+                    "unique_skills"
+                ]],
+                use_container_width=True,
+                column_config={
+                    "sector_label": st.column_config.TextColumn(T["agg_level"]),
+                    "job_count": st.column_config.NumberColumn(
+                        T["jobs_analyzed"],
+                        help=STAT_HELP["jobs_analyzed"]
+                    ),
+                    "job_share": st.column_config.NumberColumn(
+                        f"{T['sectoral_job_share']} (i)",
+                        help=STAT_HELP["sectoral_job_share"]
+                    ),
+                    "total_skill_mentions": st.column_config.NumberColumn(
+                        f"{T['total_mentions']} (i)",
+                        help=STAT_HELP["total_skill_mentions"]
+                    ),
+                    "unique_skills": st.column_config.NumberColumn(
+                        f"{T['unique_items']} (i)",
+                        help=STAT_HELP["unique_skills"]
+                    ),
+                }
+            )
+
+            snapshot_options = {
+                f"{item.get('sector_label', item['sector'])} ({item['job_count']})": item
+                for item in snapshot_sectors
+            }
+            selected_snapshot = st.selectbox(T["sectoral_snapshot_detail"], list(snapshot_options.keys()))
+            snapshot_target = snapshot_options[selected_snapshot]
+            snap_skill_col, snap_title_col = st.columns(2)
+
+            with snap_skill_col:
+                st.subheader(T["sectoral_top_skills"], help=STAT_HELP["observed_skill_count"])
+                top_skills = snapshot_target.get("top_skills", [])
+                if top_skills:
+                    df_top_skills = pd.DataFrame(top_skills)
+                    label_col = "label" if "label" in df_top_skills.columns else "skill_id"
+                    fig_top_skills = px.bar(
+                        df_top_skills,
+                        x="count",
+                        y=label_col,
+                        orientation="h",
+                        labels={label_col: T["skill_label"], "count": T["total_mentions"]},
+                    )
+                    fig_top_skills.update_layout(yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig_top_skills, use_container_width=True)
+                else:
+                    st.write(T["no_data"])
+
+            with snap_title_col:
+                st.subheader(T["sectoral_top_titles"], help=STAT_HELP["title_count"])
+                top_titles = snapshot_target.get("top_job_titles", [])
+                if top_titles:
+                    df_top_titles = pd.DataFrame(top_titles)
+                    fig_top_titles = px.bar(
+                        df_top_titles,
+                        x="count",
+                        y="name",
+                        orientation="h",
+                        labels={"name": T["top_titles"], "count": T["jobs_analyzed"]},
+                    )
+                    fig_top_titles.update_layout(yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig_top_titles, use_container_width=True)
+                else:
+                    st.write(T["no_data"])
+
         st.markdown("---")
         comparison = sectoral_response.get("comparison") or {}
         comparison_rows = comparison.get("sectors", [])
@@ -1034,42 +1214,43 @@ if st.session_state.all_data or st.session_state.sectoral_data:
             st.dataframe(df_cmp, use_container_width=True)
             st.markdown("---")
 
-        h_main, h_info = st.columns([8, 1])
-        with h_main:
-            st.header(
-                T['sectoral_header'],
-                help=f"{STAT_HELP['total_skill_mentions']} {STAT_HELP['importance_in_sector']} {STAT_HELP['sector_breadth']}"
-            )
-        with h_info:
-            dev_info(
-                "Sectoral intelligence",
-                SECTORAL_ENDPOINT,
-                {
-                    "sector_level": "tracker_sector",
-                    "mode": "latest",
-                    "items": [
-                        {
-                            "sector": "Education",
-                            "sector_label": "Education",
-                            "observed_skills": {},
-                            "sector_metrics": {},
-                            "skill_transversal_insights": []
-                        }
-                    ]
-                },
-                [
-                    "sector_level",
-                    "items[].sector",
-                    "items[].sector_label",
-                    "items[].observed_skills",
-                    "items[].sector_metrics",
-                    "items[].skill_transversal_insights"
-                ],
-                sectoral_payload
-            )
         sectoral = active_sectoral
 
         if sectoral:
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(
+                    T['technical_sectoral_detail'],
+                    help=f"{STAT_HELP['total_skill_mentions']} {STAT_HELP['importance_in_sector']} {STAT_HELP['sector_breadth']}"
+                )
+            with h_info:
+                dev_info(
+                    "Sectoral intelligence",
+                    SECTORAL_ENDPOINT,
+                    {
+                        "sector_level": "tracker_sector",
+                        "mode": "latest",
+                        "items": [
+                            {
+                                "sector": "Education",
+                                "sector_label": "Education",
+                                "observed_skills": {},
+                                "sector_metrics": {},
+                                "skill_transversal_insights": []
+                            }
+                        ]
+                    },
+                    [
+                        "sector_level",
+                        "items[].sector",
+                        "items[].sector_label",
+                        "items[].observed_skills",
+                        "items[].sector_metrics",
+                        "items[].skill_transversal_insights"
+                    ],
+                    sectoral_payload
+                )
+
             observed_title = T["observed_skills_per_sector"]
             sector_options = {
                 f"{item.get('sector_label', item['sector'])} ({item['sector']})": item["sector"]
@@ -1288,7 +1469,7 @@ if st.session_state.all_data or st.session_state.sectoral_data:
                     )
                 else:
                     st.write(T['no_data'])
-        else:
+        elif not snapshot_sectors:
             st.info(T['no_sectoral'])
 
 else:

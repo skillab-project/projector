@@ -138,7 +138,62 @@ When no jobs are found, the service returns a completed response with `jobs_anal
 
 Computes the sector dimension only.
 
-Use this endpoint for the final frontend sector view instead of embedding sectoral intelligence inside `/projector/analyze-skills`.
+Use this endpoint for detailed drill-downs. For the primary final-frontend overview, prefer `/projector/sectoral-snapshot`.
+
+## POST `/projector/sectoral-snapshot`
+
+Computes a simple annual sector overview.
+
+Use this endpoint as the default sector-dimension view in the final frontend: it returns one row per Tracker sector with job volume, share, top skills, and top job titles.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `year` | integer | yes | none | Calendar year to aggregate |
+| `keywords` | list of strings | no | `null` | Optional job-text filter forwarded to Tracker |
+| `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
+| `sectors` | list of strings | no | `null` | Optional sector filter applied to `job["sectors"]` |
+| `data_source` | enum | no | `cache` | `cache` reads local static cache only; `live` fetches Tracker and refreshes cache |
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "sectors=Education" \
+  -d "data_source=cache"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "year": 2024,
+  "data_source": "cache",
+  "window": {
+    "label": "2024 snapshot",
+    "min_date": "2024-01-01",
+    "max_date": "2024-12-31"
+  },
+  "total_jobs": 1200,
+  "sector_filter": ["Education"],
+  "sectors": [
+    {
+      "sector": "Education",
+      "sector_label": "Education",
+      "job_count": 220,
+      "job_share": 0.18,
+      "total_skill_mentions": 510,
+      "unique_skills": 85,
+      "top_skills": [],
+      "top_job_titles": []
+    }
+  ]
+}
+```
 
 ### Request Fields
 

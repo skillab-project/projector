@@ -324,6 +324,48 @@ async def test_projector_service_sectoral_intelligence_filters_by_sector():
 
 
 @pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_aggregates_year():
+    jobs = [
+        {
+            "title": "Data Scientist",
+            "skills": ["skill-python", "skill-sql"],
+            "sectors": ["Education"],
+        },
+        {
+            "title": "Data Scientist",
+            "skills": ["skill-python"],
+            "sectors": ["Education", "Manufacturing"],
+        },
+    ]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.sectoral_snapshot(
+        year=2024,
+        data_source="live",
+        sectors=["Education"],
+    )
+
+    assert result["status"] == "completed"
+    assert result["year"] == 2024
+    assert result["data_source"] == "live"
+    assert result["window"]["min_date"] == "2024-01-01"
+    assert result["sector_filter"] == ["Education"]
+    assert fake_tracker.fetch_payloads == [{
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    }]
+
+    assert len(result["sectors"]) == 1
+    sector = result["sectors"][0]
+    assert sector["sector"] == "Education"
+    assert sector["job_count"] == 2
+    assert sector["total_skill_mentions"] == 3
+    assert sector["unique_skills"] == 2
+    assert sector["top_skills"][0]["skill_id"] == "skill-python"
+    assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
+
+
+@pytest.mark.asyncio
 async def test_projector_service_emerging_skills_and_stop_status():
     fake_service, fake_engine, _, _ = _make_projector_service([])
 
@@ -3297,6 +3339,52 @@ def test_endpoint_sectoral_intelligence_selected_period_contract():
         assert data["items"][0]["sector"] == "Information Technology"
         assert data["items"][0]["observed_skills"]["total_skill_mentions"] == 1
         assert data["sector_view_names"]["latest"] == "Last six months"
+
+
+@pytest.mark.integration
+def test_endpoint_sectoral_snapshot_contract():
+    form_data = {
+        "year": 2024,
+        "keywords": ["developer"],
+        "data_source": "live",
+    }
+
+    fake_jobs = [
+        {
+            "title": "Backend Developer",
+            "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills:
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        engine.skill_map = {
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+
+        response = client.post("/projector/sectoral-snapshot", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["year"] == 2024
+        assert data["data_source"] == "live"
+        assert data["window"] == {
+            "label": "2024 snapshot",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+        }
+        assert data["total_jobs"] == 1
+        assert data["sectors"][0]["sector"] == "Information Technology"
+        assert data["sectors"][0]["job_count"] == 1
+        assert data["sectors"][0]["top_skills"][0]["label"] == "Docker"
+        assert data["sectors"][0]["top_job_titles"] == [
+            {"name": "Backend Developer", "count": 1}
+        ]
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():

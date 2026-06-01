@@ -184,6 +184,32 @@ class SectoralIntelligenceResponse(BaseModel):
     sector_view_names: dict[str, str]
 
 
+class SectorSnapshotTitle(BaseModel):
+    name: str
+    count: int
+
+
+class SectorSnapshotRow(BaseModel):
+    sector: str
+    sector_label: str
+    job_count: int
+    job_share: float
+    total_skill_mentions: int
+    unique_skills: int
+    top_skills: List[SkillEntry]
+    top_job_titles: List[SectorSnapshotTitle]
+
+
+class SectoralSnapshotResponse(BaseModel):
+    status: str
+    year: int
+    data_source: Literal["cache", "live"]
+    window: dict[str, str]
+    total_jobs: int
+    sector_filter: List[str] = Field(default_factory=list)
+    sectors: List[SectorSnapshotRow]
+
+
 class NaceSectoralViews(BaseModel):
     selected_level: str
     levels: dict[str, SectoralView]

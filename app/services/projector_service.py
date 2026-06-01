@@ -1,3 +1,4 @@
+from collections import Counter, defaultdict
 from typing import Optional, List, Literal
 from datetime import date, timedelta
 
@@ -226,6 +227,47 @@ class ProjectorService:
             },
         }
 
+    async def sectoral_snapshot(
+            self,
+            year: int,
+            keywords: Optional[List[str]] = None,
+            locations: Optional[List[str]] = None,
+            sectors: Optional[List[str]] = None,
+            data_source: Literal["cache", "live"] = "cache",
+    ):
+        self.engine.stop_requested = False
+
+        normalized_source = str(data_source or "cache").strip().lower()
+        if normalized_source not in {"cache", "live"}:
+            normalized_source = "cache"
+        sector_filter = self._normalize_sector_filter(sectors)
+        min_date, max_date = self._year_window(year, f"{year}-12-31")
+
+        base_payload = {
+            "keywords": keywords,
+            "location_code": locations,
+        }
+        clean_base_payload = {k: v for k, v in base_payload.items() if v is not None}
+
+        jobs = await self._fetch_jobs_for_window(
+            clean_base_payload,
+            min_date,
+            max_date,
+            use_cache_only=normalized_source == "cache",
+        )
+        jobs = self._filter_jobs_by_sector(jobs, sector_filter)
+        await self._ensure_skill_labels(jobs)
+
+        return {
+            "status": "completed" if not self.engine.stop_requested else "stopped",
+            "year": int(year),
+            "data_source": normalized_source,
+            "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+            "total_jobs": len(jobs),
+            "sector_filter": sector_filter,
+            "sectors": self._build_sector_snapshot_rows(jobs, sector_filter),
+        }
+
     def _today(self):
         return date.today()
 
@@ -283,6 +325,74 @@ class ProjectorService:
             job for job in jobs
             if any(label.lower() in wanted for label in self._job_sector_labels(job))
         ]
+
+    def _skill_meta(self, skill_id: str):
+        meta = getattr(self.engine, "skill_map", {}).get(skill_id, {}) or {}
+        return {
+            "label": meta.get("label") or skill_id,
+            "is_green": meta.get("is_green"),
+            "is_digital": meta.get("is_digital"),
+        }
+
+    def _build_sector_snapshot_rows(self, jobs: List[dict], sector_filter: Optional[List[str]] = None):
+        sector_jobs = Counter()
+        sector_skills = defaultdict(Counter)
+        sector_titles = defaultdict(Counter)
+        wanted = {sector.lower() for sector in (sector_filter or [])}
+
+        for job in jobs:
+            labels = list(dict.fromkeys(self._job_sector_labels(job)))
+            if wanted:
+                labels = [label for label in labels if label.lower() in wanted]
+            if not labels:
+                continue
+
+            skills = [
+                str(skill_id).strip()
+                for skill_id in dict.fromkeys(job.get("skills", []) or [])
+                if str(skill_id).strip()
+            ]
+            title = str(job.get("title") or "").strip()
+
+            for sector in labels:
+                sector_jobs[sector] += 1
+                if title:
+                    sector_titles[sector][title] += 1
+                for skill_id in skills:
+                    sector_skills[sector][skill_id] += 1
+
+        total_sector_jobs = sum(sector_jobs.values()) or 1
+        rows = []
+        for sector, job_count in sector_jobs.items():
+            skill_counts = sector_skills[sector]
+            total_skill_mentions = sum(skill_counts.values())
+            top_skills = []
+            for skill_id, count in skill_counts.most_common(10):
+                meta = self._skill_meta(skill_id)
+                top_skills.append({
+                    "skill_id": skill_id,
+                    "label": meta["label"],
+                    "count": count,
+                    "frequency": round(count / total_skill_mentions, 4) if total_skill_mentions else 0.0,
+                    "is_green": meta["is_green"],
+                    "is_digital": meta["is_digital"],
+                })
+
+            rows.append({
+                "sector": sector,
+                "sector_label": sector,
+                "job_count": job_count,
+                "job_share": round(job_count / total_sector_jobs, 4),
+                "total_skill_mentions": total_skill_mentions,
+                "unique_skills": len(skill_counts),
+                "top_skills": top_skills,
+                "top_job_titles": [
+                    {"name": title, "count": count}
+                    for title, count in sector_titles[sector].most_common(5)
+                ],
+            })
+
+        return sorted(rows, key=lambda row: (row["job_count"], row["total_skill_mentions"]), reverse=True)
 
     async def _ensure_skill_labels(self, jobs: List[dict]):
         skill_ids = {
