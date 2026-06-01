@@ -26,6 +26,11 @@ if 'sectoral_snapshot_data' not in st.session_state:
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
+if 'sectoral_snapshot_year' not in st.session_state:
+    st.session_state.sectoral_snapshot_year = 2024
+
+SECTOR_SNAPSHOT_YEARS = [2020, 2021, 2022, 2023, 2024]
+
 def change_lang():
     if st.session_state.lang_choice == "Italiano":
         st.session_state.lang = 'IT'
@@ -57,6 +62,8 @@ translations = {
             "comparison": "Confronto periodi",
         },
         'sectoral_snapshot_year': "Anno snapshot settoriale",
+        'sectoral_year_bar_help': "Naviga lo storico degli snapshot settoriali annuali disponibili.",
+        'sectoral_year_bar_caption': "Snapshot settoriale {year}",
         'sectoral_snapshot_header': "Snapshot annuale settori",
         'sectoral_snapshot_help': "Vista aggregata annuale: una riga per settore Tracker con volume job, quota, skill più richieste e titoli più frequenti.",
         'sectoral_snapshot_table': "Overview settori",
@@ -160,6 +167,8 @@ translations = {
             "comparison": "Period comparison",
         },
         'sectoral_snapshot_year': "Sectoral snapshot year",
+        'sectoral_year_bar_help': "Navigate available yearly sector snapshots.",
+        'sectoral_year_bar_caption': "Sector snapshot {year}",
         'sectoral_snapshot_header': "Yearly sector snapshot",
         'sectoral_snapshot_help': "Aggregated yearly view: one row per Tracker sector with job volume, share, top requested skills, and most frequent job titles.",
         'sectoral_snapshot_table': "Sector overview",
@@ -461,7 +470,7 @@ with st.sidebar:
     date_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
     sectoral_location = ""
     sectoral_mode = "year"
-    sectoral_snapshot_year = 2024
+    sectoral_snapshot_year = int(st.session_state.sectoral_snapshot_year)
     sectoral_date_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
     sector_demo_mode = False
     compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
@@ -481,18 +490,10 @@ with st.sidebar:
             value=False,
             help=T["sector_demo_mode_help"],
         )
-        sectoral_snapshot_year = st.number_input(
-            T["sectoral_snapshot_year"],
-            min_value=2000,
-            max_value=2100,
-            value=2024,
-            step=1,
-        )
         sectoral_date_range = [
             pd.to_datetime(f"{int(sectoral_snapshot_year)}-01-01"),
             pd.to_datetime(f"{int(sectoral_snapshot_year)}-12-31"),
         ]
-        sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
 
     st.markdown("---")
     st.text_input(T["backend_url"], key="api_base_url")
@@ -575,6 +576,30 @@ sectoral_snapshot_payload = {
     "year": int(sectoral_snapshot_year),
     "locations": ["DEMO"] if sector_demo_mode else ([sectoral_location] if sectoral_location else None),
 }
+
+if dashboard_view == "sector":
+    current_year = int(st.session_state.sectoral_snapshot_year)
+    selected_year = st.select_slider(
+        T["sectoral_snapshot_year"],
+        options=SECTOR_SNAPSHOT_YEARS,
+        value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
+        help=T["sectoral_year_bar_help"],
+    )
+    year_changed = int(selected_year) != current_year
+    st.session_state.sectoral_snapshot_year = int(selected_year)
+    sectoral_snapshot_year = int(selected_year)
+    sectoral_date_range = [
+        pd.to_datetime(f"{sectoral_snapshot_year}-01-01"),
+        pd.to_datetime(f"{sectoral_snapshot_year}-12-31"),
+    ]
+    sectoral_payload["snapshot_year"] = sectoral_snapshot_year
+    sectoral_payload["min_date"] = sectoral_date_range[0].strftime("%Y-%m-%d")
+    sectoral_payload["max_date"] = sectoral_date_range[1].strftime("%Y-%m-%d")
+    sectoral_snapshot_payload["year"] = sectoral_snapshot_year
+    st.caption(T["sectoral_year_bar_caption"].format(year=sectoral_snapshot_year))
+    sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
+    if year_changed and st.session_state.sectoral_snapshot_data:
+        sectoral_submit_button = True
 
 # --- LOGICA DI ACQUISIZIONE DATI ---
 if submit_button:
