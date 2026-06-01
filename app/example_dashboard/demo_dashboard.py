@@ -744,7 +744,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                                  color='frequency', color_continuous_scale='Viridis',
                                  hover_data=["primary_sector", "sector_spread"])
                     fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch", key="skill_ranking_chart")
                 with col2:
                     metric_with_info(T['jobs_analyzed'], summary.get("jobs_analyzed", 0), STAT_HELP["jobs_analyzed"])
                     st.subheader(T['intelligence_label'], help=STAT_HELP["skill_frequency"])
@@ -818,7 +818,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                                                hover_data=["primary_sector"],
                                                color_discrete_map={'emerging': '#2ecc71', 'declining': '#e74c3c'},
                                                title=T['delta_title'])
-                            st.plotly_chart(fig_trend, use_container_width=True)
+                            st.plotly_chart(fig_trend, width="stretch", key="skill_trend_chart")
 
                         if not new_entries.empty:
                             st.subheader(T['new_entries'])
@@ -859,10 +859,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     fig_map = px.choropleth(df_geo, locations="iso_alpha_3", color="job_count",
                                             hover_name="location", color_continuous_scale="Viridis",
                                             projection="natural earth", title=T['map_title'])
-                    st.plotly_chart(fig_map, use_container_width=True)
+                    st.plotly_chart(fig_map, width="stretch", key="geo_map_chart")
                 with c_stat:
                     st.plotly_chart(px.pie(df_geo, values='job_count', names='location', hole=0.4),
-                                    use_container_width=True)
+                                    width="stretch",
+                                    key="geo_pie_chart")
             else:
                 st.warning(T['no_geo'])
 
@@ -971,7 +972,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         title=f"{T['workforce_profile']}: {target_code}"
                     )
                     fig_reg.update_layout(yaxis={'categoryorder': 'total ascending'}, height=400)
-                    st.plotly_chart(fig_reg, use_container_width=True)
+                    st.plotly_chart(fig_reg, width="stretch", key=f"regional_skills_{target_code}")
 
                     st.info(f"💡 **Insight Task 3.5**: {T['regional_insight'].format(target_code=target_code)}")
                 else:
@@ -1098,7 +1099,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 )
                 fig_sec.update_traces(textposition='inside', textinfo='percent+label')
                 fig_sec.update_layout(showlegend=False)
-                st.plotly_chart(fig_sec, use_container_width=True)
+                st.plotly_chart(fig_sec, width="stretch", key="sector_distribution_snapshot")
             elif active_sectoral:
                 df_sec = pd.DataFrame([
                     {
@@ -1118,7 +1119,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 )
                 fig_sec.update_traces(textposition='inside', textinfo='percent+label')
                 fig_sec.update_layout(showlegend=False)
-                st.plotly_chart(fig_sec, use_container_width=True)
+                st.plotly_chart(fig_sec, width="stretch", key="sector_distribution_live")
             else:
                 st.write(T['no_data'])
 
@@ -1143,7 +1144,9 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
             jt = snapshot_target.get("top_job_titles", []) if snapshot_target else ins.get("job_titles", [])
             if jt:
                 st.plotly_chart(px.bar(pd.DataFrame(jt), x='count', y='name', orientation='h',
-                                       title=T['jt_title'], color_discrete_sequence=['#3498db']))
+                                       title=T['jt_title'], color_discrete_sequence=['#3498db']),
+                                width="stretch",
+                                key=f"sector_titles_{snapshot_target.get('sector') if snapshot_target else 'all'}")
             else:
                 st.write(T['no_data'])
 
@@ -1180,14 +1183,20 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         labels={label_col: T["skill_label"], "count": T["total_mentions"]},
                     )
                     fig_skills_preview.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_skills_preview, use_container_width=True)
+                    st.plotly_chart(
+                        fig_skills_preview,
+                        width="stretch",
+                        key=f"sector_skill_preview_{sectoral_snapshot_year}_{sectoral_location or 'global'}_{snapshot_target.get('sector')}"
+                    )
                 else:
                     st.write(T["no_data"])
             else:
                 emp = ins.get("employers", [])
                 if emp:
                     st.plotly_chart(px.pie(pd.DataFrame(emp), values='count', names='name',
-                                           title=T['active_emp'], hole=0.3))
+                                           title=T['active_emp'], hole=0.3),
+                                    width="stretch",
+                                    key="sector_employers")
                 else:
                     st.write(T['no_data'])
 
@@ -1284,7 +1293,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         labels={label_col: T["skill_label"], "count": T["total_mentions"]},
                     )
                     fig_top_skills.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_top_skills, use_container_width=True)
+                    st.plotly_chart(
+                        fig_top_skills,
+                        width="stretch",
+                        key=f"sector_top_skills_{sectoral_snapshot_year}_{sectoral_location or 'global'}_{snapshot_target.get('sector')}"
+                    )
                 else:
                     st.write(T["no_data"])
 
@@ -1329,7 +1342,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         labels={"name": T["top_titles"], "count": T["jobs_analyzed"]},
                     )
                     fig_top_titles.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_top_titles, use_container_width=True)
+                    st.plotly_chart(
+                        fig_top_titles,
+                        width="stretch",
+                        key=f"sector_top_titles_{sectoral_snapshot_year}_{sectoral_location or 'global'}_{snapshot_target.get('sector')}"
+                    )
                 else:
                     st.write(T["no_data"])
 
@@ -1482,7 +1499,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     )
 
                     fig_obs.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_obs, use_container_width=True)
+                    st.plotly_chart(fig_obs, width="stretch", key=f"observed_skills_{selected_sector}")
 
                     display_cols = [c for c in ["skill_id", "label", "count", "frequency", "is_green", "is_digital"] if c in df_obs.columns]
                     st.dataframe(
