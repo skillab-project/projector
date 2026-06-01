@@ -17,6 +17,9 @@ if 'lang' not in st.session_state:
 if 'all_data' not in st.session_state:
     st.session_state.all_data = None
 
+if 'sectoral_data' not in st.session_state:
+    st.session_state.sectoral_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -35,6 +38,18 @@ translations = {
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
         'date_range': "Intervallo Temporale",
+        'sectoral_time_mode': "Finestra settoriale",
+        'sectoral_time_options': {
+            "latest": "Ultimi 6 mesi",
+            "selected_period": "Periodo selezionato",
+            "year": "Snapshot anno",
+            "comparison": "Confronto periodi",
+        },
+        'sectoral_snapshot_year': "Anno snapshot settoriale",
+        'sectoral_compare_a': "Periodo baseline",
+        'sectoral_compare_b': "Periodo confronto",
+        'sectoral_window': "Finestra settoriale",
+        'sectoral_comparison': "Confronto settoriale",
         'submit': "Lancia Proiezione 🚀",
         'stop': "STOP ANALISI ⛔",
         'stop_toast': "Segnale di stop inviato!",
@@ -108,6 +123,18 @@ translations = {
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
         'date_range': "Time Range",
+        'sectoral_time_mode': "Sectoral window",
+        'sectoral_time_options': {
+            "latest": "Last 6 months",
+            "selected_period": "Selected period",
+            "year": "Year snapshot",
+            "comparison": "Period comparison",
+        },
+        'sectoral_snapshot_year': "Sectoral snapshot year",
+        'sectoral_compare_a': "Baseline period",
+        'sectoral_compare_b': "Comparison period",
+        'sectoral_window': "Sectoral window",
+        'sectoral_comparison': "Sector comparison",
         'submit': "Launch Projection 🚀",
         'stop': "STOP ANALYSIS ⛔",
         'stop_toast': "Stop signal sent!",
@@ -203,6 +230,7 @@ DEV_LABELS = {
         "Regional intelligence": "Intelligence regionale",
         "Sectors, titles, employers": "Settori, titoli, aziende",
         "Sector distribution chart": "Grafico distribuzione settori",
+        "Sector comparison": "Confronto settoriale",
         "Job titles": "Titoli lavoro",
         "Employers": "Aziende",
         "Sectoral intelligence": "Intelligence settoriale",
@@ -235,7 +263,7 @@ STAT_HELP_BY_LANG = {
         "importance_in_sector": "Importanza della skill nel settore selezionato. Formula: skill_count_in_sector / total_skill_mentions_in_sector.",
         "sector_breadth": "Transversalità della skill. Formula: count(sectors where skill appears).",
         "dominant_share": "Quota della skill nel suo settore dominante. Formula: count_in_dominant_sector / count_in_all_sectors.",
-        "categories_found": "Numero di settori Tracker API trovati nella risposta sectoral. Formula: count(insights.sectoral_views.nace.items).",
+        "categories_found": "Numero di settori Tracker API trovati nella risposta sectoral. Formula: count(items).",
     },
     "EN": {
         "jobs_analyzed": "Number of Tracker jobs processed after filters. Formula: count(jobs).",
@@ -258,7 +286,7 @@ STAT_HELP_BY_LANG = {
         "importance_in_sector": "Skill importance in selected sector. Formula: skill_count_in_sector / total_skill_mentions_in_sector.",
         "sector_breadth": "Skill transversality. Formula: count(sectors where skill appears).",
         "dominant_share": "Skill share in its dominant sector. Formula: count_in_dominant_sector / count_in_all_sectors.",
-        "categories_found": "Number of Tracker API sectors found in sectoral response. Formula: count(insights.sectoral_views.nace.items).",
+        "categories_found": "Number of Tracker API sectors found in sectoral response. Formula: count(items).",
     }
 }
 
@@ -306,6 +334,24 @@ def get_analysis_data(api_base_url: str, payload: dict, timeout_seconds: int):
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
 
 
+def get_sectoral_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/sectoral-intelligence",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
 def dev_info(label: str, endpoint: str, response_example: dict, used_fields: list[str], payload_example: dict | None = None):
     with st.popover("API", use_container_width=False):
         dev_text = DEV_TEXT[st.session_state.lang]
@@ -328,6 +374,7 @@ def metric_with_info(label: str, value, info: str, **kwargs):
 
 
 ANALYZE_ENDPOINT = "POST /projector/analyze-skills"
+SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
@@ -344,6 +391,23 @@ with st.sidebar:
         keywords = st.text_input(T['keywords'], "software")
         location = st.text_input(T['location'], "")
         date_range = st.date_input(T['date_range'], [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")])
+        sectoral_options = T["sectoral_time_options"]
+        sectoral_mode_label = st.selectbox(T["sectoral_time_mode"], list(sectoral_options.values()))
+        sectoral_mode = next(key for key, value in sectoral_options.items() if value == sectoral_mode_label)
+        sectoral_snapshot_year = pd.to_datetime(date_range[1]).year
+        compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
+        compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
+        if sectoral_mode == "year":
+            sectoral_snapshot_year = st.number_input(
+                T["sectoral_snapshot_year"],
+                min_value=2000,
+                max_value=2100,
+                value=pd.to_datetime(date_range[1]).year,
+                step=1,
+            )
+        if sectoral_mode == "comparison":
+            compare_a_range = st.date_input(T["sectoral_compare_a"], compare_a_range)
+            compare_b_range = st.date_input(T["sectoral_compare_b"], compare_b_range)
         submit_button = st.form_submit_button(T['submit'])
 
     st.markdown("---")
@@ -401,8 +465,19 @@ payload = {
     "min_date": date_range[0].strftime("%Y-%m-%d"),
     "max_date": date_range[1].strftime("%Y-%m-%d"),
     "demo": demo_mode,
-    "include_sectoral": True,
-    "sector_system": "nace",
+}
+
+sectoral_payload = {
+    "keywords": [keywords] if keywords else None,
+    "locations": [location] if location else None,
+    "mode": sectoral_mode,
+    "min_date": date_range[0].strftime("%Y-%m-%d"),
+    "max_date": date_range[1].strftime("%Y-%m-%d"),
+    "snapshot_year": int(sectoral_snapshot_year),
+    "compare_a_min_date": compare_a_range[0].strftime("%Y-%m-%d"),
+    "compare_a_max_date": compare_a_range[1].strftime("%Y-%m-%d"),
+    "compare_b_min_date": compare_b_range[0].strftime("%Y-%m-%d"),
+    "compare_b_max_date": compare_b_range[1].strftime("%Y-%m-%d"),
     "skill_group_level": 1,
     "occupation_level": 1
 }
@@ -415,16 +490,27 @@ if submit_button:
             payload,
             st.session_state.backend_timeout
         )
+        sectoral_response = get_sectoral_data(
+            st.session_state.api_base_url,
+            sectoral_payload,
+            st.session_state.backend_timeout
+        )
         if data and "_error" not in data:
             st.session_state.all_data = data
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
+            st.error(error_msg)
+        if sectoral_response and "_error" not in sectoral_response:
+            st.session_state.sectoral_data = sectoral_response
+        else:
+            error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
 
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati solo se all_data è presente nello stato della sessione
 if st.session_state.all_data:
     all_data = st.session_state.all_data
+    sectoral_response = st.session_state.sectoral_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
@@ -732,13 +818,7 @@ if st.session_state.all_data:
                     "insights": {
                         "sectors": [{"name": "Education", "count": 42}],
                         "job_titles": [{"name": "Logistics Coordinator", "count": 8}],
-                        "employers": [{"name": "Example Ltd", "count": 5}],
-                        "sectoral_views": {
-                            "nace": {
-                                "sector_level": "tracker_sector",
-                                "items": []
-                            }
-                        }
+                        "employers": [{"name": "Example Ltd", "count": 5}]
                     }
                 },
                 [
@@ -747,24 +827,21 @@ if st.session_state.all_data:
                     "insights.job_titles[].name",
                     "insights.job_titles[].count",
                     "insights.employers[].name",
-                    "insights.employers[].count",
-                    "insights.sectoral_views.nace.items[]"
+                    "insights.employers[].count"
                 ],
                 payload
             )
 
-        sectoral_views = ins.get("sectoral_views") or {}
-        nace_views = (sectoral_views.get("nace") or {})
-        nace_sectoral = nace_views.get("items", [])
-        active_sectoral = nace_sectoral
-        fallback_sectoral = ins.get("sectoral", None)
-        if not active_sectoral:
-            active_sectoral = fallback_sectoral or []
+        active_sectoral = sectoral_response.get("items", [])
+        sectoral_window = sectoral_response.get("window", {})
+        sectoral_mode_name = sectoral_response.get("mode", sectoral_payload.get("mode", "latest"))
 
         st.caption(
             f"Sector system: NACE | "
             f"{T['agg_level']}: Tracker API job sectors | "
-            f"{T['categories_found']}: {len(active_sectoral)}"
+            f"{T['categories_found']}: {len(active_sectoral)} | "
+            f"{T['sectoral_window']}: {sectoral_window.get('label', sectoral_mode_name)} "
+            f"({sectoral_window.get('min_date', '-') } → {sectoral_window.get('max_date', '-')})"
         )
         c1, c2, c3 = st.columns(3)
 
@@ -772,30 +849,30 @@ if st.session_state.all_data:
             st.subheader(T['top_sectors'], help=STAT_HELP["sector_mentions"])
             dev_info(
                 "Sector distribution chart",
-                ANALYZE_ENDPOINT,
+                SECTORAL_ENDPOINT,
                 {
-                    "insights": {
-                        "sectoral_views": {
-                            "nace": {
-                                "items": [
-                                    {
-                                        "sector": "Education",
-                                        "sector_label": "Education",
-                                        "observed_skills": {
-                                            "total_skill_mentions": 100
-                                        }
-                                    }
-                                ]
+                    "mode": "latest",
+                    "window": {
+                        "label": "Last six months",
+                        "min_date": "2025-11-30",
+                        "max_date": "2026-06-01"
+                    },
+                    "items": [
+                        {
+                            "sector": "Education",
+                            "sector_label": "Education",
+                            "observed_skills": {
+                                "total_skill_mentions": 100
                             }
                         }
-                    }
+                    ]
                 },
                 [
-                    "insights.sectoral_views.nace.items[].sector",
-                    "insights.sectoral_views.nace.items[].sector_label",
-                    "insights.sectoral_views.nace.items[].observed_skills.total_skill_mentions"
+                    "items[].sector",
+                    "items[].sector_label",
+                    "items[].observed_skills.total_skill_mentions"
                 ],
-                payload
+                sectoral_payload
             )
             if active_sectoral:
                 df_sec = pd.DataFrame([
@@ -870,6 +947,45 @@ if st.session_state.all_data:
             else:
                 st.write(T['no_data'])
         st.markdown("---")
+        comparison = sectoral_response.get("comparison") or {}
+        comparison_rows = comparison.get("sectors", [])
+        if sectoral_response.get("mode") == "comparison" and comparison_rows:
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.subheader(T["sectoral_comparison"], help=STAT_HELP["sector_mentions"])
+            with h_info:
+                dev_info(
+                    "Sector comparison",
+                    SECTORAL_ENDPOINT,
+                    {
+                        "mode": "comparison",
+                        "comparison": {
+                            "period_a": {"min_date": "2023-01-01", "max_date": "2023-12-31"},
+                            "period_b": {"min_date": "2024-01-01", "max_date": "2024-12-31"},
+                            "sectors": [
+                                {
+                                    "sector": "Education",
+                                    "period_a_total_skill_mentions": 20,
+                                    "period_b_total_skill_mentions": 35,
+                                    "delta_total_skill_mentions": 15,
+                                    "growth_percentage": 75.0
+                                }
+                            ]
+                        }
+                    },
+                    [
+                        "comparison.period_a",
+                        "comparison.period_b",
+                        "comparison.sectors[].sector",
+                        "comparison.sectors[].delta_total_skill_mentions",
+                        "comparison.sectors[].growth_percentage"
+                    ],
+                    sectoral_payload
+                )
+            df_cmp = pd.DataFrame(comparison_rows)
+            st.dataframe(df_cmp, use_container_width=True)
+            st.markdown("---")
+
         h_main, h_info = st.columns([8, 1])
         with h_main:
             st.header(
@@ -879,34 +995,29 @@ if st.session_state.all_data:
         with h_info:
             dev_info(
                 "Sectoral intelligence",
-                ANALYZE_ENDPOINT,
+                SECTORAL_ENDPOINT,
                 {
-                    "insights": {
-                        "sectoral_views": {
-                            "nace": {
-                                "sector_level": "tracker_sector",
-                                "items": [
-                                    {
-                                        "sector": "Education",
-                                        "sector_label": "Education",
-                                        "observed_skills": {},
-                                        "sector_metrics": {},
-                                        "skill_transversal_insights": []
-                                    }
-                                ]
-                            }
+                    "sector_level": "tracker_sector",
+                    "mode": "latest",
+                    "items": [
+                        {
+                            "sector": "Education",
+                            "sector_label": "Education",
+                            "observed_skills": {},
+                            "sector_metrics": {},
+                            "skill_transversal_insights": []
                         }
-                    }
+                    ]
                 },
                 [
-                    "insights.sectoral_views.nace.sector_level",
-                    "insights.sectoral_views.nace.items[].sector",
-                    "insights.sectoral_views.nace.items[].sector_label",
-                    "insights.sectoral_views.nace.items[].observed_skills",
-                    "insights.sectoral_views.nace.items[].sector_metrics",
-                    "insights.sectoral_views.nace.items[].skill_transversal_insights"
+                    "sector_level",
+                    "items[].sector",
+                    "items[].sector_label",
+                    "items[].observed_skills",
+                    "items[].sector_metrics",
+                    "items[].skill_transversal_insights"
                 ],
-                payload
+                sectoral_payload
             )
         sectoral = active_sectoral
 
@@ -933,7 +1044,7 @@ if st.session_state.all_data:
                 with h_info:
                     dev_info(
                         "Observed skills in selected sector",
-                        ANALYZE_ENDPOINT,
+                        SECTORAL_ENDPOINT,
                         {
                             "observed_skills": {
                                 "sector": "Education",
@@ -959,7 +1070,7 @@ if st.session_state.all_data:
                             "selected sector.observed_skills.top_skills[].count",
                             "selected sector.observed_skills.top_skills[].frequency"
                         ],
-                        payload
+                        sectoral_payload
                     )
                 obs = target_sector.get("observed_skills", {})
                 m1, m2 = st.columns(2)
@@ -1041,7 +1152,7 @@ if st.session_state.all_data:
                 with h_info:
                     dev_info(
                         "Sector metrics",
-                        ANALYZE_ENDPOINT,
+                        SECTORAL_ENDPOINT,
                         {
                             "sector_metrics": {
                                 "coverage_unique_skills": 25,
@@ -1052,7 +1163,7 @@ if st.session_state.all_data:
                             "selected sector.sector_metrics.coverage_unique_skills",
                             "selected sector.sector_metrics.dominance_top10_share"
                         ],
-                        payload
+                        sectoral_payload
                     )
                 sec_metrics = target_sector.get("sector_metrics", {})
                 sm1, sm2 = st.columns(2)
@@ -1078,7 +1189,7 @@ if st.session_state.all_data:
                 with h_info:
                     dev_info(
                         "Skill transversality",
-                        ANALYZE_ENDPOINT,
+                        SECTORAL_ENDPOINT,
                         {
                             "skill_transversal_insights": [
                                 {
@@ -1099,7 +1210,7 @@ if st.session_state.all_data:
                             "selected sector.skill_transversal_insights[].dominant_sector_label",
                             "selected sector.skill_transversal_insights[].dominant_share"
                         ],
-                        payload
+                        sectoral_payload
                     )
                 insights = target_sector.get("skill_transversal_insights", [])
                 if insights:
