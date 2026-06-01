@@ -52,6 +52,33 @@ for each job:
 
 If a job has no sectors, it is assigned to `Sector not specified`.
 
+## Yearly Static Dataset
+
+`/projector/sectoral-snapshot` is a read-only endpoint for the dashboard. It should read the latest completed annual snapshot from PostgreSQL.
+
+Runtime requests do not fetch Tracker for this view when `DATABASE_URL` is configured.
+
+Refresh command:
+
+```bash
+python scripts/refresh_sectoral_snapshot.py --year 2024
+```
+
+Optional location-specific refresh:
+
+```bash
+python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
+```
+
+Storage tables:
+
+- `sector_snapshot_runs`: immutable refresh runs and status
+- `sector_yearly_snapshots`: one row per sector for a completed run
+
+API reads only the latest `completed` run for `(year, location_code)`. Failed or running refreshes do not affect users.
+
+If no completed snapshot exists, the API returns `status=not_available` and a clear message.
+
 ## Current Scope
 
 Only observed sectoral evidence is used.

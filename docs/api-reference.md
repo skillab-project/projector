@@ -134,17 +134,13 @@ When `include_sectoral=true`, sectoral intelligence uses its own time window:
 
 When no jobs are found, the service returns a completed response with `jobs_analyzed=0` and empty insight lists.
 
-## POST `/projector/sectoral-intelligence`
-
-Computes the sector dimension only.
-
-Use this endpoint for detailed drill-downs. For the primary final-frontend overview, prefer `/projector/sectoral-snapshot`.
-
 ## POST `/projector/sectoral-snapshot`
 
 Computes a simple annual sector overview.
 
 Use this endpoint as the default sector-dimension view in the final frontend: it returns one row per Tracker sector with job volume, share, top skills, and top job titles.
+
+When `DATABASE_URL` is configured, this endpoint reads the latest completed PostgreSQL snapshot for the requested year. It does not call Tracker during user requests.
 
 ### Request Fields
 
@@ -154,6 +150,12 @@ Use this endpoint as the default sector-dimension view in the final frontend: it
 | `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
 
 Data source is internal. The public dashboard does not expose cache/live selection.
+
+Refresh snapshots with:
+
+```bash
+python scripts/refresh_sectoral_snapshot.py --year 2024
+```
 
 ### Example Request
 
@@ -170,7 +172,7 @@ curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
 {
   "status": "completed",
   "year": 2024,
-  "data_source": "cache",
+  "data_source": "postgres",
   "window": {
     "label": "2024 snapshot",
     "min_date": "2024-01-01",
@@ -192,6 +194,24 @@ curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
   ]
 }
 ```
+
+If no static snapshot exists:
+
+```json
+{
+  "status": "not_available",
+  "year": 2024,
+  "data_source": "cache",
+  "sectors": [],
+  "message": "No static sector snapshot available for 2024. Run the snapshot refresh job first."
+}
+```
+
+## POST `/projector/sectoral-intelligence`
+
+Computes detailed sector intelligence.
+
+Use this endpoint for drill-downs. For the primary final-frontend overview, prefer `/projector/sectoral-snapshot`.
 
 ### Request Fields
 

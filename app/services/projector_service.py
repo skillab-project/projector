@@ -6,7 +6,7 @@ from fastapi import Form
 
 
 class ProjectorService:
-    def __init__(self, engine, tracker, occupations, regional, market, trends, sectoral):
+    def __init__(self, engine, tracker, occupations, regional, market, trends, sectoral, sector_snapshot_store=None):
         self.engine = engine
         self.tracker = tracker
         self.occupations = occupations
@@ -14,6 +14,7 @@ class ProjectorService:
         self.market = market
         self.trends = trends
         self.sectoral = sectoral
+        self.sector_snapshot_store = sector_snapshot_store
 
     async def analyze_skills(self,   keywords: Optional[List[str]] = Form(None),
         locations: Optional[List[str]] = Form(None),
@@ -237,11 +238,18 @@ class ProjectorService:
     ):
         self.engine.stop_requested = False
 
+        location_code = self._single_location(locations)
+        sector_filter = self._normalize_sector_filter(sectors)
+        min_date, max_date = self._year_window(year, f"{year}-12-31")
+        store_payload = self._read_sector_snapshot_store(year, location_code)
+        if store_payload:
+            return store_payload
+        if self._sector_snapshot_store_enabled():
+            return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "postgres")
+
         normalized_source = str(data_source or "cache").strip().lower()
         if normalized_source not in {"cache", "live"}:
             normalized_source = "cache"
-        sector_filter = self._normalize_sector_filter(sectors)
-        min_date, max_date = self._year_window(year, f"{year}-12-31")
 
         base_payload = {
             "keywords": keywords,
@@ -257,6 +265,10 @@ class ProjectorService:
         )
         jobs = self._filter_jobs_by_sector(jobs, sector_filter)
         await self._ensure_skill_labels(jobs)
+        sectors_payload = self._build_sector_snapshot_rows(jobs, sector_filter)
+
+        if not sectors_payload:
+            return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "cache", len(jobs))
 
         return {
             "status": "completed" if not self.engine.stop_requested else "stopped",
@@ -265,7 +277,43 @@ class ProjectorService:
             "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
             "total_jobs": len(jobs),
             "sector_filter": sector_filter,
-            "sectors": self._build_sector_snapshot_rows(jobs, sector_filter),
+            "sectors": sectors_payload,
+        }
+
+    def _single_location(self, locations: Optional[List[str]]):
+        for location in locations or []:
+            value = str(location or "").strip()
+            if value:
+                return value
+        return None
+
+    def _read_sector_snapshot_store(self, year: int, location_code: Optional[str]):
+        store = self.sector_snapshot_store
+        if not self._sector_snapshot_store_enabled():
+            return None
+        return store.read_latest(int(year), location_code)
+
+    def _sector_snapshot_store_enabled(self):
+        return bool(self.sector_snapshot_store and getattr(self.sector_snapshot_store, "enabled", False))
+
+    def _empty_sector_snapshot(
+            self,
+            year: int,
+            min_date: str,
+            max_date: str,
+            sector_filter: List[str],
+            data_source: str,
+            total_jobs: int = 0,
+    ):
+        return {
+            "status": "not_available",
+            "year": int(year),
+            "data_source": data_source,
+            "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+            "total_jobs": total_jobs,
+            "sector_filter": sector_filter,
+            "sectors": [],
+            "message": f"No static sector snapshot available for {year}. Run the snapshot refresh job first.",
         }
 
     def _today(self):

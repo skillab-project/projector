@@ -100,7 +100,19 @@ class _FakeServiceSectoral:
         }]
 
 
-def _make_projector_service(jobs):
+class _FakeSectorSnapshotStore:
+    enabled = True
+
+    def __init__(self, payload=None):
+        self.payload = payload
+        self.requests = []
+
+    def read_latest(self, year, location_code=None):
+        self.requests.append((year, location_code))
+        return self.payload
+
+
+def _make_projector_service(jobs, sector_snapshot_store=None):
     fake_engine = _FakeServiceEngine()
     fake_tracker = _FakeServiceTracker(jobs)
     fake_sectoral = _FakeServiceSectoral()
@@ -112,6 +124,7 @@ def _make_projector_service(jobs):
         market=_FakeServiceMarket(),
         trends=_FakeServiceTrends(),
         sectoral=fake_sectoral,
+        sector_snapshot_store=sector_snapshot_store,
     )
     return fake_service, fake_engine, fake_tracker, fake_sectoral
 
@@ -363,6 +376,70 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert sector["unique_skills"] == 2
     assert sector["top_skills"][0]["skill_id"] == "skill-python"
     assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_prefers_static_store():
+    store_payload = {
+        "status": "completed",
+        "year": 2024,
+        "data_source": "postgres",
+        "window": {
+            "label": "2024 snapshot",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+        },
+        "total_jobs": 10,
+        "sector_filter": [],
+        "sectors": [
+            {
+                "sector": "Education",
+                "sector_label": "Education",
+                "job_count": 10,
+                "job_share": 1.0,
+                "total_skill_mentions": 20,
+                "unique_skills": 2,
+                "top_skills": [],
+                "top_job_titles": [],
+            }
+        ],
+    }
+    store = _FakeSectorSnapshotStore(store_payload)
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sectoral_snapshot(year=2024, locations=["IT"])
+
+    assert result == store_payload
+    assert store.requests == [(2024, "IT")]
+    assert fake_tracker.fetch_payloads == []
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_returns_not_available_without_static_data():
+    fake_service, _, fake_tracker, _ = _make_projector_service([])
+
+    result = await fake_service.sectoral_snapshot(year=2024)
+
+    assert result["status"] == "not_available"
+    assert result["year"] == 2024
+    assert result["sectors"] == []
+    assert "Run the snapshot refresh job" in result["message"]
+    assert fake_tracker.fetch_payloads == [{
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    }]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_store_miss_does_not_fetch_tracker():
+    store = _FakeSectorSnapshotStore(None)
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sectoral_snapshot(year=2024)
+
+    assert result["status"] == "not_available"
+    assert result["data_source"] == "postgres"
+    assert fake_tracker.fetch_payloads == []
 
 
 @pytest.mark.asyncio

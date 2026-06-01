@@ -203,11 +203,12 @@ class SectorSnapshotRow(BaseModel):
 class SectoralSnapshotResponse(BaseModel):
     status: str
     year: int
-    data_source: Literal["cache", "live"]
+    data_source: Literal["postgres", "cache", "live"]
     window: dict[str, str]
     total_jobs: int
     sector_filter: List[str] = Field(default_factory=list)
     sectors: List[SectorSnapshotRow]
+    message: Optional[str] = None
 
 
 class NaceSectoralViews(BaseModel):

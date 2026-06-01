@@ -1487,6 +1487,8 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     )
                 else:
                     st.write(T['no_data'])
+        elif sectoral_snapshot_response.get("status") == "not_available":
+            st.info(sectoral_snapshot_response.get("message", T["no_data"]))
         elif not snapshot_sectors:
             st.info(T['no_sectoral'])
 
