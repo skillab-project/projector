@@ -3433,7 +3433,8 @@ def test_endpoint_sectoral_snapshot_contract():
         }
     ]
 
-    with patch.object(tracker, "load_cached_jobs") as m_cache, \
+    with patch.object(service, "sector_snapshot_store", None), \
+         patch.object(tracker, "load_cached_jobs") as m_cache, \
          patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills:
         m_cache.return_value = fake_jobs
         m_fetch_skills.return_value = None
