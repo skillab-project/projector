@@ -41,6 +41,12 @@ translations = {
         'submit_general': "Lancia analisi generale",
         'submit_sectoral': "Lancia analisi settoriale",
         'sectoral_time_mode': "Finestra settoriale",
+        'sector_filter': "Filtro settori (virgola)",
+        'sectoral_data_source': "Sorgente dati settoriale",
+        'sectoral_data_source_options': {
+            "cache": "Cache statica",
+            "live": "Live Tracker",
+        },
         'sectoral_time_options': {
             "latest": "Ultimi 6 mesi",
             "selected_period": "Periodo selezionato",
@@ -128,6 +134,12 @@ translations = {
         'submit_general': "Run general analysis",
         'submit_sectoral': "Run sectoral analysis",
         'sectoral_time_mode': "Sectoral window",
+        'sector_filter': "Sector filter (comma-separated)",
+        'sectoral_data_source': "Sectoral data source",
+        'sectoral_data_source_options': {
+            "cache": "Static cache",
+            "live": "Live Tracker",
+        },
         'sectoral_time_options': {
             "latest": "Last 6 months",
             "selected_period": "Selected period",
@@ -400,6 +412,10 @@ with st.sidebar:
     st.markdown("---")
     sectoral_keywords = st.text_input(T['keywords'], "software", key="sectoral_keywords")
     sectoral_location = st.text_input(T['location'], "", key="sectoral_location")
+    sectoral_sector_filter = st.text_input(T["sector_filter"], "", key="sectoral_sector_filter")
+    sectoral_source_options = T["sectoral_data_source_options"]
+    sectoral_source_label = st.selectbox(T["sectoral_data_source"], list(sectoral_source_options.values()))
+    sectoral_data_source = next(key for key, value in sectoral_source_options.items() if value == sectoral_source_label)
     sectoral_date_range = st.date_input(
         T['date_range'],
         [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")],
@@ -484,6 +500,8 @@ payload = {
 sectoral_payload = {
     "keywords": [sectoral_keywords] if sectoral_keywords else None,
     "locations": [sectoral_location] if sectoral_location else None,
+    "sectors": [s.strip() for s in sectoral_sector_filter.split(",") if s.strip()],
+    "data_source": sectoral_data_source,
     "mode": sectoral_mode,
     "min_date": sectoral_date_range[0].strftime("%Y-%m-%d"),
     "max_date": sectoral_date_range[1].strftime("%Y-%m-%d"),

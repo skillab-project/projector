@@ -86,11 +86,13 @@ class _FakeServiceSectoral:
 
     def build_sectoral_intelligence(self, **kwargs):
         self.kwargs = kwargs
+        job = (kwargs.get("jobs") or [{"sectors": ["Education"]}])[0]
+        sector = (job.get("sectors") or ["Education"])[0]
         return [{
-            "sector": "Education",
-            "sector_label": "Education",
+            "sector": sector,
+            "sector_label": sector,
             "observed_skills": {
-                "sector": "Education",
+                "sector": sector,
                 "total_skill_mentions": 1,
                 "unique_skills": 1,
                 "top_skills": [{"skill_id": "skill-python", "count": 1, "frequency": 1.0}],
@@ -298,6 +300,27 @@ async def test_projector_service_sectoral_intelligence_endpoint_contract():
         "min_upload_date": "2024-01-01",
         "max_upload_date": "2024-01-31",
     }]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_intelligence_filters_by_sector():
+    jobs = [
+        {"skills": ["skill-python"], "sectors": ["Education"]},
+        {"skills": ["skill-sql"], "sectors": ["Manufacturing"]},
+    ]
+    fake_service, _, _, _ = _make_projector_service(jobs)
+
+    result = await fake_service.sectoral_intelligence(
+        data_source="live",
+        mode="selected_period",
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        sectors=["Education"],
+    )
+
+    assert result["data_source"] == "live"
+    assert result["sector_filter"] == ["Education"]
+    assert [item["sector"] for item in result["items"]] == ["Education"]
 
 
 @pytest.mark.asyncio
@@ -3229,6 +3252,7 @@ def test_endpoint_analyze_skills_sectoral_tracker_labels_define_sector_keys():
 def test_endpoint_sectoral_intelligence_selected_period_contract():
     form_data = {
         "keywords": ["developer"],
+        "data_source": "live",
         "mode": "selected_period",
         "min_date": "2024-01-01",
         "max_date": "2024-01-10",
@@ -3261,7 +3285,9 @@ def test_endpoint_sectoral_intelligence_selected_period_contract():
 
         data = response.json()
         assert data["status"] == "completed"
+        assert data["data_source"] == "live"
         assert data["mode"] == "selected_period"
+        assert data["sector_filter"] == []
         assert data["sector_level"] == "tracker_sector"
         assert data["window"] == {
             "label": "Selected period",

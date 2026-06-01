@@ -150,6 +150,8 @@ class ProjectorService:
             self,
             keywords: Optional[List[str]] = None,
             locations: Optional[List[str]] = None,
+            sectors: Optional[List[str]] = None,
+            data_source: Literal["cache", "live"] = "cache",
             mode: Literal["latest", "selected_period", "year", "comparison"] = "latest",
             min_date: Optional[str] = None,
             max_date: Optional[str] = None,
@@ -167,6 +169,10 @@ class ProjectorService:
         selected_min = min_date or latest_min
         selected_max = max_date or latest_max
         normalized_mode = str(mode or "latest").strip().lower()
+        normalized_source = str(data_source or "cache").strip().lower()
+        if normalized_source not in {"cache", "live"}:
+            normalized_source = "cache"
+        sector_filter = self._normalize_sector_filter(sectors)
 
         base_payload = {
             "keywords": keywords,
@@ -176,7 +182,13 @@ class ProjectorService:
 
         selected_jobs = []
         if normalized_mode == "selected_period":
-            selected_jobs = await self._fetch_jobs_for_window(clean_base_payload, selected_min, selected_max)
+            selected_jobs = await self._fetch_jobs_for_window(
+                clean_base_payload,
+                selected_min,
+                selected_max,
+                use_cache_only=normalized_source == "cache",
+            )
+            selected_jobs = self._filter_jobs_by_sector(selected_jobs, sector_filter)
             await self._ensure_skill_labels(selected_jobs)
 
         payload = await self._build_temporal_sectoral_payload(
@@ -190,6 +202,8 @@ class ProjectorService:
             compare_a_max_date=compare_a_max_date,
             compare_b_min_date=compare_b_min_date,
             compare_b_max_date=compare_b_max_date,
+            sector_filter=sector_filter,
+            use_cache_only=normalized_source == "cache",
             skill_group_level=skill_group_level,
             occupation_level=occupation_level,
         )
@@ -197,8 +211,10 @@ class ProjectorService:
         return {
             "status": "completed" if not self.engine.stop_requested else "stopped",
             "mode": payload["time_mode"],
+            "data_source": normalized_source,
             "sector_level": "tracker_sector",
             "window": payload["window"],
+            "sector_filter": sector_filter,
             "items": payload["items"],
             "snapshots": payload.get("snapshots"),
             "comparison": payload.get("comparison"),
@@ -224,13 +240,49 @@ class ProjectorService:
             year = int(str(fallback_date)[:4])
         return f"{year:04d}-01-01", f"{year:04d}-12-31"
 
-    async def _fetch_jobs_for_window(self, base_payload: dict, min_date: str, max_date: str):
+    async def _fetch_jobs_for_window(
+            self,
+            base_payload: dict,
+            min_date: str,
+            max_date: str,
+            use_cache_only: bool = False,
+    ):
         payload = {
             **base_payload,
             "min_upload_date": min_date,
             "max_upload_date": max_date,
         }
+        if use_cache_only and hasattr(self.tracker, "load_cached_jobs"):
+            return self.tracker.load_cached_jobs(payload) or []
         return await self.tracker.fetch_all_jobs(payload)
+
+    def _normalize_sector_filter(self, sectors: Optional[List[str]]):
+        return [
+            str(sector).strip()
+            for sector in (sectors or [])
+            if str(sector).strip()
+        ]
+
+    def _job_sector_labels(self, job: dict):
+        labels = []
+        for sector in job.get("sectors", []) or []:
+            if isinstance(sector, dict):
+                value = sector.get("label") or sector.get("name") or sector.get("code")
+            else:
+                value = sector
+            value = str(value or "").strip()
+            if value:
+                labels.append(value)
+        return labels
+
+    def _filter_jobs_by_sector(self, jobs: List[dict], sectors: List[str]):
+        if not sectors:
+            return jobs
+        wanted = {sector.lower() for sector in sectors}
+        return [
+            job for job in jobs
+            if any(label.lower() in wanted for label in self._job_sector_labels(job))
+        ]
 
     async def _ensure_skill_labels(self, jobs: List[dict]):
         skill_ids = {
@@ -301,8 +353,10 @@ class ProjectorService:
             compare_a_max_date: Optional[str],
             compare_b_min_date: Optional[str],
             compare_b_max_date: Optional[str],
-            skill_group_level: int,
-            occupation_level: int,
+            sector_filter: Optional[List[str]] = None,
+            use_cache_only: bool = False,
+            skill_group_level: int = 1,
+            occupation_level: int = 1,
     ):
         mode = str(time_mode or "latest").strip().lower()
         if mode not in {"latest", "selected_period", "year", "comparison"}:
@@ -318,7 +372,8 @@ class ProjectorService:
 
         if mode == "year":
             min_date, max_date = self._year_window(snapshot_year, selected_max_date)
-            jobs = await self._fetch_jobs_for_window(base_payload, min_date, max_date)
+            jobs = await self._fetch_jobs_for_window(base_payload, min_date, max_date, use_cache_only=use_cache_only)
+            jobs = self._filter_jobs_by_sector(jobs, sector_filter or [])
             await self._ensure_skill_labels(jobs)
             items = self._build_sectoral_items(jobs, skill_group_level, occupation_level)
             return {
@@ -335,8 +390,10 @@ class ProjectorService:
             if not b_min or not b_max:
                 b_min, b_max = self._latest_window()
 
-            jobs_a = await self._fetch_jobs_for_window(base_payload, a_min, a_max)
-            jobs_b = await self._fetch_jobs_for_window(base_payload, b_min, b_max)
+            jobs_a = await self._fetch_jobs_for_window(base_payload, a_min, a_max, use_cache_only=use_cache_only)
+            jobs_b = await self._fetch_jobs_for_window(base_payload, b_min, b_max, use_cache_only=use_cache_only)
+            jobs_a = self._filter_jobs_by_sector(jobs_a, sector_filter or [])
+            jobs_b = self._filter_jobs_by_sector(jobs_b, sector_filter or [])
             await self._ensure_skill_labels(jobs_a + jobs_b)
             items_a = self._build_sectoral_items(jobs_a, skill_group_level, occupation_level)
             items_b = self._build_sectoral_items(jobs_b, skill_group_level, occupation_level)
@@ -362,7 +419,8 @@ class ProjectorService:
             }
 
         min_date, max_date = self._latest_window()
-        jobs = await self._fetch_jobs_for_window(base_payload, min_date, max_date)
+        jobs = await self._fetch_jobs_for_window(base_payload, min_date, max_date, use_cache_only=use_cache_only)
+        jobs = self._filter_jobs_by_sector(jobs, sector_filter or [])
         await self._ensure_skill_labels(jobs)
         items = self._build_sectoral_items(jobs, skill_group_level, occupation_level)
         return {

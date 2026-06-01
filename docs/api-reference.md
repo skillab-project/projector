@@ -146,6 +146,8 @@ Use this endpoint for the final frontend sector view instead of embedding sector
 | --- | --- | --- | --- | --- |
 | `keywords` | list of strings | no | `null` | Search terms forwarded to Tracker |
 | `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
+| `sectors` | list of strings | no | `null` | Sector-first filter applied to Tracker `job["sectors"]` |
+| `data_source` | enum | no | `cache` | `cache` reads local static cache only; `live` fetches Tracker and refreshes cache |
 | `mode` | enum | no | `latest` | `latest`, `selected_period`, `year`, or `comparison` |
 | `min_date` | string | no | latest window start | Used by `selected_period`, and as comparison baseline fallback |
 | `max_date` | string | no | latest window end | Used by `selected_period`, and as comparison baseline fallback |
@@ -162,8 +164,9 @@ Use this endpoint for the final frontend sector view instead of embedding sector
 ```bash
 curl -X POST "http://127.0.0.1:8000/projector/sectoral-intelligence" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "keywords=software" \
+  -d "sectors=Education" \
   -d "locations=IT" \
+  -d "data_source=cache" \
   -d "mode=latest"
 ```
 
@@ -173,7 +176,9 @@ curl -X POST "http://127.0.0.1:8000/projector/sectoral-intelligence" \
 {
   "status": "completed",
   "mode": "latest",
+  "data_source": "cache",
   "sector_level": "tracker_sector",
+  "sector_filter": ["Education"],
   "window": {
     "label": "Last six months",
     "min_date": "2025-11-30",

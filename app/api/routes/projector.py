@@ -128,6 +128,8 @@ async def analyze_skills(
 async def sectoral_intelligence(
         keywords: Optional[List[str]] = Form(None),
         locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        data_source: Literal["cache", "live"] = Form("cache"),
         mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
         min_date: Optional[str] = Form(None),
         max_date: Optional[str] = Form(None),
@@ -148,6 +150,8 @@ async def sectoral_intelligence(
     return await service.sectoral_intelligence(
         keywords=keywords,
         locations=locations,
+        sectors=sectors,
+        data_source=data_source,
         mode=mode,
         min_date=min_date,
         max_date=max_date,

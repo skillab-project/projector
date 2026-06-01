@@ -10,6 +10,13 @@ POST /projector/sectoral-intelligence
 
 `POST /projector/analyze-skills` still supports `include_sectoral=true` for compatibility.
 
+Default sectoral reads are static-first:
+
+- `data_source=cache`: read local `cache_data/` only. No live Tracker fetch.
+- `data_source=live`: fetch Tracker and refresh local cache.
+
+Use `sectors` for sector-first exploration. Use `keywords` only as optional job-text filter.
+
 ## Source
 
 Each job can contain:

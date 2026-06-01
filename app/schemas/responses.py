@@ -174,8 +174,10 @@ class SectoralView(BaseModel):
 class SectoralIntelligenceResponse(BaseModel):
     status: str
     mode: Literal["latest", "selected_period", "year", "comparison"]
+    data_source: Literal["cache", "live"]
     sector_level: str
     window: dict[str, str]
+    sector_filter: List[str] = Field(default_factory=list)
     items: List[SectoralSectorItem]
     snapshots: Optional[dict[str, dict]] = None
     comparison: Optional[dict] = None

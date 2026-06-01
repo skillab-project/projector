@@ -182,6 +182,26 @@ class TrackerClient:
             "trends": []
         }
 
+    def _cache_file_for_filters(self, filters: dict):
+        query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+        return query_sig, "cache_data", f"cache_data/search_{query_sig}.json"
+
+    def load_cached_jobs(self, filters: dict):
+        query_sig, _cache_dir, cache_file = self._cache_file_for_filters(filters)
+        if not os.path.exists(cache_file):
+            logger.info(f"Cache Miss: {query_sig}")
+            return None
+
+        logger.info(f"Cache Hit: {query_sig}")
+        with open(cache_file, 'r') as f:
+            cached_jobs = json.load(f)
+
+        if cached_jobs and not any("sectors" in job for job in cached_jobs):
+            logger.info(f"Cache stale without job sectors: {query_sig}")
+            return None
+
+        return cached_jobs
+
     async def fetch_all_jobs(self, filters: dict, page_size: int = 500):
         """
            Fetches all job postings from the Tracker API using pagination and caching.
@@ -215,17 +235,11 @@ class TrackerClient:
                - Writes cache files to disk
            """
         # Non resettiamo stop_requested qui, lo facciamo negli endpoint all'inizio
-        query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
-        cache_dir, cache_file = "cache_data", f"cache_data/search_{query_sig}.json"
+        query_sig, cache_dir, cache_file = self._cache_file_for_filters(filters)
 
-        if os.path.exists(cache_file):
-            logger.info(f"Cache Hit: {query_sig}")
-            with open(cache_file, 'r') as f:
-                cached_jobs = json.load(f)
-            if cached_jobs and not any("sectors" in job for job in cached_jobs):
-                logger.info(f"Cache stale without job sectors, refetching: {query_sig}")
-            else:
-                return cached_jobs
+        cached_jobs = self.load_cached_jobs(filters)
+        if cached_jobs is not None:
+            return cached_jobs
 
         if not self.engine.token: await self._get_token()
 
