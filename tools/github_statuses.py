@@ -30,6 +30,19 @@ def infer_sha():
     return os.environ.get("GIT_COMMIT") or run_git("rev-parse", "HEAD")
 
 
+def infer_pr_number():
+    change_id = os.environ.get("CHANGE_ID")
+    if change_id:
+        return change_id
+
+    change_url = os.environ.get("CHANGE_URL", "")
+    match = re.search(r"/pull/(\d+)(?:$|[/?#])", change_url)
+    if match:
+        return match.group(1)
+
+    return None
+
+
 def artifact_url(path):
     build_url = os.environ.get("JENKINS_ARTIFACT_BASE_URL") or os.environ.get("BUILD_URL", "")
     build_url = build_url.rstrip("/")
@@ -112,6 +125,14 @@ def post_pr_comment(repo, issue_number, token, body):
     )
     with urllib.request.urlopen(request, timeout=20) as response:
         response.read()
+
+
+def explain_comment_http_error(exc):
+    if exc.code in (401, 403):
+        return "token cannot write PR comments; grant Issues: write or use the GitHub App token"
+    if exc.code == 404:
+        return "PR comment endpoint not found; check repo, PR number, and token repository access"
+    return "GitHub rejected the PR comment request"
 
 
 def tests_status(gates):
@@ -289,16 +310,19 @@ def main():
     except Exception as exc:
         print(f"Failed to publish Jenkins / CI: {exc}")
 
-    issue_number = os.environ.get("CHANGE_ID")
+    issue_number = infer_pr_number()
     if issue_number:
         try:
             post_pr_comment(repo, issue_number, token, render_pr_comment(statuses))
             print(f"Published Jenkins CI comment on PR #{issue_number}.")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
-            print(f"Failed to publish Jenkins CI comment: HTTP {exc.code} {body}")
+            print(f"Failed to publish Jenkins CI comment: HTTP {exc.code} {explain_comment_http_error(exc)}")
+            print(body)
         except Exception as exc:
             print(f"Failed to publish Jenkins CI comment: {exc}")
+    else:
+        print("No PR number found; skipping Jenkins CI PR comment.")
 
 
 if __name__ == "__main__":

@@ -284,6 +284,7 @@ PY
                         -e GIT_COMMIT="${GIT_COMMIT}" \
                         -e BRANCH_NAME="${BRANCH_NAME}" \
                         -e CHANGE_ID="${CHANGE_ID}" \
+                        -e CHANGE_URL="${CHANGE_URL}" \
                         -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
                         -e CHANGE_TARGET="${CHANGE_TARGET}" \
                         -e JOB_NAME="${JOB_NAME}" \
@@ -311,6 +312,7 @@ PY
                                     -e GIT_COMMIT="${GIT_COMMIT}" \
                                     -e BRANCH_NAME="${BRANCH_NAME}" \
                                     -e CHANGE_ID="${CHANGE_ID}" \
+                                    -e CHANGE_URL="${CHANGE_URL}" \
                                     -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
                                     -e CHANGE_TARGET="${CHANGE_TARGET}" \
                                     -e JOB_NAME="${JOB_NAME}" \
