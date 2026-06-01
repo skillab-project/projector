@@ -229,7 +229,9 @@ def render_pr_comment(statuses):
     sha = infer_sha()
     short_sha = sha[:7] if sha else "unknown"
     lines = [
-        "## Jenkins CI result",
+        "## Automated Jenkins CI result",
+        "",
+        "_This comment was generated automatically by Jenkins._",
         "",
         f"- Build: {build_mode()}",
         f"- Commit: `{short_sha}`",
