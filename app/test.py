@@ -15,11 +15,92 @@ from app.main import  app
 from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
+from app.services.projector_service import ProjectorService
 
 from dotenv import load_dotenv
 load_dotenv()
 
 client = TestClient(app)
+
+
+class _FakeServiceEngine:
+    def __init__(self):
+        self.stop_requested = False
+
+    def request_stop(self):
+        self.stop_requested = True
+
+
+class _FakeServiceTracker:
+    def __init__(self, jobs):
+        self.jobs = jobs
+        self.fetch_payload = None
+        self.skill_names_requested = None
+
+    async def fetch_all_jobs(self, payload):
+        self.fetch_payload = payload
+        return self.jobs
+
+    async def fetch_skill_names(self, skill_ids):
+        self.skill_names_requested = skill_ids
+
+
+class _FakeServiceMarket:
+    def _empty_insights_p1(self):
+        return {"ranking": [], "sectors": [], "job_titles": [], "employers": []}
+
+    async def analyze_market_data(self, jobs):
+        return {
+            "total_jobs": len(jobs),
+            "geo": [{"name": "IT", "count": len(jobs)}],
+            "rankings": {
+                "skills": [
+                    {"id": "skill-python", "name": "Python"},
+                    {"id": "skill-sql", "name": "SQL"},
+                ],
+                "sectors": [{"name": "Education", "count": 1}],
+                "job_titles": [{"name": "Data Scientist", "count": 1}],
+                "employers": [{"name": "ACME", "count": 1}],
+            },
+        }
+
+
+class _FakeServiceTrends:
+    async def calculate_trends_from_data(self, jobs, min_date, max_date):
+        return [{"name": "Python", "growth": 10.0, "window": [min_date, max_date]}]
+
+    async def calculate_smart_trends(self, filters, min_date, max_date):
+        return {"filters": filters, "market_health": {"status": "stable"}, "trends": []}
+
+
+class _FakeServiceRegional:
+    def get_regional_projections(self, jobs, demo=False):
+        return [{"location": "IT", "demo": demo, "count": len(jobs)}]
+
+
+class _FakeServiceSectoral:
+    def __init__(self):
+        self.kwargs = None
+
+    def build_sectoral_intelligence(self, **kwargs):
+        self.kwargs = kwargs
+        return [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}]
+
+
+def _make_projector_service(jobs):
+    fake_engine = _FakeServiceEngine()
+    fake_tracker = _FakeServiceTracker(jobs)
+    fake_sectoral = _FakeServiceSectoral()
+    fake_service = ProjectorService(
+        fake_engine,
+        fake_tracker,
+        occupations=None,
+        regional=_FakeServiceRegional(),
+        market=_FakeServiceMarket(),
+        trends=_FakeServiceTrends(),
+        sectoral=fake_sectoral,
+    )
+    return fake_service, fake_engine, fake_tracker, fake_sectoral
 
 
 
@@ -28,13 +109,112 @@ client = TestClient(app)
 # ==========================================
 
 @pytest.mark.asyncio
+async def test_projector_service_empty_jobs_returns_empty_insights():
+    fake_service, _, fake_tracker, _ = _make_projector_service([])
+
+    result = await fake_service.analyze_skills(
+        keywords=["data"],
+        locations=["IT"],
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=False,
+    )
+
+    assert result["status"] == "completed"
+    assert result["dimension_summary"]["jobs_analyzed"] == 0
+    assert result["insights"]["ranking"] == []
+    assert fake_tracker.fetch_payload == {
+        "keywords": ["data"],
+        "location_code": ["IT"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-01-31",
+    }
+
+
+@pytest.mark.asyncio
+async def test_projector_service_analyze_skills_paginates_and_enriches_api_skills():
+    jobs = [
+        {"skills": ["skill-python", "skill-sql"], "sectors": ["Education"]},
+        {"skills": ["skill-python"], "sectors": ["Research"]},
+    ]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=2,
+        page_size=1,
+        demo=True,
+        include_sectoral=False,
+    )
+
+    assert result["status"] == "completed"
+    assert result["dimension_summary"]["jobs_analyzed"] == 2
+    assert result["insights"]["ranking"] == [{"id": "skill-sql", "name": "SQL"}]
+    assert result["insights"]["regional"] == [{"location": "IT", "demo": True, "count": 2}]
+    assert result["insights"]["sectoral"] is None
+    assert set(fake_tracker.skill_names_requested) == {"skill-python", "skill-sql"}
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_uses_tracker_sectors_view():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, _, fake_sectoral = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=True,
+        sector_system="isco",
+        sector_level="nace_class",
+        skill_group_level=2,
+        occupation_level=3,
+    )
+
+    assert result["insights"]["sectoral_mode"] == "nace"
+    assert result["insights"]["sectoral_views"] == {
+        "nace": {
+            "sector_level": "tracker_sector",
+            "items": [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}],
+        }
+    }
+    assert result["insights"]["sector_view_names"] == {"nace": {"observed": "Observed"}}
+    assert fake_sectoral.kwargs["jobs"] == jobs
+    assert fake_sectoral.kwargs["sector_level"] == "nace_section"
+    assert fake_sectoral.kwargs["skill_group_level"] == 2
+    assert fake_sectoral.kwargs["occupation_level"] == 3
+    assert fake_sectoral.kwargs["reset"] is True
+
+
+@pytest.mark.asyncio
+async def test_projector_service_emerging_skills_and_stop_status():
+    fake_service, fake_engine, _, _ = _make_projector_service([])
+
+    emerging = await fake_service.emerging_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        keywords=["python"],
+    )
+    stop_result = fake_service.stop()
+
+    assert emerging["status"] == "completed"
+    assert emerging["insights"]["filters"] == {"keywords": ["python"]}
+    assert stop_result == {"status": "signal_sent"}
+    assert fake_engine.stop_requested is True
+
+
+@pytest.mark.asyncio
 async def test_engine_analyze_market_data_logic():
     """
     Verifica l'aggregazione corretta con la nuova struttura Phase 1.
     """
     mock_jobs = [
         {"organization_name": "Google", "title": "Dev", "location_code": "IT", "skills": ["s1"],
-         "occupation_id": "occ_1"}
+         "occupation_id": "occ_1", "sectors": ["Tech"]}
     ]
     # Prepariamo le mappe con la nuova struttura
     engine.sector_map = {"occ_1": "Tech"}
@@ -203,6 +383,129 @@ async def test_fetch_all_jobs_read_timeout_resilience():
 
 
 @pytest.mark.asyncio
+async def test_fetch_skill_names_enriches_api_skills_and_requests_token():
+    engine.skill_map = {}
+    engine.token = None
+    engine.stop_requested = False
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "items": [
+            {"id": "skill-python", "label": "Python"},
+            {"id": "skill-sql", "label": "SQL"},
+        ]
+    }
+
+    async def fake_token():
+        engine.token = "fresh-token"
+        return engine.token
+
+    with patch.object(tracker, "_get_token", new_callable=AsyncMock) as mock_token, \
+         patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_token.side_effect = fake_token
+        mock_post.return_value = response
+
+        await tracker.fetch_skill_names(["skill-python", "skill-sql", "skill-python"])
+
+    assert mock_token.await_count == 1
+    assert mock_post.await_count == 1
+    assert mock_post.await_args.kwargs["headers"] == {"Authorization": "Bearer fresh-token"}
+    assert mock_post.await_args.kwargs["data"] == {
+        "ids": ["skill-python", "skill-sql", "skill-python"],
+        "keywords_logic": "or",
+    }
+    assert engine.skill_map["skill-python"] == {
+        "label": "Python",
+        "is_green": False,
+        "is_digital": False,
+    }
+    assert engine.skill_map["skill-sql"]["label"] == "SQL"
+
+
+@pytest.mark.asyncio
+async def test_fetch_skill_names_skips_cached_and_stopped_requests():
+    engine.skill_map = {"skill-python": {"label": "Python"}}
+    engine.stop_requested = False
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        await tracker.fetch_skill_names(["skill-python"])
+        mock_post.assert_not_awaited()
+
+    engine.stop_requested = True
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        await tracker.fetch_skill_names(["skill-sql"])
+        mock_post.assert_not_awaited()
+
+    engine.stop_requested = False
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_paginates_and_writes_sector_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "skills": ["skill-a"], "sectors": ["Education"]},
+            {"id": 2, "skills": ["skill-b"], "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {
+        "count": 3,
+        "items": [{"id": 3, "skills": ["skill-c"], "sectors": ["Manufacturing"]}],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [first, second]
+        result = await tracker.fetch_all_jobs({"keywords": ["data"]}, page_size=2)
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 2
+    assert mock_post.await_args_list[0].kwargs["params"] == {"page": 1, "page_size": 2}
+    assert mock_post.await_args_list[1].kwargs["params"] == {"page": 2, "page_size": 2}
+    cache_files = list((tmp_path / "cache_data").glob("search_*.json"))
+    assert len(cache_files) == 1
+    assert json.loads(cache_files[0].read_text()) == result
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_uses_sector_cache_and_refetches_stale_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    query_sig = hashlib.md5(json.dumps({"keywords": ["data"]}, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    cache_file.write_text(json.dumps([{"id": 1, "sectors": ["Education"]}]))
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        cached = await tracker.fetch_all_jobs({"keywords": ["data"]})
+        mock_post.assert_not_awaited()
+    assert cached == [{"id": 1, "sectors": ["Education"]}]
+
+    cache_file.write_text(json.dumps([{"id": 2, "occupation_id": "old"}]))
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"count": 1, "items": [{"id": 3, "sectors": ["Research"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = response
+        refreshed = await tracker.fetch_all_jobs({"keywords": ["data"]})
+
+    assert refreshed == [{"id": 3, "sectors": ["Research"]}]
+    assert mock_post.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_analyze_market_data_empty_jobs():
     """Testa il metodo _empty_res (Coverage dei rami edge)."""
     result = await market.analyze_market_data([])
@@ -214,11 +517,11 @@ async def test_analyze_market_data_empty_jobs():
 async def test_analyze_market_data_unclassified_sector():
     """Verifica il fallback 'Settore non specificato' se manca occupation_id."""
     mock_jobs = [{"skills": ["s1"]}]  # Manca occupation_id
-    engine.skill_map = {"s1": {"label": "Test", "is_green": False, "is_digital": False}}
+    engine.skill_map = {"s1": {"label": "Test", "is_green": False, "is_digital": False, "sectors": "[]"}}
     engine.sector_map = {}
 
     result = await market.analyze_market_data(mock_jobs)
-    assert result["rankings"]["sectors"] == []
+    assert result["rankings"]["sectors"][0]['name'] == "Sector not specified"
 
 # ==========================================
 # 5. INTEGRATION: ENDPOINT EMERGING SKILLS
@@ -498,11 +801,10 @@ async def test_fetch_skill_names_enriched_logic():
 async def test_calculate_smart_trends_intelligence_overlap():
     """Verifica che il settore primario sia presente nei risultati dei trend."""
     # Mock jobs con settori specifici
-    mock_jobs_a = [{"occupation_id": "occ_1", "skills": ["s1"]}]
-    mock_jobs_b = [{"occupation_id": "occ_1", "skills": ["s1"], "organization_name": "Test"}]
+    mock_jobs_a = [{"occupation_id": "occ_1", "skills": ["s1"], "sectors": ["Automotive"]}]
+    mock_jobs_b = [{"occupation_id": "occ_1", "skills": ["s1"], "sectors": ["Automotive"], "organization_name": "Test"}]
 
     engine.token = "fake"
-    engine.sector_map = {"occ_1": "Automotive"}
     engine.skill_map = {"s1": {"label": "Battery Tech", "is_green": True, "is_digital": False}}
 
     with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as mock_fetch:
@@ -525,9 +827,8 @@ def test_dashboard_phase1_contract():
     form_data = {"keywords": ["data scientist"], "min_date": "2024-01-01", "max_date": "2024-01-02"}
 
     with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as m_fetch:
-        # Simulo un job con occupazione e skill
-        m_fetch.return_value = [{"occupation_id": "occ_1", "skills": ["s1"]}]
-        engine.sector_map = {"occ_1": "Information Technology"}
+        # New sector model: sectors arrive directly from the Tracker job payload.
+        m_fetch.return_value = [{"skills": ["s1"], "sectors": ["Information Technology"]}]
         engine.skill_map = {"s1": {"label": "AI", "is_green": False, "is_digital": True}}
 
         response = client.post("/projector/analyze-skills", data=form_data)
@@ -538,6 +839,8 @@ def test_dashboard_phase1_contract():
         assert "is_green" in skill_sample
         assert "is_digital" in skill_sample
         assert "sector_spread" in skill_sample
+        assert skill_sample["sector_spread"] == 1
+        assert skill_sample["primary_sector"] == "Information Technology"
 
         # Verifica dati per Grafico Settori (Nuova Tab 4)
         assert "sectors" in res_data["insights"]
@@ -1079,6 +1382,25 @@ def test_normalize_nace_code_supports_uri_and_numeric_shapes():
     assert occupations.normalize_nace_code("242") == "24.2"
     assert occupations.normalize_nace_code("01") == "01"
     assert occupations.normalize_nace_code("A") == "A"
+
+
+def test_get_nace_mappings_from_job_reads_tracker_sectors_field():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+
+    job = {
+        "sectors": [
+            {"code": "http://data.europa.eu/ux2/nace2.1/6201", "label": "Computer programming activities"},
+            {"naceCode": "J63.1", "naceLabel": "Data processing, hosting and related activities"},
+            "M70.22",
+        ]
+    }
+
+    assert occupations.get_sector_keys_from_job(job, level="nace_section") == ["J", "M"]
+    assert occupations.get_sector_keys_from_job(job, level="nace_division") == ["62", "63", "70"]
+    assert occupations.get_sector_keys_from_job(job, level="nace_class") == ["62.01", "63.1", "70.22"]
 
 
 def test_get_sector_label_uses_nace_dictionary_in_nace_mode():
@@ -2057,16 +2379,10 @@ def test_build_single_sector_intelligence_returns_all_sections():
     }
 
     engine.sector_skill_observed = defaultdict(Counter)
-    engine.sector_skill_canonical = defaultdict(Counter)
     engine.sector_skillgroup_observed = defaultdict(Counter)
-    engine.sector_skillgroup_canonical = defaultdict(Counter)
-    engine.matrix_profiles = defaultdict(Counter)
 
     engine.sector_skill_observed["ICT"]["skill_a"] = 3
-    engine.sector_skill_canonical["ICT"]["skill_b"] = 2
     engine.sector_skillgroup_observed["ICT"]["S5.1"] = 3
-    engine.sector_skillgroup_canonical["ICT"]["S2.4"] = 2
-    engine.matrix_profiles["ICT"]["S1"] = 1.5
 
     result = sectoral.build_single_sector_intelligence(
         sector_name="ICT",
@@ -2077,16 +2393,16 @@ def test_build_single_sector_intelligence_returns_all_sections():
 
     assert result["sector"] == "ICT"
     assert "observed_skills" in result
-    assert "canonical_skills" in result
     assert "observed_groups" in result
-    assert "canonical_groups" in result
-    assert "matrix_groups" in result
+    assert "sector_metrics" in result
+    assert "skill_transversal_insights" in result
+    assert "canonical_skills" not in result
+    assert "canonical_groups" not in result
+    assert "matrix_groups" not in result
 
     assert result["observed_skills"]["top_skills"][0]["skill_id"] == "skill_a"
-    assert result["canonical_skills"]["top_skills"][0]["skill_id"] == "skill_b"
     assert result["observed_groups"]["top_groups"][0]["group_id"] == "S5.1"
-    assert result["canonical_groups"]["top_groups"][0]["group_id"] == "S2.4"
-    assert result["matrix_groups"]["top_groups"][0]["group_id"] == "S1"
+    assert result["sector_metrics"]["coverage_unique_skills"] == 1
 
 
 def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
@@ -2096,46 +2412,24 @@ def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
     occupations = OccupationAnalytics(engine)
     sectoral = SectoralAnalytics(engine, occupations)
 
-    engine.occupation_meta = {
-        "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "J62"},
-    }
-    engine.occupation_group_labels = {
-        "C2": "C2"
-    }
-
-    engine.occ_skill_relations = defaultdict(set)
-    engine.occ_skill_relations["occ_1"] = {"skill_a", "skill_b"}
-
     engine.skill_map = {
         "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
-        "skill_b": {"label": "SQL", "is_green": False, "is_digital": True},
         "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
     }
 
     engine.skill_hierarchy = {
         "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
-        "skill_b": {"level_1": "S2", "level_2": "S2.2", "level_3": "S2.2.1"},
         "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
     }
 
-    engine.esco_matrix_profiles = {
-        ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
-            "occupation_group_label": "Professionals",
-            "profile": {
-                "S1": 0.4,
-                "S2": 0.6
-            }
-        }
-    }
-
     jobs = [
-        {"occupation_id": "occ_1", "skills": ["skill_obs"]},
-        {"occupation_id": "occ_1", "skills": ["skill_obs", "skill_a"]},
+        {"skills": ["skill_obs"], "sectors": ["ICT"]},
+        {"skills": ["skill_obs", "skill_a"], "sectors": ["ICT"]},
     ]
 
     result = sectoral.build_sectoral_intelligence(
         jobs=jobs,
-        sector_level="isco_group",
+        sector_level="nace_section",
         skill_group_level=1,
         occupation_level=1,
         resolve_labels=True,
@@ -2147,19 +2441,17 @@ def test_build_sectoral_intelligence_from_jobs_builds_all_layers():
     assert len(result) == 1
     sector = result[0]
 
-    assert sector["sector"] == "C2"
+    assert sector["sector"] == "ICT"
 
     # observed skills
     assert sector["observed_skills"]["total_skill_mentions"] == 3
     assert sector["observed_skills"]["top_skills"][0]["label"] == "Docker"
 
-    # canonical skills
-    assert sector["canonical_skills"]["unique_skills"] == 2
-
-    # groups
     assert len(sector["observed_groups"]["top_groups"]) > 0
-    assert len(sector["canonical_groups"]["top_groups"]) > 0
-    assert len(sector["matrix_groups"]["top_groups"]) > 0
+    assert "canonical_skills" not in sector
+    assert "canonical_groups" not in sector
+    assert "matrix_groups" not in sector
+    assert "skill_transversal_insights" in sector
 
 # ==========================================
 # 14. MATRIX / SCHEMA CONTRACT / EDGE CASES
@@ -2357,16 +2649,10 @@ def test_build_single_sector_intelligence_contains_sector_label_and_matrix_group
     }
 
     engine.sector_skill_observed = defaultdict(Counter)
-    engine.sector_skill_canonical = defaultdict(Counter)
     engine.sector_skillgroup_observed = defaultdict(Counter)
-    engine.sector_skillgroup_canonical = defaultdict(Counter)
-    engine.matrix_profiles = defaultdict(Counter)
 
     engine.sector_skill_observed["ICT"]["skill_a"] = 3
-    engine.sector_skill_canonical["ICT"]["skill_b"] = 2
     engine.sector_skillgroup_observed["ICT"]["S5.1"] = 3
-    engine.sector_skillgroup_canonical["ICT"]["S2.4"] = 2
-    engine.matrix_profiles["ICT"]["S1"] = 1.5
 
     result = sectoral.build_single_sector_intelligence(
         sector_name="ICT",
@@ -2377,7 +2663,9 @@ def test_build_single_sector_intelligence_contains_sector_label_and_matrix_group
 
     assert result["sector"] == "ICT"
     assert "sector_label" in result
-    assert "matrix_groups" in result
+    assert "matrix_groups" not in result
+    assert "observed_groups" in result
+    assert result["sector_metrics"]["coverage_unique_skills"] == 1
 
 
 @pytest.mark.integration
@@ -2392,16 +2680,16 @@ def test_endpoint_analyze_skills_sectoral_contract_with_matrix_groups():
     }
 
     fake_jobs = [
-        {
-            "occupation_id": "occ_1",
-            "skills": ["skill_obs"],
-            "upload_date": "2024-01-02",
-        },
-        {
-            "occupation_id": "occ_1",
-            "skills": ["skill_obs", "skill_a"],
-            "upload_date": "2024-01-08",
-        },
+            {
+                "skills": ["skill_obs"],
+                "sectors": ["Information Technology"],
+                "upload_date": "2024-01-02",
+            },
+            {
+                "skills": ["skill_obs", "skill_a"],
+                "sectors": ["Information Technology"],
+                "upload_date": "2024-01-08",
+            },
     ]
 
     with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
@@ -2447,10 +2735,13 @@ def test_endpoint_analyze_skills_sectoral_contract_with_matrix_groups():
         assert "sector" in sector
         assert "sector_label" in sector
         assert "observed_skills" in sector
-        assert "canonical_skills" in sector
         assert "observed_groups" in sector
-        assert "canonical_groups" in sector
-        assert "matrix_groups" in sector
+        assert "sector_metrics" in sector
+        assert "skill_transversal_insights" in sector
+        assert "canonical_skills" not in sector
+        assert "canonical_groups" not in sector
+        assert "matrix_groups" not in sector
+        assert sector["sector"] == "Information Technology"
 
 
 @pytest.mark.integration
@@ -2465,11 +2756,11 @@ def test_endpoint_analyze_skills_sectoral_top_groups_include_group_label():
     }
 
     fake_jobs = [
-        {
-            "occupation_id": "occ_1",
-            "skills": ["skill_obs"],
-            "upload_date": "2024-01-02",
-        }
+            {
+                "skills": ["skill_obs"],
+                "sectors": ["Information Technology"],
+                "upload_date": "2024-01-02",
+            }
     ]
 
     with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
@@ -2512,12 +2803,76 @@ def test_endpoint_analyze_skills_sectoral_top_groups_include_group_label():
         sector = data["insights"]["sectoral"][0]
 
         assert "group_label" in sector["observed_groups"]["top_groups"][0]
-        assert "group_label" in sector["canonical_groups"]["top_groups"][0]
-        assert "group_label" in sector["matrix_groups"]["top_groups"][0]
+        assert "canonical_groups" not in sector
+        assert "matrix_groups" not in sector
 
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
+def test_endpoint_analyze_skills_sectoral_uses_tracker_sector_labels_without_hierarchy():
+    form_data = {
+        "keywords": ["developer"],
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "include_sectoral": True,
+        "sector_system": "nace",
+        "sector_level": "nace_class",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {
+            "skills": ["skill_obs"],
+            "sectors": ["Professional services"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills, \
+         patch.object(tracker, "fetch_occupation_labels", new_callable=AsyncMock) as m_fetch_occ:
+
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        m_fetch_occ.return_value = None
+
+        engine.occupation_meta = {
+            "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "C10.11"},
+        }
+        engine.occupation_group_labels = {"C2": "C2"}
+        engine.occ_skill_relations = defaultdict(set)
+        engine.occ_skill_relations["occ_1"] = {"skill_a"}
+        engine.skill_map = {
+            "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.esco_matrix_profiles = {
+            ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
+                "occupation_group_label": "Professionals",
+                "profile": {"S1": 1.0}
+            }
+        }
+
+        response = client.post("/projector/analyze-skills", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        sector = data["insights"]["sectoral"][0]
+        assert sector["sector"] == "Professional services"
+        assert data["insights"]["sectoral_views"]["nace"]["sector_level"] == "tracker_sector"
+        assert "levels" not in data["insights"]["sectoral_views"]["nace"]
+        assert sector["sector_metrics"]["coverage_unique_skills"] >= 1
+        assert "dominance_top10_share" in sector["sector_metrics"]
+        assert len(sector["skill_transversal_insights"]) >= 1
+        assert "sector_breadth" in sector["skill_transversal_insights"][0]
+
+
+@pytest.mark.integration
+def test_endpoint_analyze_skills_sectoral_prefers_tracker_job_sectors_for_nace():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2533,6 +2888,7 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
         {
             "occupation_id": "occ_1",
             "skills": ["skill_obs"],
+            "sectors": [{"code": "M70.22", "label": "Business and other management consultancy activities"}],
             "upload_date": "2024-01-02",
         }
     ]
@@ -2571,14 +2927,12 @@ def test_endpoint_analyze_skills_sectoral_supports_nace_hierarchy_selection():
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "10.11"
-        assert sector["sector_metrics"]["coverage_unique_skills"] >= 1
-        assert "dominance_top10_share" in sector["sector_metrics"]
-        assert len(sector["skill_transversal_insights"]) >= 1
-        assert "sector_breadth" in sector["skill_transversal_insights"][0]
+        assert sector["sector"] == "M"
+        assert sector["sector_label"] == "Professional, scientific and technical activities"
+        assert data["insights"]["sectors"][0]["name"] == "M"
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco():
+def test_endpoint_analyze_skills_sectoral_forces_tracker_sector_view_when_sector_system_is_isco():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2592,8 +2946,8 @@ def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco()
 
     fake_jobs = [
         {
-            "occupation_id": "occ_1",
             "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
             "upload_date": "2024-01-02",
         }
     ]
@@ -2632,15 +2986,14 @@ def test_endpoint_analyze_skills_sectoral_uses_isco_when_sector_system_is_isco()
 
         data = response.json()
         sector = data["insights"]["sectoral"][0]
-        assert sector["sector"] == "C2"
-        assert sector["isco_interpretation"] is not None
-        assert "emerging_skills" in sector["isco_interpretation"]
-        assert "missing_skills" in sector["isco_interpretation"]
-        assert "stability_overlap" in sector["isco_interpretation"]
+        assert data["insights"]["sectoral_mode"] == "nace"
+        assert set(data["insights"]["sectoral_views"].keys()) == {"nace"}
+        assert sector["sector"] == "Information Technology"
+        assert "isco_interpretation" not in sector
 
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
+def test_endpoint_analyze_skills_sectoral_exposes_tracker_nace_view_only():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2654,8 +3007,8 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
 
     fake_jobs = [
         {
-            "occupation_id": "occ_1",
             "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
             "upload_date": "2024-01-02",
         }
     ]
@@ -2693,20 +3046,17 @@ def test_endpoint_analyze_skills_sectoral_exposes_dual_views_for_comparison():
         assert response.status_code == 200
 
         data = response.json()
-        assert data["insights"]["sectoral_mode"] == "both"
-        assert set(data["insights"]["sectoral_views"].keys()) == {"isco", "nace"}
-        assert data["insights"]["sectoral_views"]["isco"]["items"][0]["sector"] == "C2"
-        assert "levels" in data["insights"]["sectoral_views"]["nace"]
-        assert set(data["insights"]["sectoral_views"]["nace"]["levels"].keys()) == {
-            "nace_section", "nace_division", "nace_group", "nace_class"
-        }
-        assert data["insights"]["sectoral_views"]["nace"]["levels"]["nace_class"]["items"][0]["sector"] == "10.11"
+        assert data["insights"]["sectoral_mode"] == "nace"
+        assert set(data["insights"]["sectoral_views"].keys()) == {"nace"}
+        assert data["insights"]["sectoral_views"]["nace"]["sector_level"] == "tracker_sector"
+        assert data["insights"]["sectoral_views"]["nace"]["items"][0]["sector"] == "Information Technology"
+        assert "levels" not in data["insights"]["sectoral_views"]["nace"]
         # Backward compatibility: primary `sectoral` remains list format.
         assert isinstance(data["insights"]["sectoral"], list)
 
 
 @pytest.mark.integration
-def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
+def test_endpoint_analyze_skills_sectoral_tracker_labels_define_sector_keys():
     form_data = {
         "keywords": ["developer"],
         "min_date": "2024-01-01",
@@ -2719,8 +3069,8 @@ def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
     }
 
     fake_jobs = [
-        {"occupation_id": "occ_1", "skills": ["skill_obs"], "upload_date": "2024-01-02"},
-        {"occupation_id": "occ_2", "skills": ["skill_obs"], "upload_date": "2024-01-03"},
+        {"skills": ["skill_obs"], "sectors": ["Manufacturing"], "upload_date": "2024-01-02"},
+        {"skills": ["skill_obs"], "sectors": ["Information and communication"], "upload_date": "2024-01-03"},
     ]
 
     with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
@@ -2756,14 +3106,13 @@ def test_endpoint_analyze_skills_sectoral_nace_levels_change_sector_keys():
         assert response.status_code == 200
         data = response.json()
 
-        nace_levels = data["insights"]["sectoral_views"]["nace"]["levels"]
-        section_keys = {x["sector"] for x in nace_levels["nace_section"]["items"]}
-        division_keys = {x["sector"] for x in nace_levels["nace_division"]["items"]}
-        class_keys = {x["sector"] for x in nace_levels["nace_class"]["items"]}
-
-        assert section_keys == {"C", "J"}
-        assert division_keys == {"10", "62"}
-        assert class_keys == {"10.11", "62.01"}
+        nace_view = data["insights"]["sectoral_views"]["nace"]
+        assert nace_view["sector_level"] == "tracker_sector"
+        assert "levels" not in nace_view
+        assert {x["sector"] for x in nace_view["items"]} == {
+            "Manufacturing",
+            "Information and communication",
+        }
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():
@@ -2830,37 +3179,23 @@ def test_build_sectoral_intelligence_and_single_sector_are_consistent():
     occupations = OccupationAnalytics(engine)
     sectoral = SectoralAnalytics(engine, occupations)
 
-    engine.occupation_meta = {
-        "occ_1": {"label": "Software developer", "isco_group": "C2", "nace_code": "J62"},
-    }
-    engine.occupation_group_labels = {"C2": "C2"}
-    engine.occ_skill_relations = defaultdict(set)
-    engine.occ_skill_relations["occ_1"] = {"skill_a", "skill_b"}
     engine.skill_map = {
         "skill_a": {"label": "Python", "is_green": False, "is_digital": True},
-        "skill_b": {"label": "SQL", "is_green": False, "is_digital": True},
         "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
     }
     engine.skill_hierarchy = {
         "skill_a": {"level_1": "S1", "level_2": "S1.1", "level_3": "S1.1.1"},
-        "skill_b": {"level_1": "S2", "level_2": "S2.2", "level_3": "S2.2.1"},
         "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
-    }
-    engine.esco_matrix_profiles = {
-        ("Matrix 1.1", "http://data.europa.eu/esco/isco/C2"): {
-            "occupation_group_label": "Professionals",
-            "profile": {"S1": 0.4, "S2": 0.6}
-        }
     }
 
     jobs = [
-        {"occupation_id": "occ_1", "skills": ["skill_obs"]},
-        {"occupation_id": "occ_1", "skills": ["skill_obs", "skill_a"]},
+        {"skills": ["skill_obs"], "sectors": ["Information Technology"]},
+        {"skills": ["skill_obs", "skill_a"], "sectors": ["Information Technology"]},
     ]
 
     result = sectoral.build_sectoral_intelligence(
         jobs=jobs,
-        sector_level="isco_group",
+        sector_level="nace_section",
         skill_group_level=1,
         occupation_level=1,
         resolve_labels=True,
@@ -2880,5 +3215,7 @@ def test_build_sectoral_intelligence_and_single_sector_are_consistent():
 
     assert single["sector"] == sector["sector"]
     assert single["observed_skills"]["total_skill_mentions"] == sector["observed_skills"]["total_skill_mentions"]
-    assert single["canonical_skills"]["unique_skills"] == sector["canonical_skills"]["unique_skills"]
-    assert single["matrix_groups"]["unique_groups"] == sector["matrix_groups"]["unique_groups"]
+    assert single["observed_groups"]["unique_groups"] == sector["observed_groups"]["unique_groups"]
+    assert single["sector_metrics"] == sector["sector_metrics"]
+    assert "canonical_skills" not in single
+    assert "matrix_groups" not in single

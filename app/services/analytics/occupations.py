@@ -209,6 +209,121 @@ class OccupationAnalytics:
         sector = self.get_sector_from_occupation(occ_id, level=level)
         return [sector] if sector else []
 
+    def get_sector_keys_from_job(self, job: dict, level: str = "nace_section") -> List[str]:
+        if not str(level).startswith("nace"):
+            return []
+        return [m["code"] for m in self.get_nace_mappings_from_job(job, level=level)]
+
+    def get_nace_mappings_from_job(self, job: dict, level: str = "nace_section") -> List[dict]:
+        """
+        Read NACE sectors directly from Tracker job payloads.
+
+        Tracker versions may expose sectors as strings, dicts, or nested objects.
+        Accept common code keys defensively and normalize to the requested NACE
+        level so sectoral analytics do not depend on occupation -> NACE crosswalks.
+        """
+        if not isinstance(job, dict):
+            return []
+
+        dedup = {}
+        for raw_sector in self._iter_job_sector_entries(job.get("sectors")):
+            code, label = self._extract_sector_code_and_label(raw_sector)
+            base_code = self.normalize_nace_code(code)
+            label = str(label or "").strip()
+            if not base_code and not label:
+                label = str(code or "").strip()
+            if not base_code and label:
+                base_code = label
+            if not base_code:
+                continue
+
+            final_code = base_code if level == "nace_code" else self._get_nace_level_code(base_code, level)
+            if not final_code and label:
+                final_code = label
+            if not final_code:
+                continue
+
+            if label:
+                self.engine.nace_labels.setdefault(final_code, label)
+
+            final_label = self.engine.nace_labels.get(final_code)
+            if not final_label and len(final_code) == 1 and final_code.isalpha():
+                final_label = NACE_SECTION_LABELS.get(final_code)
+            if not final_label:
+                final_label = label if final_code == base_code and label else final_code
+
+            dedup.setdefault(final_code, {"code": final_code, "label": final_label})
+
+        return [dedup[k] for k in sorted(dedup.keys())]
+
+    def _iter_job_sector_entries(self, raw_sectors):
+        if not raw_sectors:
+            return []
+        if isinstance(raw_sectors, list):
+            return raw_sectors
+        if isinstance(raw_sectors, tuple):
+            return list(raw_sectors)
+        if isinstance(raw_sectors, dict):
+            for key in ("items", "results", "data", "sectors"):
+                nested = raw_sectors.get(key)
+                if isinstance(nested, list):
+                    return nested
+            return [raw_sectors]
+        return [raw_sectors]
+
+    def _extract_sector_code_and_label(self, raw_sector) -> tuple[str, str]:
+        if isinstance(raw_sector, str):
+            return raw_sector, ""
+
+        if not isinstance(raw_sector, dict):
+            return str(raw_sector or ""), ""
+
+        for nested_key in ("nace", "sector", "classification"):
+            nested = raw_sector.get(nested_key)
+            if isinstance(nested, dict):
+                code, label = self._extract_sector_code_and_label(nested)
+                if code:
+                    return code, label
+
+        code_keys = (
+            "code",
+            "id",
+            "uri",
+            "nace_code",
+            "naceCode",
+            "sector_code",
+            "sectorCode",
+            "external_id",
+            "externalId",
+            "conceptUri",
+        )
+        label_keys = (
+            "label",
+            "name",
+            "title",
+            "preferredLabel",
+            "nace_label",
+            "naceLabel",
+            "sector_label",
+            "sectorLabel",
+        )
+
+        code = ""
+        for key in code_keys:
+            value = raw_sector.get(key)
+            if value:
+                code = str(value).strip()
+                break
+
+        label = ""
+        for key in label_keys:
+            value = raw_sector.get(key)
+            if value:
+                label = str(value).strip()
+                break
+
+        return code, label
+
     def normalize_nace_code(self, nace_code: str) -> str:
         """
         Normalize NACE codes to standard display format.
@@ -334,7 +449,7 @@ class OccupationAnalytics:
         if str(system or "isco").strip().lower() == "nace":
             nace_code = self.normalize_nace_code(sector_code)
             if not nace_code:
-                return "Sector not specified"
+                return sector_code
             if len(nace_code) == 1 and nace_code.isalpha():
                 return NACE_SECTION_LABELS.get(nace_code, nace_code)
             return self.engine.nace_labels.get(nace_code, nace_code)

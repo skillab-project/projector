@@ -7,12 +7,13 @@ This folder contains the maintained documentation for the current `app/` impleme
 1. [Overview](overview.md) explains what the service does and who it is for.
 2. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
 3. [API reference](api-reference.md) documents current public endpoints and form fields.
-4. [Data model](data-model.md) explains response fields and metric semantics.
-5. [Architecture](architecture.md) maps the runtime flow to the current code.
-6. [Examples](examples.md) provides request examples and frontend integration patterns.
-7. [Sector intelligence](sector-intelligence.md) explains ISCO/NACE sectoral analytics.
-8. [Data sources](data-sources.md) explains Tracker, ESCO CSV files, ESCO matrix and ESCO-NACE crosswalk usage.
-9. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+4. [Data model](data-model.md) explains response fields.
+5. [Statistics](statistic.md) explains metric formulas.
+6. [Architecture](architecture.md) maps the runtime flow to the current code.
+7. [Examples](examples.md) provides request examples and frontend integration patterns.
+8. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics.
+9. [Data sources](data-sources.md) explains Tracker API data usage.
+10. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
 
 ## Current Code Layout
 
