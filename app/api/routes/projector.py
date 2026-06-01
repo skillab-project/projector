@@ -173,10 +173,7 @@ async def sectoral_intelligence(
 )
 async def sectoral_snapshot(
         year: int = Form(...),
-        keywords: Optional[List[str]] = Form(None),
         locations: Optional[List[str]] = Form(None),
-        sectors: Optional[List[str]] = Form(None),
-        data_source: Literal["cache", "live"] = Form("cache"),
 ):
     """
        Computes a simple yearly sector overview for the final frontend.
@@ -186,10 +183,8 @@ async def sectoral_snapshot(
     """
     return await service.sectoral_snapshot(
         year=year,
-        keywords=keywords,
         locations=locations,
-        sectors=sectors,
-        data_source=data_source,
+        data_source="cache",
     )
 
 

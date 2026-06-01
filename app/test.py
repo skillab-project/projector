@@ -3345,8 +3345,6 @@ def test_endpoint_sectoral_intelligence_selected_period_contract():
 def test_endpoint_sectoral_snapshot_contract():
     form_data = {
         "year": 2024,
-        "keywords": ["developer"],
-        "data_source": "live",
     }
 
     fake_jobs = [
@@ -3358,9 +3356,9 @@ def test_endpoint_sectoral_snapshot_contract():
         }
     ]
 
-    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+    with patch.object(tracker, "load_cached_jobs") as m_cache, \
          patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills:
-        m_fetch.return_value = fake_jobs
+        m_cache.return_value = fake_jobs
         m_fetch_skills.return_value = None
         engine.skill_map = {
             "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
@@ -3372,7 +3370,7 @@ def test_endpoint_sectoral_snapshot_contract():
         data = response.json()
         assert data["status"] == "completed"
         assert data["year"] == 2024
-        assert data["data_source"] == "live"
+        assert data["data_source"] == "cache"
         assert data["window"] == {
             "label": "2024 snapshot",
             "min_date": "2024-01-01",

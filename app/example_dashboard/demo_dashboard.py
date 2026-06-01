@@ -38,18 +38,18 @@ translations = {
         'title': "🚀 SKILLAB Projector: Intelligence Dashboard",
         'subtitle': "Analisi predittiva e monitoraggio in tempo reale dei Job Postings.",
         'filters_header': "Filtri di Ricerca",
+        'dashboard_view': "Vista dashboard",
+        'dashboard_view_options': {
+            "skill": "Skill Overview",
+            "sector": "Sector Overview",
+        },
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
         'date_range': "Intervallo Temporale",
-        'submit_general': "Lancia analisi generale",
-        'submit_sectoral': "Lancia analisi settoriale",
+        'submit_general': "Lancia Skill Overview",
+        'submit_sectoral': "Lancia Sector Overview",
         'sectoral_time_mode': "Finestra settoriale",
         'sector_filter': "Filtro settori (virgola)",
-        'sectoral_data_source': "Sorgente dati settoriale",
-        'sectoral_data_source_options': {
-            "cache": "Cache statica",
-            "live": "Live Tracker",
-        },
         'sectoral_time_options': {
             "latest": "Ultimi 6 mesi",
             "selected_period": "Periodo selezionato",
@@ -139,18 +139,18 @@ translations = {
         'title': "🚀 SKILLAB Projector: Intelligence Dashboard",
         'subtitle': "Predictive analysis and real-time monitoring of Job Postings.",
         'filters_header': "Search Filters",
+        'dashboard_view': "Dashboard view",
+        'dashboard_view_options': {
+            "skill": "Skill Overview",
+            "sector": "Sector Overview",
+        },
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
         'date_range': "Time Range",
-        'submit_general': "Run general analysis",
-        'submit_sectoral': "Run sectoral analysis",
+        'submit_general': "Run Skill Overview",
+        'submit_sectoral': "Run Sector Overview",
         'sectoral_time_mode': "Sectoral window",
         'sector_filter': "Sector filter (comma-separated)",
-        'sectoral_data_source': "Sectoral data source",
-        'sectoral_data_source_options': {
-            "cache": "Static cache",
-            "live": "Live Tracker",
-        },
         'sectoral_time_options': {
             "latest": "Last 6 months",
             "selected_period": "Selected period",
@@ -444,34 +444,45 @@ with st.sidebar:
     st.markdown("---")
 
     st.header(T['filters_header'])
-    keywords = st.text_input(T['keywords'], "software")
-    location = st.text_input(T['location'], "")
-    date_range = st.date_input(T['date_range'], [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")])
-
-    submit_button = st.button(T["submit_general"], use_container_width=True)
-
-    st.markdown("---")
-    sectoral_keywords = st.text_input(T['keywords'], "software", key="sectoral_keywords")
-    sectoral_location = st.text_input(T['location'], "", key="sectoral_location")
-    sectoral_sector_filter = st.text_input(T["sector_filter"], "", key="sectoral_sector_filter")
-    sectoral_source_options = T["sectoral_data_source_options"]
-    sectoral_source_label = st.selectbox(T["sectoral_data_source"], list(sectoral_source_options.values()))
-    sectoral_data_source = next(key for key, value in sectoral_source_options.items() if value == sectoral_source_label)
-    sectoral_mode = "year"
-    sectoral_snapshot_year = st.number_input(
-        T["sectoral_snapshot_year"],
-        min_value=2000,
-        max_value=2100,
-        value=2024,
-        step=1,
+    dashboard_options = T["dashboard_view_options"]
+    dashboard_view_label = st.radio(
+        T["dashboard_view"],
+        list(dashboard_options.values()),
+        horizontal=True,
     )
-    sectoral_date_range = [
-        pd.to_datetime(f"{int(sectoral_snapshot_year)}-01-01"),
-        pd.to_datetime(f"{int(sectoral_snapshot_year)}-12-31"),
-    ]
+    dashboard_view = next(key for key, value in dashboard_options.items() if value == dashboard_view_label)
+
+    keywords = ""
+    location = ""
+    date_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
+    sectoral_location = ""
+    sectoral_mode = "year"
+    sectoral_snapshot_year = 2024
+    sectoral_date_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
     compare_a_range = [pd.to_datetime("2023-01-01"), pd.to_datetime("2023-12-31")]
     compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
-    sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
+    submit_button = False
+    sectoral_submit_button = False
+
+    if dashboard_view == "skill":
+        keywords = st.text_input(T['keywords'], "software")
+        location = st.text_input(T['location'], "")
+        date_range = st.date_input(T['date_range'], date_range)
+        submit_button = st.button(T["submit_general"], use_container_width=True)
+    else:
+        sectoral_location = st.text_input(T['location'], "", key="sectoral_location")
+        sectoral_snapshot_year = st.number_input(
+            T["sectoral_snapshot_year"],
+            min_value=2000,
+            max_value=2100,
+            value=2024,
+            step=1,
+        )
+        sectoral_date_range = [
+            pd.to_datetime(f"{int(sectoral_snapshot_year)}-01-01"),
+            pd.to_datetime(f"{int(sectoral_snapshot_year)}-12-31"),
+        ]
+        sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
 
     st.markdown("---")
     st.text_input(T["backend_url"], key="api_base_url")
@@ -528,13 +539,16 @@ payload = {
     "min_date": date_range[0].strftime("%Y-%m-%d"),
     "max_date": date_range[1].strftime("%Y-%m-%d"),
     "demo": demo_mode,
+    "include_sectoral": True,
+    "sector_system": "nace",
+    "sector_level": "nace_section",
+    "sectoral_time_mode": "selected_period",
+    "skill_group_level": 1,
+    "occupation_level": 1,
 }
 
 sectoral_payload = {
-    "keywords": [sectoral_keywords] if sectoral_keywords else None,
     "locations": [sectoral_location] if sectoral_location else None,
-    "sectors": [s.strip() for s in sectoral_sector_filter.split(",") if s.strip()],
-    "data_source": sectoral_data_source,
     "mode": sectoral_mode,
     "min_date": sectoral_date_range[0].strftime("%Y-%m-%d"),
     "max_date": sectoral_date_range[1].strftime("%Y-%m-%d"),
@@ -549,10 +563,7 @@ sectoral_payload = {
 
 sectoral_snapshot_payload = {
     "year": int(sectoral_snapshot_year),
-    "keywords": [sectoral_keywords] if sectoral_keywords else None,
     "locations": [sectoral_location] if sectoral_location else None,
-    "sectors": [s.strip() for s in sectoral_sector_filter.split(",") if s.strip()],
-    "data_source": sectoral_data_source,
 }
 
 # --- LOGICA DI ACQUISIZIONE DATI ---
@@ -565,6 +576,8 @@ if submit_button:
         )
         if data and "_error" not in data:
             st.session_state.all_data = data
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.sectoral_data = None
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
             st.error(error_msg)
@@ -578,6 +591,7 @@ if sectoral_submit_button:
         )
         if sectoral_response and "_error" not in sectoral_response:
             st.session_state.sectoral_snapshot_data = sectoral_response
+            st.session_state.all_data = None
             st.session_state.sectoral_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
@@ -923,7 +937,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 payload
             )
 
-        active_sectoral = sectoral_response.get("items", [])
+        active_sectoral = (
+            sectoral_response.get("items", [])
+            or ins.get("sectoral", [])
+            or ((ins.get("sectoral_views", {}).get("nace", {}) or {}).get("items", []))
+        )
         snapshot_sectors = sectoral_snapshot_response.get("sectors", [])
         sectoral_window = sectoral_response.get("window", {})
         snapshot_window = sectoral_snapshot_response.get("window", {})

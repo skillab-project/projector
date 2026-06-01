@@ -151,10 +151,9 @@ Use this endpoint as the default sector-dimension view in the final frontend: it
 | Field | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
 | `year` | integer | yes | none | Calendar year to aggregate |
-| `keywords` | list of strings | no | `null` | Optional job-text filter forwarded to Tracker |
 | `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
-| `sectors` | list of strings | no | `null` | Optional sector filter applied to `job["sectors"]` |
-| `data_source` | enum | no | `cache` | `cache` reads local static cache only; `live` fetches Tracker and refreshes cache |
+
+Data source is internal. The public dashboard does not expose cache/live selection.
 
 ### Example Request
 
@@ -162,8 +161,7 @@ Use this endpoint as the default sector-dimension view in the final frontend: it
 curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "year=2024" \
-  -d "sectors=Education" \
-  -d "data_source=cache"
+  -d "locations=IT"
 ```
 
 ### Response Shape
@@ -179,7 +177,7 @@ curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
     "max_date": "2024-12-31"
   },
   "total_jobs": 1200,
-  "sector_filter": ["Education"],
+  "sector_filter": [],
   "sectors": [
     {
       "sector": "Education",
