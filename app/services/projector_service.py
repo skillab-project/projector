@@ -414,10 +414,10 @@ class ProjectorService:
         for sector, job_count in sector_jobs.items():
             skill_counts = sector_skills[sector]
             total_skill_mentions = sum(skill_counts.values())
-            top_skills = []
-            for skill_id, count in skill_counts.most_common(10):
+            all_skills = []
+            for skill_id, count in skill_counts.most_common():
                 meta = self._skill_meta(skill_id)
-                top_skills.append({
+                all_skills.append({
                     "skill_id": skill_id,
                     "label": meta["label"],
                     "count": count,
@@ -425,6 +425,7 @@ class ProjectorService:
                     "is_green": meta["is_green"],
                     "is_digital": meta["is_digital"],
                 })
+            top_skills = all_skills[:10]
 
             rows.append({
                 "sector": sector,
@@ -434,6 +435,7 @@ class ProjectorService:
                 "total_skill_mentions": total_skill_mentions,
                 "unique_skills": len(skill_counts),
                 "top_skills": top_skills,
+                "all_skills": all_skills,
                 "top_job_titles": [
                     {"name": title, "count": count}
                     for title, count in sector_titles[sector].most_common(5)

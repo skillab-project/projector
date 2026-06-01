@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS sector_yearly_snapshots (
     total_skill_mentions INTEGER NOT NULL,
     unique_skills INTEGER NOT NULL,
     top_skills JSONB NOT NULL,
+    all_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
     top_job_titles JSONB NOT NULL,
     PRIMARY KEY (run_id, sector)
 );

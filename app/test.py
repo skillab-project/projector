@@ -375,6 +375,8 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert sector["total_skill_mentions"] == 3
     assert sector["unique_skills"] == 2
     assert sector["top_skills"][0]["skill_id"] == "skill-python"
+    assert sector["all_skills"][0]["skill_id"] == "skill-python"
+    assert len(sector["all_skills"]) == 2
     assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
 
 
@@ -3458,6 +3460,7 @@ def test_endpoint_sectoral_snapshot_contract():
         assert data["sectors"][0]["sector"] == "Information Technology"
         assert data["sectors"][0]["job_count"] == 1
         assert data["sectors"][0]["top_skills"][0]["label"] == "Docker"
+        assert data["sectors"][0]["all_skills"][0]["label"] == "Docker"
         assert data["sectors"][0]["top_job_titles"] == [
             {"name": "Backend Developer", "count": 1}
         ]

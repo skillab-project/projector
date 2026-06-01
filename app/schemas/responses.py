@@ -107,6 +107,7 @@ class SectorSkillSummary(BaseModel):
     total_skill_mentions: int
     unique_skills: int
     top_skills: List[SkillEntry]
+    all_skills: Optional[List[SkillEntry]] = None
 
 
 class SectorGroupSummary(BaseModel):
@@ -197,6 +198,7 @@ class SectorSnapshotRow(BaseModel):
     total_skill_mentions: int
     unique_skills: int
     top_skills: List[SkillEntry]
+    all_skills: Optional[List[SkillEntry]] = None
     top_job_titles: List[SectorSnapshotTitle]
 
 

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sector_yearly_snapshots (
     total_skill_mentions INTEGER NOT NULL,
     unique_skills INTEGER NOT NULL,
     top_skills JSONB NOT NULL,
+    all_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
     top_job_titles JSONB NOT NULL,
     PRIMARY KEY (run_id, sector)
 );
@@ -94,7 +95,7 @@ class SectorSnapshotStore:
             rows = conn.execute(
                 """
                 SELECT sector, sector_label, job_count, job_share, total_skill_mentions,
-                       unique_skills, top_skills, top_job_titles
+                       unique_skills, top_skills, all_skills, top_job_titles
                 FROM sector_yearly_snapshots
                 WHERE run_id = %s
                 ORDER BY job_count DESC, total_skill_mentions DESC, sector_label ASC
@@ -117,6 +118,7 @@ class SectorSnapshotStore:
                 {
                     **dict(row),
                     "top_skills": row["top_skills"],
+                    "all_skills": row["all_skills"] or row["top_skills"],
                     "top_job_titles": row["top_job_titles"],
                 }
                 for row in rows
@@ -162,9 +164,9 @@ class SectorSnapshotStore:
                         """
                         INSERT INTO sector_yearly_snapshots (
                             run_id, year, location_code, sector, sector_label, job_count,
-                            job_share, total_skill_mentions, unique_skills, top_skills, top_job_titles
+                            job_share, total_skill_mentions, unique_skills, top_skills, all_skills, top_job_titles
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)
                         """,
                         (
                             run_id,
@@ -177,6 +179,7 @@ class SectorSnapshotStore:
                             row["total_skill_mentions"],
                             row["unique_skills"],
                             json.dumps(row["top_skills"]),
+                            json.dumps(row.get("all_skills") or row["top_skills"]),
                             json.dumps(row["top_job_titles"]),
                         ),
                     )
