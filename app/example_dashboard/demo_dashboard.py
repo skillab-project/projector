@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import json
+from collections import Counter
 from requests import RequestException
 
 # 1. Configurazione Pagina
@@ -103,6 +104,8 @@ translations = {
         'sectoral_snapshot_detail': "Focus settore",
         'sectoral_job_share': "Quota job",
         'sectoral_top_skills': "Top skill settore",
+        'skill_portfolio': "Skill Portfolio",
+        'skill_portfolio_help': "Mappa le skill del settore per importanza e trasversalità.",
         'sectoral_all_skills': "Tutte le skill del settore",
         'skill_search': "Cerca skill",
         'sectoral_top_titles': "Top titoli settore",
@@ -226,6 +229,8 @@ translations = {
         'sectoral_snapshot_detail': "Sector focus",
         'sectoral_job_share': "Job share",
         'sectoral_top_skills': "Top sector skills",
+        'skill_portfolio': "Skill Portfolio",
+        'skill_portfolio_help': "Maps sector skills by importance and transversality.",
         'sectoral_all_skills': "All sector skills",
         'skill_search': "Search skill",
         'sectoral_top_titles': "Top sector job titles",
@@ -503,6 +508,31 @@ def get_sector_skills_comparison_data(api_base_url: str, payload: dict, timeout_
         return res.json()
 
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def build_skill_portfolio_rows(snapshot_sectors: list[dict], target_sector: dict):
+    breadth = Counter()
+    for sector in snapshot_sectors:
+        for skill in sector.get("all_skills") or sector.get("top_skills", []):
+            key = skill.get("skill_id") or skill.get("label")
+            if key:
+                breadth[key] += 1
+
+    total_mentions = float(target_sector.get("total_skill_mentions") or 0)
+    rows = []
+    for skill in target_sector.get("all_skills") or target_sector.get("top_skills", []):
+        key = skill.get("skill_id") or skill.get("label")
+        count = int(skill.get("count", 0) or 0)
+        category = "digital" if skill.get("is_digital") else "green" if skill.get("is_green") else "other"
+        rows.append({
+            "skill_id": key,
+            "label": skill.get("label") or key,
+            "count": count,
+            "importance": round(count / total_mentions, 6) if total_mentions else 0.0,
+            "sector_breadth": breadth.get(key, 1),
+            "category": category,
+        })
+    return rows
 
 
 def build_heatmap_tables(matrix_rows: list[dict]):
@@ -1552,6 +1582,38 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                                 )
                             }
                         )
+
+                portfolio_rows = build_skill_portfolio_rows(snapshot_sectors, snapshot_target)
+                if portfolio_rows:
+                    st.subheader(T["skill_portfolio"], help=T["skill_portfolio_help"])
+                    df_portfolio = pd.DataFrame(portfolio_rows)
+                    fig_portfolio = px.scatter(
+                        df_portfolio,
+                        x="sector_breadth",
+                        y="importance",
+                        size="count",
+                        color="category",
+                        hover_name="label",
+                        hover_data={
+                            "skill_id": True,
+                            "count": True,
+                            "importance": ":.3f",
+                            "sector_breadth": True,
+                            "category": True,
+                        },
+                        labels={
+                            "sector_breadth": "sector breadth",
+                            "importance": "importance in sector",
+                            "count": "count",
+                            "category": "type",
+                        },
+                    )
+                    fig_portfolio.update_layout(height=420)
+                    st.plotly_chart(
+                        fig_portfolio,
+                        width="stretch",
+                        key=f"skill_portfolio_{sectoral_snapshot_year}_{sectoral_location or 'global'}_{snapshot_target.get('sector')}"
+                    )
 
             with snap_title_col:
                 st.subheader(T["sectoral_top_titles"], help=STAT_HELP["title_count"])
