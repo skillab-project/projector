@@ -862,7 +862,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     else:
         tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
 
-    if dashboard_view != "sector":
+    if dashboard_view == "skill":
         # --- TAB 1: RANKING SKILLS ---
         with tab1:
             h_main, h_info = st.columns([8, 1])
