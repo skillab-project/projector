@@ -362,6 +362,7 @@ DEV_LABELS = {
         "Sector metrics": "Metriche settore",
         "Skill transversality": "Transversalità skill",
         "Sector skills comparison": "Confronto settori-skill",
+        "Selected sector focus": "Focus settore selezionato",
     },
     "EN": {}
 }
@@ -1680,7 +1681,122 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
 
         if snapshot_sectors:
             st.markdown("---")
-            st.subheader(f"{T['sectoral_snapshot_detail']}: {snapshot_target.get('sector_label', snapshot_target.get('sector'))}")
+            focus_main, focus_info = st.columns([8, 1])
+            with focus_main:
+                st.subheader(f"{T['sectoral_snapshot_detail']}: {snapshot_target.get('sector_label', snapshot_target.get('sector'))}")
+            with focus_info:
+                dev_info(
+                    "Selected sector focus",
+                    SECTORAL_SNAPSHOT_ENDPOINT,
+                    {
+                        "status": "completed",
+                        "year": 2024,
+                        "reference_year": 2023,
+                        "data_source": "postgres",
+                        "window": {
+                            "label": "2024 snapshot",
+                            "min_date": "2024-01-01",
+                            "max_date": "2024-12-31"
+                        },
+                        "total_jobs": 1280,
+                        "sector_filter": [],
+                        "sectors": [
+                            {
+                                "sector": "Information and communication",
+                                "sector_label": "Information and communication",
+                                "job_count": 420,
+                                "job_share": 0.3281,
+                                "total_skill_mentions": 1260,
+                                "unique_skills": 38,
+                                "top_skills": [
+                                    {
+                                        "skill_id": "skill-python",
+                                        "label": "Python",
+                                        "count": 188,
+                                        "frequency": 0.1492,
+                                        "share_in_sector": 0.1492,
+                                        "rank": 1,
+                                        "growth_vs_reference_year": 0.24,
+                                        "growth_value": 0.24,
+                                        "sector_breadth": 4,
+                                        "is_green": False,
+                                        "is_digital": True
+                                    }
+                                ],
+                                "all_skills": [
+                                    {
+                                        "skill_id": "skill-python",
+                                        "label": "Python",
+                                        "count": 188,
+                                        "frequency": 0.1492,
+                                        "share_in_sector": 0.1492,
+                                        "rank": 1,
+                                        "growth_vs_reference_year": 0.24,
+                                        "growth_value": 0.24,
+                                        "sector_breadth": 4,
+                                        "is_green": False,
+                                        "is_digital": True
+                                    },
+                                    {
+                                        "skill_id": "skill-sustainability",
+                                        "label": "sustainability",
+                                        "count": 16,
+                                        "frequency": 0.0127,
+                                        "share_in_sector": 0.0127,
+                                        "rank": 14,
+                                        "growth_vs_reference_year": "new_entry",
+                                        "growth_value": 1.0,
+                                        "sector_breadth": 3,
+                                        "is_green": True,
+                                        "is_digital": False
+                                    }
+                                ],
+                                "top_job_titles": [
+                                    {"name": "Software Engineer", "count": 86},
+                                    {"name": "Data Analyst", "count": 54}
+                                ]
+                            }
+                        ],
+                        "message": None
+                    },
+                    [
+                        "request.year",
+                        "request.reference_year",
+                        "request.locations[]",
+                        "sectors[] filtered client-side by selected sector label",
+                        "selected sector.sector",
+                        "selected sector.sector_label",
+                        "selected sector.job_count",
+                        "selected sector.job_share",
+                        "selected sector.total_skill_mentions",
+                        "selected sector.unique_skills",
+                        "selected sector.top_skills[].skill_id",
+                        "selected sector.top_skills[].label",
+                        "selected sector.top_skills[].count",
+                        "selected sector.top_skills[].frequency",
+                        "selected sector.top_skills[].share_in_sector",
+                        "selected sector.top_skills[].rank",
+                        "selected sector.top_skills[].growth_vs_reference_year",
+                        "selected sector.top_skills[].growth_value",
+                        "selected sector.top_skills[].sector_breadth",
+                        "selected sector.top_skills[].is_green",
+                        "selected sector.top_skills[].is_digital",
+                        "selected sector.all_skills[].skill_id",
+                        "selected sector.all_skills[].label",
+                        "selected sector.all_skills[].count",
+                        "selected sector.all_skills[].frequency",
+                        "selected sector.all_skills[].share_in_sector",
+                        "selected sector.all_skills[].rank",
+                        "selected sector.all_skills[].growth_vs_reference_year",
+                        "selected sector.all_skills[].growth_value",
+                        "selected sector.all_skills[].sector_breadth",
+                        "selected sector.all_skills[].is_green",
+                        "selected sector.all_skills[].is_digital",
+                        "selected sector.top_job_titles[].name",
+                        "selected sector.top_job_titles[].count"
+                    ],
+                    sectoral_snapshot_payload
+                )
             k1, k2, k3, k4 = st.columns(4)
             with k1:
                 metric_with_info(T["jobs_analyzed"], snapshot_target.get("job_count", 0), STAT_HELP["jobs_analyzed"])
