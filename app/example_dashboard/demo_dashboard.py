@@ -97,6 +97,9 @@ translations = {
         },
         'sectoral_snapshot_year': "Anno snapshot settoriale",
         'sectoral_reference_year': "Anno riferimento growth",
+        'comparison_years_prompt': "Scegli gli anni da confrontare",
+        'comparison_from_year': "Da",
+        'comparison_to_year': "A",
         'sectoral_year_bar_help': "Naviga lo storico degli snapshot settoriali annuali disponibili.",
         'sectoral_year_bar_caption': "Snapshot settoriale {year}",
         'region_filter': "Region",
@@ -223,6 +226,9 @@ translations = {
         },
         'sectoral_snapshot_year': "Sectoral snapshot year",
         'sectoral_reference_year': "Growth reference year",
+        'comparison_years_prompt': "Choose the years to compare",
+        'comparison_from_year': "From",
+        'comparison_to_year': "To",
         'sectoral_year_bar_help': "Navigate available yearly sector snapshots.",
         'sectoral_year_bar_caption': "Sector snapshot {year}",
         'region_filter': "Region",
@@ -777,18 +783,19 @@ elif dashboard_view == "comparison":
         if value == comparison_metric_label
     )
     if comparison_metric == "growth":
+        st.caption(T["comparison_years_prompt"])
         c_year, c_ref, c_region = st.columns(3)
         with c_year:
-            selected_year = st.selectbox(
-                T["sectoral_snapshot_year"],
-                SECTOR_SNAPSHOT_YEARS,
-                index=SECTOR_SNAPSHOT_YEARS.index(current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1]),
-            )
-        with c_ref:
             selected_reference_year = st.selectbox(
-                T["sectoral_reference_year"],
+                T["comparison_from_year"],
                 SECTOR_SNAPSHOT_YEARS,
                 index=SECTOR_SNAPSHOT_YEARS.index(default_reference),
+            )
+        with c_ref:
+            selected_year = st.selectbox(
+                T["comparison_to_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=SECTOR_SNAPSHOT_YEARS.index(current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1]),
             )
         with c_region:
             selected_region = st.selectbox(
