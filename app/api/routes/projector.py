@@ -6,6 +6,7 @@ from app.schemas.responses import (
     EmergingSkillsResponse,
     ProjectorResponse,
     SectoralIntelligenceResponse,
+    SectorSkillsComparisonResponse,
     SectoralSnapshotResponse,
     StopResponse,
 )
@@ -185,6 +186,33 @@ async def sectoral_snapshot(
         year=year,
         locations=locations,
         data_source="cache",
+    )
+
+
+@router.post(
+    "/sector-skills-comparison",
+    response_model=SectorSkillsComparisonResponse,
+    response_model_exclude_none=True,
+)
+async def sector_skills_comparison(
+        year: int = Form(...),
+        locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        skills: Optional[List[str]] = Form(None),
+        metric: Literal["count", "share", "rank", "growth"] = Form("share"),
+):
+    """
+       Compares sectors through a sectors x skills matrix for a yearly snapshot.
+
+       The selected metric controls the heatmap value:
+       count, share in sector, rank score, or growth vs previous year.
+    """
+    return await service.sector_skills_comparison(
+        year=year,
+        locations=locations,
+        sectors=sectors,
+        skills=skills,
+        metric=metric,
     )
 
 

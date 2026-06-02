@@ -213,6 +213,35 @@ class SectoralSnapshotResponse(BaseModel):
     message: Optional[str] = None
 
 
+class SectorSkillComparisonCell(BaseModel):
+    sector: str
+    sector_label: str
+    skill_id: str
+    label: str
+    count: int
+    share: float
+    rank: Optional[int] = None
+    rank_score: float
+    growth: Optional[Union[float, Literal["new_entry"]]] = None
+    growth_value: Optional[float] = None
+    value: float
+    display_value: str
+    is_green: Optional[bool] = None
+    is_digital: Optional[bool] = None
+
+
+class SectorSkillsComparisonResponse(BaseModel):
+    status: str
+    year: int
+    data_source: Literal["postgres", "cache", "live"]
+    metric: Literal["count", "share", "rank", "growth"]
+    window: dict[str, str]
+    sectors: List[str]
+    skills: List[str]
+    matrix: List[SectorSkillComparisonCell]
+    message: Optional[str] = None
+
+
 class NaceSectoralViews(BaseModel):
     selected_level: str
     levels: dict[str, SectoralView]

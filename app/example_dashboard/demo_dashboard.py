@@ -23,6 +23,9 @@ if 'sectoral_data' not in st.session_state:
 if 'sectoral_snapshot_data' not in st.session_state:
     st.session_state.sectoral_snapshot_data = None
 
+if 'sector_skills_comparison_data' not in st.session_state:
+    st.session_state.sector_skills_comparison_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -44,6 +47,18 @@ SECTOR_FOCUS_OPTIONS = [
     "Professional, scientific and technical activities",
     "Administrative and support service activities",
 ]
+SECTOR_SKILL_OPTIONS = [
+    "Python",
+    "SQL",
+    "cloud computing",
+    "deliver training",
+    "quality control",
+    "project management",
+    "customer service",
+    "communication",
+    "Microsoft Excel",
+    "sustainability",
+]
 
 def change_lang():
     if st.session_state.lang_choice == "Italiano":
@@ -61,6 +76,7 @@ translations = {
         'dashboard_view_options': {
             "skill": "Skill Overview",
             "sector": "Sector Overview",
+            "comparison": "Sector Skills Comparison",
         },
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
@@ -90,6 +106,18 @@ translations = {
         'sectoral_all_skills': "Tutte le skill del settore",
         'skill_search': "Cerca skill",
         'sectoral_top_titles': "Top titoli settore",
+        'comparison_header': "Sector Skills Comparison",
+        'comparison_help': "Confronta settori e skill con una heatmap annuale.",
+        'comparison_metric': "Metrica heatmap",
+        'comparison_sectors': "Settori da confrontare",
+        'comparison_skills': "Skill da confrontare",
+        'comparison_metric_options': {
+            "share": "Share in sector",
+            "count": "Count",
+            "rank": "Rank",
+            "growth": "Growth vs previous year",
+        },
+        'submit_comparison': "Lancia Sector Skills Comparison",
         'technical_sectoral_detail': "Dettaglio tecnico sectoral intelligence",
         'sectoral_compare_a': "Periodo baseline",
         'sectoral_compare_b': "Periodo confronto",
@@ -171,6 +199,7 @@ translations = {
         'dashboard_view_options': {
             "skill": "Skill Overview",
             "sector": "Sector Overview",
+            "comparison": "Sector Skills Comparison",
         },
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
@@ -200,6 +229,18 @@ translations = {
         'sectoral_all_skills': "All sector skills",
         'skill_search': "Search skill",
         'sectoral_top_titles': "Top sector job titles",
+        'comparison_header': "Sector Skills Comparison",
+        'comparison_help': "Compare sectors and skills with a yearly heatmap.",
+        'comparison_metric': "Heatmap metric",
+        'comparison_sectors': "Sectors to compare",
+        'comparison_skills': "Skills to compare",
+        'comparison_metric_options': {
+            "share": "Share in sector",
+            "count": "Count",
+            "rank": "Rank",
+            "growth": "Growth vs previous year",
+        },
+        'submit_comparison': "Run Sector Skills Comparison",
         'technical_sectoral_detail': "Technical sectoral intelligence detail",
         'sectoral_compare_a': "Baseline period",
         'sectoral_compare_b': "Comparison period",
@@ -310,6 +351,7 @@ DEV_LABELS = {
         "Observed skills in selected sector": "Skill osservate nel settore selezionato",
         "Sector metrics": "Metriche settore",
         "Skill transversality": "Transversalità skill",
+        "Sector skills comparison": "Confronto settori-skill",
     },
     "EN": {}
 }
@@ -445,6 +487,34 @@ def get_sectoral_snapshot_data(api_base_url: str, payload: dict, timeout_seconds
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
 
 
+def get_sector_skills_comparison_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/sector-skills-comparison",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def build_heatmap_tables(matrix_rows: list[dict]):
+    df = pd.DataFrame(matrix_rows)
+    if df.empty:
+        return df, df, df
+    z = df.pivot(index="sector_label", columns="label", values="value").fillna(0)
+    text = df.pivot(index="sector_label", columns="label", values="display_value").fillna("")
+    hover = df.pivot(index="sector_label", columns="label", values="skill_id").fillna("")
+    return z, text, hover
+
+
 def dev_info(label: str, endpoint: str, response_example: dict, used_fields: list[str], payload_example: dict | None = None):
     with st.popover("API", use_container_width=False):
         dev_text = DEV_TEXT[st.session_state.lang]
@@ -469,6 +539,7 @@ def metric_with_info(label: str, value, info: str, **kwargs):
 ANALYZE_ENDPOINT = "POST /projector/analyze-skills"
 SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
 SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
+SECTOR_SKILLS_COMPARISON_ENDPOINT = "POST /projector/sector-skills-comparison"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
@@ -501,13 +572,17 @@ with st.sidebar:
     compare_b_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
     submit_button = False
     sectoral_submit_button = False
+    comparison_submit_button = False
+    comparison_metric = "share"
+    comparison_sectors = []
+    comparison_skills = []
 
     if dashboard_view == "skill":
         keywords = st.text_input(T['keywords'], "software")
         location = st.text_input(T['location'], "")
         date_range = st.date_input(T['date_range'], date_range)
         submit_button = st.button(T["submit_general"], use_container_width=True)
-    else:
+    elif dashboard_view in {"sector", "comparison"}:
         selected_region = st.selectbox(
             T["region_filter"],
             list(SECTOR_REGION_OPTIONS.keys()),
@@ -601,6 +676,14 @@ sectoral_snapshot_payload = {
     "locations": [sectoral_location] if sectoral_location else None,
 }
 
+comparison_payload = {
+    "year": int(sectoral_snapshot_year),
+    "locations": [sectoral_location] if sectoral_location else None,
+    "sectors": comparison_sectors or None,
+    "skills": comparison_skills or None,
+    "metric": comparison_metric,
+}
+
 if dashboard_view == "sector":
     st.selectbox(
         T["sectoral_snapshot_detail"],
@@ -633,6 +716,44 @@ if dashboard_view == "sector":
     sectoral_submit_button = st.button(T["submit_sectoral"], use_container_width=True)
     if (year_changed or region_changed) and st.session_state.sectoral_snapshot_data:
         sectoral_submit_button = True
+elif dashboard_view == "comparison":
+    current_year = int(st.session_state.sectoral_snapshot_year)
+    selected_year = st.select_slider(
+        T["sectoral_snapshot_year"],
+        options=SECTOR_SNAPSHOT_YEARS,
+        value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
+        help=T["sectoral_year_bar_help"],
+    )
+    st.session_state.sectoral_snapshot_year = int(selected_year)
+    sectoral_snapshot_year = int(selected_year)
+    comparison_metric_label = st.radio(
+        T["comparison_metric"],
+        list(T["comparison_metric_options"].values()),
+        horizontal=True,
+    )
+    comparison_metric = next(
+        key for key, value in T["comparison_metric_options"].items()
+        if value == comparison_metric_label
+    )
+    comparison_sectors = st.multiselect(
+        T["comparison_sectors"],
+        SECTOR_FOCUS_OPTIONS,
+        default=SECTOR_FOCUS_OPTIONS[:5],
+    )
+    comparison_skills = st.multiselect(
+        T["comparison_skills"],
+        SECTOR_SKILL_OPTIONS,
+        default=[],
+    )
+    comparison_payload = {
+        "year": int(sectoral_snapshot_year),
+        "locations": [sectoral_location] if sectoral_location else None,
+        "sectors": comparison_sectors or None,
+        "skills": comparison_skills or None,
+        "metric": comparison_metric,
+    }
+    st.caption(T["sectoral_year_bar_caption"].format(year=sectoral_snapshot_year))
+    comparison_submit_button = st.button(T["submit_comparison"], use_container_width=True)
 
 # --- LOGICA DI ACQUISIZIONE DATI ---
 if submit_button:
@@ -646,6 +767,7 @@ if submit_button:
             st.session_state.all_data = data
             st.session_state.sectoral_snapshot_data = None
             st.session_state.sectoral_data = None
+            st.session_state.sector_skills_comparison_data = None
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
             st.error(error_msg)
@@ -661,13 +783,30 @@ if sectoral_submit_button:
             st.session_state.sectoral_snapshot_data = sectoral_response
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
+            st.session_state.sector_skills_comparison_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
 
+if comparison_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        comparison_response = get_sector_skills_comparison_data(
+            st.session_state.api_base_url,
+            comparison_payload,
+            st.session_state.backend_timeout
+        )
+        if comparison_response and "_error" not in comparison_response:
+            st.session_state.sector_skills_comparison_data = comparison_response
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.all_data = None
+            st.session_state.sectoral_data = None
+        else:
+            error_msg = comparison_response.get("_error", T['server_error']) if isinstance(comparison_response, dict) else T['server_error']
+            st.error(error_msg)
+
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
-if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data:
+if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data:
     all_data = st.session_state.all_data or {
         "insights": {
             "ranking": [],
@@ -684,10 +823,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     }
     sectoral_response = st.session_state.sectoral_data or {}
     sectoral_snapshot_response = st.session_state.sectoral_snapshot_data or {}
+    sector_skills_comparison_response = st.session_state.sector_skills_comparison_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
-    if dashboard_view == "sector":
+    if dashboard_view in {"sector", "comparison"}:
         tab4 = st.container()
     else:
         tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
@@ -1009,6 +1149,90 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 ],
                 payload
             )
+
+        if dashboard_view == "comparison":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["comparison_header"], help=T["comparison_help"])
+            with h_info:
+                dev_info(
+                    "Sector skills comparison",
+                    SECTOR_SKILLS_COMPARISON_ENDPOINT,
+                    {
+                        "year": 2024,
+                        "metric": "share",
+                        "sectors": ["ICT", "Education"],
+                        "skills": ["Python", "SQL"],
+                        "matrix": [
+                            {
+                                "sector_label": "ICT",
+                                "label": "Python",
+                                "count": 188,
+                                "share": 0.149,
+                                "rank": 1,
+                                "growth": 0.24,
+                                "value": 0.149
+                            }
+                        ]
+                    },
+                    [
+                        "year",
+                        "metric",
+                        "sectors[]",
+                        "skills[]",
+                        "matrix[].sector_label",
+                        "matrix[].label",
+                        "matrix[].count",
+                        "matrix[].share",
+                        "matrix[].rank",
+                        "matrix[].growth",
+                        "matrix[].value"
+                    ],
+                    comparison_payload
+                )
+
+            comparison_rows = sector_skills_comparison_response.get("matrix", [])
+            if comparison_rows:
+                z, text, hover = build_heatmap_tables(comparison_rows)
+                colorscale = "Viridis" if sector_skills_comparison_response.get("metric") != "growth" else "RdYlGn"
+                fig_heatmap = go.Figure(data=go.Heatmap(
+                    z=z.values,
+                    x=list(z.columns),
+                    y=list(z.index),
+                    text=text.values,
+                    customdata=hover.values,
+                    texttemplate="%{text}",
+                    colorscale=colorscale,
+                    colorbar={"title": sector_skills_comparison_response.get("metric", "share")},
+                    hovertemplate=(
+                        "Sector: %{y}<br>"
+                        "Skill: %{x}<br>"
+                        "Skill ID: %{customdata}<br>"
+                        "Value: %{z}<br>"
+                        "Display: %{text}<extra></extra>"
+                    ),
+                ))
+                fig_heatmap.update_layout(
+                    xaxis_title=T["skill_label"],
+                    yaxis_title=T["agg_level"],
+                    height=max(420, 80 + len(z.index) * 45),
+                )
+                st.plotly_chart(fig_heatmap, width="stretch", key="sector_skills_comparison_heatmap")
+                st.dataframe(
+                    pd.DataFrame(comparison_rows),
+                    use_container_width=True,
+                    column_config={
+                        "count": st.column_config.NumberColumn("count", help=STAT_HELP["observed_skill_count"]),
+                        "share": st.column_config.NumberColumn("share", help=STAT_HELP["observed_skill_frequency"]),
+                        "rank": st.column_config.NumberColumn("rank", help=STAT_HELP["sector_mentions"]),
+                        "growth_value": st.column_config.NumberColumn("growth", help=STAT_HELP["skill_growth"]),
+                    }
+                )
+            elif sector_skills_comparison_response.get("message"):
+                st.info(sector_skills_comparison_response["message"])
+            else:
+                st.info(T["no_data"])
+            st.stop()
 
         active_sectoral = (
             sectoral_response.get("items", [])

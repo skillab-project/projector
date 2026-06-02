@@ -280,6 +280,52 @@ class ProjectorService:
             "sectors": sectors_payload,
         }
 
+    async def sector_skills_comparison(
+            self,
+            year: int,
+            locations: Optional[List[str]] = None,
+            sectors: Optional[List[str]] = None,
+            skills: Optional[List[str]] = None,
+            metric: Literal["count", "share", "rank", "growth"] = "share",
+    ):
+        location_code = self._single_location(locations)
+        current = self._read_sector_snapshot_store(year, location_code)
+        min_date, max_date = self._year_window(year, f"{year}-12-31")
+        if not current:
+            return {
+                "status": "not_available",
+                "year": int(year),
+                "data_source": "postgres" if self._sector_snapshot_store_enabled() else "cache",
+                "metric": metric,
+                "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+                "sectors": [],
+                "skills": [],
+                "matrix": [],
+                "message": f"No static sector snapshot available for {year}. Run the snapshot refresh job first.",
+            }
+
+        previous = self._read_sector_snapshot_store(int(year) - 1, location_code) or {"sectors": []}
+        selected_sectors = self._select_comparison_sectors(current["sectors"], sectors)
+        selected_skills = self._select_comparison_skills(selected_sectors, skills)
+        previous_index = self._index_snapshot_skill_counts(previous.get("sectors", []))
+        matrix = self._build_sector_skill_comparison_matrix(
+            selected_sectors,
+            selected_skills,
+            previous_index,
+            metric,
+        )
+
+        return {
+            "status": current.get("status", "completed"),
+            "year": int(year),
+            "data_source": current.get("data_source", "postgres"),
+            "metric": metric,
+            "window": current.get("window", self._sectoral_window_meta(f"{year} snapshot", min_date, max_date)),
+            "sectors": [sector["sector_label"] for sector in selected_sectors],
+            "skills": [skill["label"] for skill in selected_skills],
+            "matrix": matrix,
+        }
+
     def _single_location(self, locations: Optional[List[str]]):
         for location in locations or []:
             value = str(location or "").strip()
@@ -295,6 +341,119 @@ class ProjectorService:
 
     def _sector_snapshot_store_enabled(self):
         return bool(self.sector_snapshot_store and getattr(self.sector_snapshot_store, "enabled", False))
+
+    def _select_comparison_sectors(self, snapshot_sectors: List[dict], sectors: Optional[List[str]]):
+        normalized = {str(sector).strip().lower() for sector in (sectors or []) if str(sector).strip()}
+        if not normalized:
+            return snapshot_sectors[:5]
+        return [
+            sector for sector in snapshot_sectors
+            if sector.get("sector", "").lower() in normalized
+            or sector.get("sector_label", "").lower() in normalized
+        ]
+
+    def _select_comparison_skills(self, selected_sectors: List[dict], skills: Optional[List[str]]):
+        normalized = {str(skill).strip().lower() for skill in (skills or []) if str(skill).strip()}
+        aggregate = Counter()
+        skill_meta = {}
+        for sector in selected_sectors:
+            for skill in sector.get("all_skills") or sector.get("top_skills", []):
+                key = skill.get("skill_id") or skill.get("label")
+                if not key:
+                    continue
+                if normalized and key.lower() not in normalized and str(skill.get("label", "")).lower() not in normalized:
+                    continue
+                aggregate[key] += int(skill.get("count", 0) or 0)
+                skill_meta[key] = {
+                    "skill_id": key,
+                    "label": skill.get("label") or key,
+                    "is_green": skill.get("is_green"),
+                    "is_digital": skill.get("is_digital"),
+                }
+        return [
+            skill_meta[skill_id]
+            for skill_id, _ in aggregate.most_common(15 if not normalized else None)
+        ]
+
+    def _index_snapshot_skill_counts(self, snapshot_sectors: List[dict]):
+        index = {}
+        for sector in snapshot_sectors:
+            sector_key = sector.get("sector")
+            index[sector_key] = {
+                (skill.get("skill_id") or skill.get("label")): int(skill.get("count", 0) or 0)
+                for skill in sector.get("all_skills") or sector.get("top_skills", [])
+            }
+        return index
+
+    def _build_sector_skill_comparison_matrix(
+            self,
+            selected_sectors: List[dict],
+            selected_skills: List[dict],
+            previous_index: dict,
+            metric: str,
+    ):
+        rows = []
+        for sector in selected_sectors:
+            sector_skills = sector.get("all_skills") or sector.get("top_skills", [])
+            total_mentions = float(sector.get("total_skill_mentions") or 0)
+            rank_by_skill = {
+                (skill.get("skill_id") or skill.get("label")): rank
+                for rank, skill in enumerate(
+                    sorted(sector_skills, key=lambda item: int(item.get("count", 0) or 0), reverse=True),
+                    start=1,
+                )
+            }
+            counts = {
+                (skill.get("skill_id") or skill.get("label")): skill
+                for skill in sector_skills
+            }
+            for skill in selected_skills:
+                skill_id = skill["skill_id"]
+                current_skill = counts.get(skill_id, {})
+                count = int(current_skill.get("count", 0) or 0)
+                share = round(count / total_mentions, 6) if total_mentions else 0.0
+                rank = rank_by_skill.get(skill_id)
+                rank_score = round(1 / rank, 6) if rank else 0.0
+                previous_count = int(previous_index.get(sector.get("sector"), {}).get(skill_id, 0) or 0)
+                if previous_count == 0 and count > 0:
+                    growth = "new_entry"
+                    growth_value = 1.0
+                elif previous_count == 0:
+                    growth = 0.0
+                    growth_value = 0.0
+                else:
+                    growth = round((count - previous_count) / previous_count, 6)
+                    growth_value = growth
+
+                values = {
+                    "count": float(count),
+                    "share": share,
+                    "rank": rank_score,
+                    "growth": float(growth_value or 0.0),
+                }
+                display_values = {
+                    "count": str(count),
+                    "share": f"{share:.3f}",
+                    "rank": str(rank or "-"),
+                    "growth": "new" if growth == "new_entry" else f"{float(growth or 0.0):.2f}",
+                }
+                rows.append({
+                    "sector": sector.get("sector"),
+                    "sector_label": sector.get("sector_label", sector.get("sector")),
+                    "skill_id": skill_id,
+                    "label": current_skill.get("label") or skill["label"],
+                    "count": count,
+                    "share": share,
+                    "rank": rank,
+                    "rank_score": rank_score,
+                    "growth": growth,
+                    "growth_value": growth_value,
+                    "value": values.get(metric, share),
+                    "display_value": display_values.get(metric, f"{share:.3f}"),
+                    "is_green": current_skill.get("is_green", skill.get("is_green")),
+                    "is_digital": current_skill.get("is_digital", skill.get("is_digital")),
+                })
+        return rows
 
     def _empty_sector_snapshot(
             self,

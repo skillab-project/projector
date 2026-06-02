@@ -109,6 +109,8 @@ class _FakeSectorSnapshotStore:
 
     def read_latest(self, year, location_code=None):
         self.requests.append((year, location_code))
+        if isinstance(self.payload, dict) and "by_year" in self.payload:
+            return self.payload["by_year"].get(year)
         return self.payload
 
 
@@ -442,6 +444,84 @@ async def test_projector_service_sectoral_snapshot_store_miss_does_not_fetch_tra
     assert result["status"] == "not_available"
     assert result["data_source"] == "postgres"
     assert fake_tracker.fetch_payloads == []
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sector_skills_comparison_builds_matrix():
+    store = _FakeSectorSnapshotStore({
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 10,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 10,
+                        "job_share": 1.0,
+                        "total_skill_mentions": 10,
+                        "unique_skills": 1,
+                        "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 20,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 12,
+                        "job_share": 0.6,
+                        "total_skill_mentions": 20,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 4, "frequency": 0.2},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 4, "frequency": 0.2},
+                        ],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+        }
+    })
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sector_skills_comparison(
+        year=2024,
+        locations=["IT"],
+        sectors=["ICT"],
+        skills=["skill-python"],
+        metric="growth",
+    )
+
+    assert result["status"] == "completed"
+    assert result["metric"] == "growth"
+    assert store.requests == [(2024, "IT"), (2023, "IT")]
+    assert fake_tracker.fetch_payloads == []
+    assert result["sectors"] == ["ICT"]
+    assert result["skills"] == ["Python"]
+    cell = result["matrix"][0]
+    assert cell["count"] == 6
+    assert cell["share"] == 0.3
+    assert cell["rank"] == 1
+    assert cell["growth"] == 2.0
+    assert cell["value"] == 2.0
 
 
 @pytest.mark.asyncio
@@ -3464,6 +3544,72 @@ def test_endpoint_sectoral_snapshot_contract():
         assert data["sectors"][0]["top_job_titles"] == [
             {"name": "Backend Developer", "count": 1}
         ]
+
+
+@pytest.mark.integration
+def test_endpoint_sector_skills_comparison_contract():
+    store = _FakeSectorSnapshotStore({
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 10,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 10,
+                        "job_share": 1.0,
+                        "total_skill_mentions": 10,
+                        "unique_skills": 1,
+                        "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 20,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 20,
+                        "job_share": 1.0,
+                        "total_skill_mentions": 20,
+                        "unique_skills": 1,
+                        "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3}],
+                        "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3}],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+        }
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post(
+            "/projector/sector-skills-comparison",
+            data={"year": 2024, "locations": "IT", "sectors": "ICT", "metric": "share"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed"
+    assert data["metric"] == "share"
+    assert data["sectors"] == ["ICT"]
+    assert data["skills"] == ["Python"]
+    assert data["matrix"][0]["sector"] == "ICT"
+    assert data["matrix"][0]["label"] == "Python"
+    assert data["matrix"][0]["share"] == 0.3
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():
