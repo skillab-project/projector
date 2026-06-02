@@ -93,6 +93,11 @@ class SkillEntry(BaseModel):
     label: Optional[str] = None
     is_green: Optional[bool] = None
     is_digital: Optional[bool] = None
+    share_in_sector: Optional[float] = None
+    rank: Optional[int] = None
+    growth_vs_reference_year: Optional[Union[float, Literal["new_entry"]]] = None
+    growth_value: Optional[float] = None
+    sector_breadth: Optional[int] = None
 
 
 class SkillGroupEntry(BaseModel):
@@ -205,6 +210,7 @@ class SectorSnapshotRow(BaseModel):
 class SectoralSnapshotResponse(BaseModel):
     status: str
     year: int
+    reference_year: Optional[int] = None
     data_source: Literal["postgres", "cache", "live"]
     window: dict[str, str]
     total_jobs: int
@@ -233,6 +239,7 @@ class SectorSkillComparisonCell(BaseModel):
 class SectorSkillsComparisonResponse(BaseModel):
     status: str
     year: int
+    reference_year: Optional[int] = None
     data_source: Literal["postgres", "cache", "live"]
     metric: Literal["count", "share", "rank", "growth"]
     window: dict[str, str]

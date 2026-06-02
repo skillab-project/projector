@@ -362,6 +362,7 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
 
     assert result["status"] == "completed"
     assert result["year"] == 2024
+    assert result["reference_year"] == 2023
     assert result["data_source"] == "live"
     assert result["window"]["min_date"] == "2024-01-01"
     assert result["sector_filter"] == ["Education"]
@@ -377,6 +378,10 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert sector["total_skill_mentions"] == 3
     assert sector["unique_skills"] == 2
     assert sector["top_skills"][0]["skill_id"] == "skill-python"
+    assert sector["top_skills"][0]["share_in_sector"] == round(2 / 3, 6)
+    assert sector["top_skills"][0]["rank"] == 1
+    assert sector["top_skills"][0]["growth_vs_reference_year"] == "new_entry"
+    assert sector["top_skills"][0]["sector_breadth"] == 1
     assert sector["all_skills"][0]["skill_id"] == "skill-python"
     assert len(sector["all_skills"]) == 2
     assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
@@ -385,36 +390,55 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
 @pytest.mark.asyncio
 async def test_projector_service_sectoral_snapshot_prefers_static_store():
     store_payload = {
-        "status": "completed",
-        "year": 2024,
-        "data_source": "postgres",
-        "window": {
-            "label": "2024 snapshot",
-            "min_date": "2024-01-01",
-            "max_date": "2024-12-31",
-        },
-        "total_jobs": 10,
-        "sector_filter": [],
-        "sectors": [
-            {
-                "sector": "Education",
-                "sector_label": "Education",
-                "job_count": 10,
-                "job_share": 1.0,
-                "total_skill_mentions": 20,
-                "unique_skills": 2,
-                "top_skills": [],
-                "top_job_titles": [],
-            }
-        ],
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 8,
+                "sector_filter": [],
+                "sectors": [{
+                    "sector": "Education",
+                    "sector_label": "Education",
+                    "job_count": 8,
+                    "job_share": 1.0,
+                    "total_skill_mentions": 10,
+                    "unique_skills": 1,
+                    "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                    "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                    "top_job_titles": [],
+                }],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 10,
+                "sector_filter": [],
+                "sectors": [{
+                    "sector": "Education",
+                    "sector_label": "Education",
+                    "job_count": 10,
+                    "job_share": 1.0,
+                    "total_skill_mentions": 20,
+                    "unique_skills": 1,
+                    "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 4, "frequency": 0.2}],
+                    "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 4, "frequency": 0.2}],
+                    "top_job_titles": [],
+                }],
+            },
+        }
     }
     store = _FakeSectorSnapshotStore(store_payload)
     fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
 
-    result = await fake_service.sectoral_snapshot(year=2024, locations=["IT"])
+    result = await fake_service.sectoral_snapshot(year=2024, reference_year=2023, locations=["IT"])
 
-    assert result == store_payload
-    assert store.requests == [(2024, "IT")]
+    assert result["reference_year"] == 2023
+    assert result["sectors"][0]["top_skills"][0]["growth_vs_reference_year"] == 1.0
+    assert store.requests == [(2024, "IT"), (2023, "IT")]
     assert fake_tracker.fetch_payloads == []
 
 
@@ -504,6 +528,7 @@ async def test_projector_service_sector_skills_comparison_builds_matrix():
 
     result = await fake_service.sector_skills_comparison(
         year=2024,
+        reference_year=2023,
         locations=["IT"],
         sectors=["ICT"],
         skills=["skill-python"],
@@ -511,6 +536,7 @@ async def test_projector_service_sector_skills_comparison_builds_matrix():
     )
 
     assert result["status"] == "completed"
+    assert result["reference_year"] == 2023
     assert result["metric"] == "growth"
     assert store.requests == [(2024, "IT"), (2023, "IT")]
     assert fake_tracker.fetch_payloads == []
@@ -3530,6 +3556,7 @@ def test_endpoint_sectoral_snapshot_contract():
         data = response.json()
         assert data["status"] == "completed"
         assert data["year"] == 2024
+        assert data["reference_year"] == 2023
         assert data["data_source"] == "cache"
         assert data["window"] == {
             "label": "2024 snapshot",
@@ -3540,6 +3567,10 @@ def test_endpoint_sectoral_snapshot_contract():
         assert data["sectors"][0]["sector"] == "Information Technology"
         assert data["sectors"][0]["job_count"] == 1
         assert data["sectors"][0]["top_skills"][0]["label"] == "Docker"
+        assert data["sectors"][0]["top_skills"][0]["share_in_sector"] == 1.0
+        assert data["sectors"][0]["top_skills"][0]["rank"] == 1
+        assert data["sectors"][0]["top_skills"][0]["growth_vs_reference_year"] == "new_entry"
+        assert data["sectors"][0]["top_skills"][0]["sector_breadth"] == 1
         assert data["sectors"][0]["all_skills"][0]["label"] == "Docker"
         assert data["sectors"][0]["top_job_titles"] == [
             {"name": "Backend Developer", "count": 1}
@@ -3604,6 +3635,7 @@ def test_endpoint_sector_skills_comparison_contract():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
+    assert data["reference_year"] == 2023
     assert data["metric"] == "share"
     assert data["sectors"] == ["ICT"]
     assert data["skills"] == ["Python"]

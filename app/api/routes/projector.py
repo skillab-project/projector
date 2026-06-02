@@ -174,6 +174,7 @@ async def sectoral_intelligence(
 )
 async def sectoral_snapshot(
         year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
         locations: Optional[List[str]] = Form(None),
 ):
     """
@@ -184,6 +185,7 @@ async def sectoral_snapshot(
     """
     return await service.sectoral_snapshot(
         year=year,
+        reference_year=reference_year,
         locations=locations,
         data_source="cache",
     )
@@ -196,6 +198,7 @@ async def sectoral_snapshot(
 )
 async def sector_skills_comparison(
         year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
         locations: Optional[List[str]] = Form(None),
         sectors: Optional[List[str]] = Form(None),
         skills: Optional[List[str]] = Form(None),
@@ -209,6 +212,7 @@ async def sector_skills_comparison(
     """
     return await service.sector_skills_comparison(
         year=year,
+        reference_year=reference_year,
         locations=locations,
         sectors=sectors,
         skills=skills,

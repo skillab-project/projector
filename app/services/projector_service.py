@@ -231,6 +231,7 @@ class ProjectorService:
     async def sectoral_snapshot(
             self,
             year: int,
+            reference_year: Optional[int] = None,
             keywords: Optional[List[str]] = None,
             locations: Optional[List[str]] = None,
             sectors: Optional[List[str]] = None,
@@ -239,11 +240,13 @@ class ProjectorService:
         self.engine.stop_requested = False
 
         location_code = self._single_location(locations)
+        reference_year = int(reference_year) if reference_year is not None else int(year) - 1
         sector_filter = self._normalize_sector_filter(sectors)
         min_date, max_date = self._year_window(year, f"{year}-12-31")
         store_payload = self._read_sector_snapshot_store(year, location_code)
         if store_payload:
-            return store_payload
+            reference_payload = self._read_sector_snapshot_store(reference_year, location_code) or {"sectors": []}
+            return self._enrich_sector_snapshot_payload(store_payload, reference_payload, reference_year)
         if self._sector_snapshot_store_enabled():
             return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "postgres")
 
@@ -266,6 +269,7 @@ class ProjectorService:
         jobs = self._filter_jobs_by_sector(jobs, sector_filter)
         await self._ensure_skill_labels(jobs)
         sectors_payload = self._build_sector_snapshot_rows(jobs, sector_filter)
+        sectors_payload = self._enrich_sector_skill_metrics(sectors_payload, [], reference_year)
 
         if not sectors_payload:
             return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "cache", len(jobs))
@@ -273,6 +277,7 @@ class ProjectorService:
         return {
             "status": "completed" if not self.engine.stop_requested else "stopped",
             "year": int(year),
+            "reference_year": reference_year,
             "data_source": normalized_source,
             "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
             "total_jobs": len(jobs),
@@ -280,21 +285,34 @@ class ProjectorService:
             "sectors": sectors_payload,
         }
 
+    def _enrich_sector_snapshot_payload(self, payload: dict, reference_payload: dict, reference_year: int):
+        enriched = {**payload}
+        enriched["reference_year"] = reference_year
+        enriched["sectors"] = self._enrich_sector_skill_metrics(
+            payload.get("sectors", []),
+            reference_payload.get("sectors", []),
+            reference_year,
+        )
+        return enriched
+
     async def sector_skills_comparison(
             self,
             year: int,
+            reference_year: Optional[int] = None,
             locations: Optional[List[str]] = None,
             sectors: Optional[List[str]] = None,
             skills: Optional[List[str]] = None,
             metric: Literal["count", "share", "rank", "growth"] = "share",
     ):
         location_code = self._single_location(locations)
+        reference_year = int(reference_year) if reference_year is not None else int(year) - 1
         current = self._read_sector_snapshot_store(year, location_code)
         min_date, max_date = self._year_window(year, f"{year}-12-31")
         if not current:
             return {
                 "status": "not_available",
                 "year": int(year),
+                "reference_year": reference_year,
                 "data_source": "postgres" if self._sector_snapshot_store_enabled() else "cache",
                 "metric": metric,
                 "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
@@ -304,7 +322,7 @@ class ProjectorService:
                 "message": f"No static sector snapshot available for {year}. Run the snapshot refresh job first.",
             }
 
-        previous = self._read_sector_snapshot_store(int(year) - 1, location_code) or {"sectors": []}
+        previous = self._read_sector_snapshot_store(reference_year, location_code) or {"sectors": []}
         selected_sectors = self._select_comparison_sectors(current["sectors"], sectors)
         selected_skills = self._select_comparison_skills(selected_sectors, skills)
         previous_index = self._index_snapshot_skill_counts(previous.get("sectors", []))
@@ -318,6 +336,7 @@ class ProjectorService:
         return {
             "status": current.get("status", "completed"),
             "year": int(year),
+            "reference_year": reference_year,
             "data_source": current.get("data_source", "postgres"),
             "metric": metric,
             "window": current.get("window", self._sectoral_window_meta(f"{year} snapshot", min_date, max_date)),
@@ -341,6 +360,54 @@ class ProjectorService:
 
     def _sector_snapshot_store_enabled(self):
         return bool(self.sector_snapshot_store and getattr(self.sector_snapshot_store, "enabled", False))
+
+    def _enrich_sector_skill_metrics(self, sectors: List[dict], reference_sectors: List[dict], reference_year: int):
+        sector_breadth = Counter()
+        for sector in sectors:
+            for skill in sector.get("all_skills") or sector.get("top_skills", []):
+                key = skill.get("skill_id") or skill.get("label")
+                if key:
+                    sector_breadth[key] += 1
+
+        reference_counts = self._index_snapshot_skill_counts(reference_sectors)
+        enriched_sectors = []
+        for sector in sectors:
+            sector_key = sector.get("sector")
+            total_mentions = float(sector.get("total_skill_mentions") or 0)
+            source_skills = sector.get("all_skills") or sector.get("top_skills", [])
+            ranked_skills = sorted(source_skills, key=lambda item: int(item.get("count", 0) or 0), reverse=True)
+            enriched_skills = []
+            for rank, skill in enumerate(ranked_skills, start=1):
+                key = skill.get("skill_id") or skill.get("label")
+                count = int(skill.get("count", 0) or 0)
+                share = round(count / total_mentions, 6) if total_mentions else 0.0
+                previous_count = int(reference_counts.get(sector_key, {}).get(key, 0) or 0)
+                if previous_count == 0 and count > 0:
+                    growth = "new_entry"
+                    growth_value = 1.0
+                elif previous_count == 0:
+                    growth = 0.0
+                    growth_value = 0.0
+                else:
+                    growth = round((count - previous_count) / previous_count, 6)
+                    growth_value = growth
+
+                enriched_skills.append({
+                    **skill,
+                    "share_in_sector": share,
+                    "frequency": skill.get("frequency", share),
+                    "rank": rank,
+                    "growth_vs_reference_year": growth,
+                    "growth_value": growth_value,
+                    "sector_breadth": sector_breadth.get(key, 0),
+                })
+
+            enriched_sectors.append({
+                **sector,
+                "top_skills": enriched_skills[:10],
+                "all_skills": enriched_skills,
+            })
+        return enriched_sectors
 
     def _select_comparison_sectors(self, snapshot_sectors: List[dict], sectors: Optional[List[str]]):
         normalized = {str(sector).strip().lower() for sector in (sectors or []) if str(sector).strip()}
