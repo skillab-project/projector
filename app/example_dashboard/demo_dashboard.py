@@ -767,31 +767,6 @@ if dashboard_view == "sector":
 elif dashboard_view == "comparison":
     current_year = int(st.session_state.sectoral_snapshot_year)
     default_reference = current_year - 1 if current_year - 1 in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[0]
-    c_year, c_ref, c_region = st.columns([2, 1, 1])
-    with c_year:
-        selected_year = st.select_slider(
-            T["sectoral_snapshot_year"],
-            options=SECTOR_SNAPSHOT_YEARS,
-            value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
-            help=T["sectoral_year_bar_help"],
-        )
-    with c_ref:
-        selected_reference_year = st.selectbox(
-            T["sectoral_reference_year"],
-            SECTOR_SNAPSHOT_YEARS,
-            index=SECTOR_SNAPSHOT_YEARS.index(default_reference),
-        )
-    with c_region:
-        selected_region = st.selectbox(
-            T["region_filter"],
-            list(SECTOR_REGION_OPTIONS.keys()),
-            help=T["region_filter_help"],
-        )
-    sectoral_location = SECTOR_REGION_OPTIONS[selected_region]
-    st.session_state.sectoral_snapshot_year = int(selected_year)
-    st.session_state.sectoral_reference_year = int(selected_reference_year)
-    sectoral_snapshot_year = int(selected_year)
-    sectoral_reference_year = int(selected_reference_year)
     comparison_metric_label = st.radio(
         T["comparison_metric"],
         list(T["comparison_metric_options"].values()),
@@ -801,6 +776,52 @@ elif dashboard_view == "comparison":
         key for key, value in T["comparison_metric_options"].items()
         if value == comparison_metric_label
     )
+    if comparison_metric == "growth":
+        c_year, c_ref, c_region = st.columns(3)
+        with c_year:
+            selected_year = st.selectbox(
+                T["sectoral_snapshot_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=SECTOR_SNAPSHOT_YEARS.index(current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1]),
+            )
+        with c_ref:
+            selected_reference_year = st.selectbox(
+                T["sectoral_reference_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=SECTOR_SNAPSHOT_YEARS.index(default_reference),
+            )
+        with c_region:
+            selected_region = st.selectbox(
+                T["region_filter"],
+                list(SECTOR_REGION_OPTIONS.keys()),
+                help=T["region_filter_help"],
+            )
+    else:
+        c_year, c_ref, c_region = st.columns([2, 1, 1])
+        with c_year:
+            selected_year = st.select_slider(
+                T["sectoral_snapshot_year"],
+                options=SECTOR_SNAPSHOT_YEARS,
+                value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
+                help=T["sectoral_year_bar_help"],
+            )
+        with c_ref:
+            selected_reference_year = st.selectbox(
+                T["sectoral_reference_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=SECTOR_SNAPSHOT_YEARS.index(default_reference),
+            )
+        with c_region:
+            selected_region = st.selectbox(
+                T["region_filter"],
+                list(SECTOR_REGION_OPTIONS.keys()),
+                help=T["region_filter_help"],
+            )
+    sectoral_location = SECTOR_REGION_OPTIONS[selected_region]
+    st.session_state.sectoral_snapshot_year = int(selected_year)
+    st.session_state.sectoral_reference_year = int(selected_reference_year)
+    sectoral_snapshot_year = int(selected_year)
+    sectoral_reference_year = int(selected_reference_year)
     comparison_sectors = st.multiselect(
         T["comparison_sectors"],
         SECTOR_FOCUS_OPTIONS,
