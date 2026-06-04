@@ -1,6 +1,8 @@
 # Data Sources
 
-SKILLAB Projector runtime uses Tracker API data for the current dashboard flow.
+SKILLAB Projector uses Tracker API data for the current dashboard flow.
+
+Related issues: #44, #54.
 
 ## Runtime Sources
 
@@ -13,6 +15,29 @@ SKILLAB Projector runtime uses Tracker API data for the current dashboard flow.
 | Job titles | `job["title"]` | Job-title ranking |
 | Employers | `job["organization"]` / fallback fields | Employer ranking |
 | Skill labels | `POST {TRACKER_API}/skills` | Skill id to readable label |
+
+## Stored Analytical Data
+
+PostgreSQL stores pre-aggregated yearly sector snapshots.
+
+| Table | Use |
+| --- | --- |
+| `sector_snapshot_runs` | refresh run metadata and latest completed lookup |
+| `sector_yearly_snapshots` | one sector row per yearly/location snapshot |
+
+The database is storage, not a separate source of truth. Snapshot rows are derived from Tracker jobs.
+
+Local DB:
+
+```bash
+docker compose up -d projector-db
+```
+
+Refresh from Tracker:
+
+```bash
+python scripts/refresh_sectoral_snapshot.py --year 2024
+```
 
 ## Not Loaded In Runtime
 

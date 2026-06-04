@@ -12,6 +12,8 @@ It provides:
 
 The project also includes a Streamlit dashboard for exploring the API output.
 
+Start from [docs/quick-start.md](docs/quick-start.md) for the current intelligence design, local run commands and dashboard navigation.
+
 ## Current Runtime Entry Points
 
 Start the API from the repository root:
@@ -65,7 +67,7 @@ Only PostgreSQL is dockerized for now:
 docker compose up -d projector-db
 ```
 
-The container applies `migrations/*.sql` on first boot and seeds a fake 2024 sector snapshot. Use the dashboard's "demo sector snapshot" flag to read the seeded `DEMO` dataset.
+The container applies `migrations/*.sql` on first boot and seeds demo sector snapshots for 2020-2024, including demo/regional data.
 
 To reseed from scratch:
 
@@ -91,6 +93,8 @@ repo-root/
 │   └── example_dashboard/demo_dashboard.py
 ├── complementary_data/
 ├── docs/
+├── migrations/
+├── scripts/
 ├── cache_data/
 └── requirements.txt
 ```
@@ -110,6 +114,9 @@ app.main
 The current public endpoints are:
 
 - `POST /projector/analyze-skills`
+- `POST /projector/sectoral-snapshot`
+- `POST /projector/sector-skills-comparison`
+- `POST /projector/sectoral-intelligence`
 - `POST /projector/emerging-skills`
 - `POST /projector/stop`
 

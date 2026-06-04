@@ -136,9 +136,12 @@ When no jobs are found, the service returns a completed response with `jobs_anal
 
 ## POST `/projector/sectoral-snapshot`
 
-Computes a simple annual sector overview.
+Reads an annual sector snapshot.
 
-Use this endpoint as the default sector-dimension view in the final frontend: it returns one row per Tracker sector with job volume, share, top skills, and top job titles.
+Use it for:
+
+- Sector Overview / Snapshot
+- Sector Overview / Sector Evolution
 
 When `DATABASE_URL` is configured, this endpoint reads the latest completed PostgreSQL snapshot for the requested year. It does not call Tracker during user requests.
 
@@ -147,6 +150,7 @@ When `DATABASE_URL` is configured, this endpoint reads the latest completed Post
 | Field | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
 | `year` | integer | yes | none | Calendar year to aggregate |
+| `reference_year` | integer | no | `year - 1` | Comparison year used to enrich sector evolution and skill growth |
 | `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
 
 Data source is internal. The public dashboard does not expose cache/live selection.
@@ -163,6 +167,7 @@ python scripts/refresh_sectoral_snapshot.py --year 2024
 curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "year=2024" \
+  -d "reference_year=2023" \
   -d "locations=IT"
 ```
 
@@ -172,6 +177,7 @@ curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
 {
   "status": "completed",
   "year": 2024,
+  "reference_year": 2023,
   "data_source": "postgres",
   "window": {
     "label": "2024 snapshot",
@@ -188,8 +194,90 @@ curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
       "job_share": 0.18,
       "total_skill_mentions": 510,
       "unique_skills": 85,
+      "evolution": {
+        "reference_year": 2023,
+        "job_count_current": 220,
+        "job_count_reference": 180,
+        "job_delta": 40,
+        "job_growth_percentage": 0.2222,
+        "job_growth_value": 0.2222,
+        "new_skill_count": 4,
+        "disappeared_skill_count": 2,
+        "growing_skill_count": 12,
+        "declining_skill_count": 7,
+        "skill_churn": 0.1579,
+        "top_new_skills": [],
+        "top_disappeared_skills": [],
+        "top_growing_skills": [],
+        "top_declining_skills": []
+      },
       "top_skills": [],
+      "all_skills": [],
       "top_job_titles": []
+    }
+  ]
+}
+```
+
+## POST `/projector/sector-skills-comparison`
+
+Builds a sectors x skills heatmap from yearly PostgreSQL snapshots.
+
+Use it for Sector Skills Comparison.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `year` | integer | yes | none | Target year |
+| `reference_year` | integer | no | `year - 1` | Comparison year for `metric=growth` |
+| `locations` | list of strings | no | `null` | Optional Tracker location code |
+| `sectors` | list of strings | no | top sectors | Sectors to compare |
+| `skills` | list of strings | no | top skills | Skills to compare |
+| `metric` | enum | no | `share` | `count`, `share`, `rank`, or `growth` |
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sector-skills-comparison" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "reference_year=2023" \
+  -d "metric=share"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "year": 2024,
+  "reference_year": 2023,
+  "data_source": "postgres",
+  "metric": "share",
+  "window": {
+    "label": "2024 snapshot",
+    "min_date": "2024-01-01",
+    "max_date": "2024-12-31"
+  },
+  "sectors": ["Education"],
+  "skills": ["Python"],
+  "matrix": [
+    {
+      "sector": "Education",
+      "sector_label": "Education",
+      "skill_id": "skill-python",
+      "label": "Python",
+      "count": 20,
+      "share": 0.1,
+      "rank": 1,
+      "rank_score": 1.0,
+      "growth": 0.25,
+      "growth_value": 0.25,
+      "value": 0.1,
+      "display_value": "10.0%",
+      "is_green": false,
+      "is_digital": true
     }
   ]
 }
