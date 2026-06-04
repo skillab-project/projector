@@ -90,7 +90,7 @@ Failed or running runs do not affect dashboard users.
 
 ## Write Behavior
 
-Refresh command:
+Single-year refresh:
 
 ```bash
 python scripts/refresh_sectoral_snapshot.py --year 2024
@@ -102,7 +102,26 @@ Regional refresh:
 python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
 ```
 
-Each refresh:
+Full backfill:
+
+```bash
+python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
+```
+
+This fetches each year once, derives available `location_code` values from Tracker jobs, then writes:
+
+- one global snapshot per year
+- one regional snapshot per detected location and year
+
+Recurring refresh:
+
+```bash
+python scripts/schedule_sectoral_snapshot_refresh.py --interval-months 3
+```
+
+This runs the backfill logic repeatedly. By default it refreshes the current year every 3 months.
+
+Each refresh/write:
 
 1. fetches Tracker jobs for the year/location
 2. resolves skill labels

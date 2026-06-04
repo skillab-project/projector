@@ -135,6 +135,18 @@ Refresh a regional snapshot:
 python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
 ```
 
+Backfill all available regions for multiple years:
+
+```bash
+python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
+```
+
+Run a recurring refresh every 3 months:
+
+```bash
+python scripts/schedule_sectoral_snapshot_refresh.py --interval-months 3
+```
+
 ## API Smoke Tests
 
 ```bash

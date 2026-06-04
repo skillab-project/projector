@@ -1,5 +1,12 @@
 import argparse
 import asyncio
+import sys
+from pathlib import Path
+from typing import Iterable
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from app.core.config import DATABASE_URL
 from app.core.container import engine, tracker, occupations, regional, market, trends, sectoral
@@ -7,12 +14,12 @@ from app.services.projector_service import ProjectorService
 from app.services.sector_snapshot_store import SectorSnapshotStore
 
 
-async def refresh_snapshot(year: int, location_code: str | None):
+def build_projector_service():
     store = SectorSnapshotStore(DATABASE_URL)
     if not store.enabled:
         raise RuntimeError("DATABASE_URL not configured")
 
-    service = ProjectorService(
+    return ProjectorService(
         engine,
         tracker,
         occupations,
@@ -23,6 +30,29 @@ async def refresh_snapshot(year: int, location_code: str | None):
         store,
     )
 
+
+def year_window(year: int):
+    return f"{year:04d}-01-01", f"{year:04d}-12-31"
+
+
+def filter_jobs_by_location(jobs: Iterable[dict], location_code: str | None):
+    if not location_code:
+        return list(jobs)
+    return [
+        job for job in jobs
+        if str(job.get("location_code") or "").strip() == location_code
+    ]
+
+
+def available_location_codes(jobs: Iterable[dict]):
+    return sorted({
+        str(job.get("location_code") or "").strip()
+        for job in jobs
+        if str(job.get("location_code") or "").strip()
+    })
+
+
+async def fetch_jobs_for_year(year: int, location_code: str | None = None):
     min_date = f"{year:04d}-01-01"
     max_date = f"{year:04d}-12-31"
     filters = {
@@ -32,11 +62,20 @@ async def refresh_snapshot(year: int, location_code: str | None):
     if location_code:
         filters["location_code"] = [location_code]
 
-    jobs = await tracker.fetch_all_jobs(filters)
+    return await tracker.fetch_all_jobs(filters)
+
+
+async def write_snapshot_from_jobs(
+        service: ProjectorService,
+        year: int,
+        jobs: list[dict],
+        location_code: str | None,
+):
+    min_date, max_date = year_window(year)
     await service._ensure_skill_labels(jobs)
     sectors = service._build_sector_snapshot_rows(jobs)
 
-    run_id = store.write_snapshot(
+    run_id = service.sector_snapshot_store.write_snapshot(
         year=year,
         location_code=location_code,
         period_start=min_date,
@@ -45,6 +84,12 @@ async def refresh_snapshot(year: int, location_code: str | None):
         sectors=sectors,
     )
     return run_id, len(jobs), len(sectors)
+
+
+async def refresh_snapshot(year: int, location_code: str | None):
+    service = build_projector_service()
+    jobs = await fetch_jobs_for_year(year, location_code)
+    return await write_snapshot_from_jobs(service, year, jobs, location_code)
 
 
 def main():

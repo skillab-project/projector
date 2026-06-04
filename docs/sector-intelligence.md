@@ -104,6 +104,18 @@ python scripts/refresh_sectoral_snapshot.py --year 2024
 python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
 ```
 
+Backfill all available regions for a year range:
+
+```bash
+python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
+```
+
+Recurring refresh:
+
+```bash
+python scripts/schedule_sectoral_snapshot_refresh.py --interval-months 3
+```
+
 ## PostgreSQL Tables
 
 `sector_snapshot_runs`
