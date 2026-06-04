@@ -195,6 +195,32 @@ class SectorSnapshotTitle(BaseModel):
     count: int
 
 
+class SectorEvolutionSkill(BaseModel):
+    skill_id: str
+    label: Optional[str] = None
+    count: int
+    reference_count: int
+    delta: int
+
+
+class SectorEvolution(BaseModel):
+    reference_year: int
+    job_count_current: int
+    job_count_reference: int
+    job_delta: int
+    job_growth_percentage: Union[float, Literal["new_entry"]]
+    job_growth_value: float
+    new_skill_count: int
+    disappeared_skill_count: int
+    growing_skill_count: int
+    declining_skill_count: int
+    skill_churn: float
+    top_new_skills: List[SectorEvolutionSkill]
+    top_disappeared_skills: List[SectorEvolutionSkill]
+    top_growing_skills: List[SectorEvolutionSkill]
+    top_declining_skills: List[SectorEvolutionSkill]
+
+
 class SectorSnapshotRow(BaseModel):
     sector: str
     sector_label: str
@@ -202,6 +228,7 @@ class SectorSnapshotRow(BaseModel):
     job_share: float
     total_skill_mentions: int
     unique_skills: int
+    evolution: Optional[SectorEvolution] = None
     top_skills: List[SkillEntry]
     all_skills: Optional[List[SkillEntry]] = None
     top_job_titles: List[SectorSnapshotTitle]

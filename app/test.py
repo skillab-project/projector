@@ -384,6 +384,10 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert sector["top_skills"][0]["sector_breadth"] == 1
     assert sector["all_skills"][0]["skill_id"] == "skill-python"
     assert len(sector["all_skills"]) == 2
+    assert sector["evolution"]["job_count_current"] == 2
+    assert sector["evolution"]["job_count_reference"] == 0
+    assert sector["evolution"]["job_growth_percentage"] == "new_entry"
+    assert sector["evolution"]["new_skill_count"] == 2
     assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
 
 
@@ -403,10 +407,13 @@ async def test_projector_service_sectoral_snapshot_prefers_static_store():
                     "sector_label": "Education",
                     "job_count": 8,
                     "job_share": 1.0,
-                    "total_skill_mentions": 10,
-                    "unique_skills": 1,
+                    "total_skill_mentions": 12,
+                    "unique_skills": 2,
                     "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
-                    "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                    "all_skills": [
+                        {"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.1667},
+                        {"skill_id": "skill-legacy", "label": "Legacy systems", "count": 2, "frequency": 0.1667},
+                    ],
                     "top_job_titles": [],
                 }],
             },
@@ -438,6 +445,15 @@ async def test_projector_service_sectoral_snapshot_prefers_static_store():
 
     assert result["reference_year"] == 2023
     assert result["sectors"][0]["top_skills"][0]["growth_vs_reference_year"] == 1.0
+    evolution = result["sectors"][0]["evolution"]
+    assert evolution["job_count_current"] == 10
+    assert evolution["job_count_reference"] == 8
+    assert evolution["job_delta"] == 2
+    assert evolution["job_growth_percentage"] == 0.25
+    assert evolution["growing_skill_count"] == 1
+    assert evolution["disappeared_skill_count"] == 1
+    assert evolution["top_growing_skills"][0]["skill_id"] == "skill-python"
+    assert evolution["top_disappeared_skills"][0]["skill_id"] == "skill-legacy"
     assert store.requests == [(2024, "IT"), (2023, "IT")]
     assert fake_tracker.fetch_payloads == []
 

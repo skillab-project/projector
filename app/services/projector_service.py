@@ -370,6 +370,11 @@ class ProjectorService:
                     sector_breadth[key] += 1
 
         reference_counts = self._index_snapshot_skill_counts(reference_sectors)
+        reference_by_sector = {
+            sector.get("sector"): sector
+            for sector in reference_sectors
+            if sector.get("sector")
+        }
         enriched_sectors = []
         for sector in sectors:
             sector_key = sector.get("sector")
@@ -404,10 +409,90 @@ class ProjectorService:
 
             enriched_sectors.append({
                 **sector,
+                "evolution": self._build_sector_evolution(
+                    sector,
+                    reference_by_sector.get(sector_key, {}),
+                    reference_year,
+                ),
                 "top_skills": enriched_skills[:10],
                 "all_skills": enriched_skills,
             })
         return enriched_sectors
+
+    def _build_sector_evolution(self, sector: dict, reference_sector: dict, reference_year: int):
+        current_jobs = int(sector.get("job_count", 0) or 0)
+        reference_jobs = int(reference_sector.get("job_count", 0) or 0)
+        job_delta = current_jobs - reference_jobs
+        if reference_jobs == 0 and current_jobs > 0:
+            job_growth_percentage = "new_entry"
+            job_growth_value = 1.0
+        elif reference_jobs == 0:
+            job_growth_percentage = 0.0
+            job_growth_value = 0.0
+        else:
+            job_growth_percentage = round(job_delta / reference_jobs, 6)
+            job_growth_value = job_growth_percentage
+
+        current_skills = self._index_sector_skills(sector)
+        reference_skills = self._index_sector_skills(reference_sector)
+        current_keys = set(current_skills)
+        reference_keys = set(reference_skills)
+        shared_keys = current_keys & reference_keys
+        union_keys = current_keys | reference_keys
+
+        new_keys = current_keys - reference_keys
+        disappeared_keys = reference_keys - current_keys
+        growing_keys = {
+            key for key in shared_keys
+            if int(current_skills[key].get("count", 0) or 0) > int(reference_skills[key].get("count", 0) or 0)
+        }
+        declining_keys = {
+            key for key in shared_keys
+            if int(current_skills[key].get("count", 0) or 0) < int(reference_skills[key].get("count", 0) or 0)
+        }
+        skill_churn = round(len(new_keys | disappeared_keys) / len(union_keys), 6) if union_keys else 0.0
+
+        return {
+            "reference_year": reference_year,
+            "job_count_current": current_jobs,
+            "job_count_reference": reference_jobs,
+            "job_delta": job_delta,
+            "job_growth_percentage": job_growth_percentage,
+            "job_growth_value": job_growth_value,
+            "new_skill_count": len(new_keys),
+            "disappeared_skill_count": len(disappeared_keys),
+            "growing_skill_count": len(growing_keys),
+            "declining_skill_count": len(declining_keys),
+            "skill_churn": skill_churn,
+            "top_new_skills": self._summarize_evolution_skills(new_keys, current_skills, reference_skills),
+            "top_disappeared_skills": self._summarize_evolution_skills(disappeared_keys, current_skills, reference_skills),
+            "top_growing_skills": self._summarize_evolution_skills(growing_keys, current_skills, reference_skills),
+            "top_declining_skills": self._summarize_evolution_skills(declining_keys, current_skills, reference_skills),
+        }
+
+    def _index_sector_skills(self, sector: dict):
+        indexed = {}
+        for skill in sector.get("all_skills") or sector.get("top_skills", []):
+            key = skill.get("skill_id") or skill.get("label")
+            if key:
+                indexed[key] = skill
+        return indexed
+
+    def _summarize_evolution_skills(self, keys: set, current_skills: dict, reference_skills: dict, limit: int = 10):
+        rows = []
+        for key in keys:
+            current = current_skills.get(key, {})
+            reference = reference_skills.get(key, {})
+            current_count = int(current.get("count", 0) or 0)
+            reference_count = int(reference.get("count", 0) or 0)
+            rows.append({
+                "skill_id": key,
+                "label": current.get("label") or reference.get("label") or key,
+                "count": current_count,
+                "reference_count": reference_count,
+                "delta": current_count - reference_count,
+            })
+        return sorted(rows, key=lambda item: abs(item["delta"]), reverse=True)[:limit]
 
     def _select_comparison_sectors(self, snapshot_sectors: List[dict], sectors: Optional[List[str]]):
         normalized = {str(sector).strip().lower() for sector in (sectors or []) if str(sector).strip()}
