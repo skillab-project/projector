@@ -157,7 +157,7 @@ Recurring refresh:
 python scripts/schedule_sectoral_snapshot_refresh.py --interval-months 3
 ```
 
-This runs the backfill logic repeatedly. By default it refreshes the current year every 3 months.
+This checks the DB repeatedly and runs the backfill only when the latest completed snapshot is older than the configured interval. By default it checks daily and refreshes the current year when the last refresh is older than 3 months.
 
 Docker scheduler service:
 
@@ -168,8 +168,9 @@ docker compose up -d projector-db projector-snapshot-refresh
 It runs the scheduler as a long-running container. Defaults:
 
 - current year
-- run immediately on start
-- repeat every 3 months
+- check immediately on start
+- check every day
+- refresh only when latest completed snapshot is older than 3 months
 - global snapshot plus detected regions
 - resumable cache in `/workspace/cache_data`
 - rotating logs in `/workspace/logs`
@@ -178,7 +179,8 @@ Configure with environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SNAPSHOT_INTERVAL_MONTHS` | `3` | scheduler interval |
+| `SNAPSHOT_INTERVAL_MONTHS` | `3` | refresh interval |
+| `SNAPSHOT_CHECK_INTERVAL_DAYS` | `1` | how often scheduler checks if refresh is due |
 | `SNAPSHOT_START_YEAR` | current year | first year |
 | `SNAPSHOT_END_YEAR` | current year | last year |
 | `SNAPSHOT_REGIONS` | auto | comma-separated location codes |
@@ -193,6 +195,7 @@ Example:
 ```bash
 SNAPSHOT_START_YEAR=2024 \
 SNAPSHOT_END_YEAR=2024 \
+SNAPSHOT_CHECK_INTERVAL_DAYS=1 \
 SNAPSHOT_PAGE_CONCURRENCY=8 \
 docker compose up -d projector-snapshot-refresh
 ```

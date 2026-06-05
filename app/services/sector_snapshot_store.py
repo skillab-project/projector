@@ -125,6 +125,27 @@ class SectorSnapshotStore:
             ],
         }
 
+    def latest_completed_at(self, year: int, location_code: Optional[str] = None):
+        if not self.enabled:
+            return None
+
+        location_key = location_code or ""
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT completed_at
+                FROM sector_snapshot_runs
+                WHERE year = %s
+                  AND COALESCE(location_code, '') = %s
+                  AND status = 'completed'
+                ORDER BY completed_at DESC NULLS LAST, id DESC
+                LIMIT 1
+                """,
+                (year, location_key),
+            ).fetchone()
+
+        return row["completed_at"] if row else None
+
     def write_snapshot(
             self,
             year: int,

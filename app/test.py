@@ -3,6 +3,7 @@ import os
 import json
 import tempfile
 from collections import defaultdict, Counter
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -16,6 +17,7 @@ from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
 from app.services.projector_service import ProjectorService
+from scripts.schedule_sectoral_snapshot_refresh import due_targets
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -112,6 +114,47 @@ class _FakeSectorSnapshotStore:
         if isinstance(self.payload, dict) and "by_year" in self.payload:
             return self.payload["by_year"].get(year)
         return self.payload
+
+
+class _FakeSchedulerSnapshotStore:
+    def __init__(self, completed_at_by_key):
+        self.completed_at_by_key = completed_at_by_key
+
+    def latest_completed_at(self, year, location_code=None):
+        return self.completed_at_by_key.get((year, location_code))
+
+
+def test_scheduler_due_targets_returns_missing_snapshots():
+    store = _FakeSchedulerSnapshotStore({})
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+
+    due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
+
+    assert due == [(2024, "GLOBAL"), (2024, "IT")]
+
+
+def test_scheduler_due_targets_skips_recent_snapshots():
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    store = _FakeSchedulerSnapshotStore({
+        (2024, None): now - timedelta(days=20),
+        (2024, "IT"): now - timedelta(days=20),
+    })
+
+    due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
+
+    assert due == []
+
+
+def test_scheduler_due_targets_returns_elapsed_snapshots():
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    store = _FakeSchedulerSnapshotStore({
+        (2024, None): now - timedelta(days=120),
+        (2024, "IT"): now - timedelta(days=20),
+    })
+
+    due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
+
+    assert due == [(2024, "GLOBAL")]
 
 
 def _make_projector_service(jobs, sector_snapshot_store=None):
