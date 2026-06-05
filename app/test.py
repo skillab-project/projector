@@ -111,15 +111,21 @@ class _FakeServiceSectoral:
 class _FakeSectorSnapshotStore:
     enabled = True
 
-    def __init__(self, payload=None):
+    def __init__(self, payload=None, refresh_status=None):
         self.payload = payload
+        self.refresh_status = refresh_status
         self.requests = []
+        self.refresh_status_requests = []
 
     def read_latest(self, year, location_code=None):
         self.requests.append((year, location_code))
         if isinstance(self.payload, dict) and "by_year" in self.payload:
             return self.payload["by_year"].get(year)
         return self.payload
+
+    def read_refresh_status(self, year, location_code=None):
+        self.refresh_status_requests.append((year, location_code))
+        return self.refresh_status
 
 
 class _FakeSchedulerSnapshotStore:
@@ -436,6 +442,150 @@ async def test_backfill_script_fetch_jobs_with_progress(monkeypatch):
     assert callbacks == ["called"]
     assert any("year 2024: fetching Tracker jobs" in message for message in info_messages)
     assert all(message is not None for message in info_messages)
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_records_refresh_status(monkeypatch):
+    class FakeStore:
+        enabled = True
+
+        def __init__(self):
+            self.statuses = []
+
+        def write_refresh_status(self, **kwargs):
+            self.statuses.append(kwargs)
+
+    store = FakeStore()
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **kwargs):
+            progress_callback = kwargs["progress_callback"]
+            progress_callback({
+                "fetched": 100,
+                "total": 250,
+                "page": 5,
+                "source": "tracker",
+            })
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=store),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    assert store.statuses == [{
+        "year": 2024,
+        "location_code": None,
+        "status": "failed",
+        "last_error": "connection failed",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+    }]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_without_store_reraises(monkeypatch):
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=None),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_with_disabled_store_does_not_record(monkeypatch):
+    class FakeStore:
+        enabled = False
+
+        def write_refresh_status(self, **_kwargs):
+            raise AssertionError("disabled store should not be written")
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **_kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=FakeStore()),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_with_store_without_enabled_does_not_record(monkeypatch):
+    class FakeStore:
+        def write_refresh_status(self, **_kwargs):
+            raise AssertionError("store without enabled flag should not be written")
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **_kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=FakeStore()),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_without_progress_records_zero_counts(monkeypatch):
+    class FakeStore:
+        enabled = True
+
+        def __init__(self):
+            self.statuses = []
+
+        def write_refresh_status(self, **kwargs):
+            self.statuses.append(kwargs)
+
+    store = FakeStore()
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **_kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=store),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    assert store.statuses[0]["fetched_jobs"] == 0
+    assert store.statuses[0]["expected_jobs"] == 0
+    assert store.statuses[0]["last_checkpoint_page"] is None
 
 
 @pytest.mark.asyncio
@@ -1249,13 +1399,25 @@ async def test_projector_service_sectoral_snapshot_returns_not_available_without
 
 @pytest.mark.asyncio
 async def test_projector_service_sectoral_snapshot_store_miss_does_not_fetch_tracker():
-    store = _FakeSectorSnapshotStore(None)
+    refresh_status = {
+        "status": "failed",
+        "last_success_at": "2026-06-05T20:00:00+00:00",
+        "last_failed_at": "2026-06-06T01:00:00+00:00",
+        "last_error": "Tracker jobs fetch failed at page 5",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+    }
+    store = _FakeSectorSnapshotStore(None, refresh_status=refresh_status)
     fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
 
     result = await fake_service.sectoral_snapshot(year=2024)
 
     assert result["status"] == "not_available"
     assert result["data_source"] == "postgres"
+    assert result["refresh_status"] == refresh_status
+    assert store.refresh_status_requests == [(2024, None)]
     assert fake_tracker.fetch_payloads == []
 
 
@@ -1337,6 +1499,30 @@ async def test_projector_service_sector_skills_comparison_builds_matrix():
     assert cell["rank"] == 1
     assert cell["growth"] == 2.0
     assert cell["value"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sector_skills_comparison_includes_failed_refresh_status_on_miss():
+    refresh_status = {
+        "status": "failed",
+        "last_success_at": "2026-06-05T20:00:00+00:00",
+        "last_failed_at": "2026-06-06T01:00:00+00:00",
+        "last_error": "Tracker jobs fetch failed at page 5",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+    }
+    store = _FakeSectorSnapshotStore(None, refresh_status=refresh_status)
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sector_skills_comparison(year=2024, locations=["IT"])
+
+    assert result["status"] == "not_available"
+    assert result["data_source"] == "postgres"
+    assert result["refresh_status"] == refresh_status
+    assert store.refresh_status_requests == [(2024, "IT")]
+    assert fake_tracker.fetch_payloads == []
 
 
 @pytest.mark.asyncio

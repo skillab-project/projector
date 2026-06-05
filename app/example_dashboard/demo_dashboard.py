@@ -136,6 +136,10 @@ translations = {
         'no_disappeared_skills': "Nessuna skill scomparsa.",
         'no_growing_skills': "Nessuna skill in crescita.",
         'no_declining_skills': "Nessuna skill in calo.",
+        'refresh_failed': "Ultimo aggiornamento snapshot fallito.",
+        'refresh_last_success': "Ultimo aggiornamento riuscito",
+        'refresh_resume': "Ripartenza fetch",
+        'refresh_jobs': "Job recuperati",
         'evolution_count': "Conteggio",
         'evolution_reference_count': "Conteggio confronto",
         'evolution_delta': "Delta",
@@ -290,6 +294,10 @@ translations = {
         'no_disappeared_skills': "No disappeared skill detected.",
         'no_growing_skills': "No growing skill detected.",
         'no_declining_skills': "No declining skill detected.",
+        'refresh_failed': "Last snapshot refresh failed.",
+        'refresh_last_success': "Last successful refresh",
+        'refresh_resume': "Fetch resume",
+        'refresh_jobs': "Fetched jobs",
         'evolution_count': "Count",
         'evolution_reference_count': "Reference count",
         'evolution_delta': "Delta",
@@ -592,6 +600,28 @@ def get_sector_skills_comparison_data(api_base_url: str, payload: dict, timeout_
         return res.json()
 
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def render_refresh_status_notice(response: dict):
+    refresh_status = (response or {}).get("refresh_status") or {}
+    if (response or {}).get("data_source") != "postgres":
+        return
+    if refresh_status.get("status") != "failed":
+        return
+
+    details = []
+    if refresh_status.get("last_success_at"):
+        details.append(f"{T['refresh_last_success']}: {refresh_status['last_success_at']}")
+    if refresh_status.get("last_checkpoint_page"):
+        details.append(f"{T['refresh_resume']}: page {refresh_status['last_checkpoint_page']}")
+    fetched = refresh_status.get("fetched_jobs")
+    expected = refresh_status.get("expected_jobs")
+    if fetched or expected:
+        details.append(f"{T['refresh_jobs']}: {fetched or 0}/{expected or 0}")
+    if refresh_status.get("last_error"):
+        details.append(str(refresh_status["last_error"])[:240])
+
+    st.warning(f"{T['refresh_failed']} {' | '.join(details)}")
 
 
 def build_skill_portfolio_rows(snapshot_sectors: list[dict], target_sector: dict):
@@ -1450,6 +1480,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 )
 
             comparison_rows = sector_skills_comparison_response.get("matrix", [])
+            render_refresh_status_notice(sector_skills_comparison_response)
             if comparison_rows:
                 z, text, hover = build_heatmap_tables(comparison_rows)
                 colorscale = "Viridis" if sector_skills_comparison_response.get("metric") != "growth" else "RdYlGn"
@@ -1512,6 +1543,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
             f"{snapshot_window.get('max_date') or sectoral_window.get('max_date', '-')})"
         )
         snapshot_target = None
+        render_refresh_status_notice(sectoral_snapshot_response)
         if snapshot_sectors:
             h_main, h_info = st.columns([8, 1])
             with h_main:

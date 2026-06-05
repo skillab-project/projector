@@ -102,8 +102,15 @@ async def fetch_jobs_for_year_with_progress(
     min_date, max_date = year_window(year)
     filters = year_filters(year)
     started_at = time.perf_counter()
+    latest_progress = {
+        "fetched": 0,
+        "total": 0,
+        "page": None,
+        "source": "tracker",
+    }
 
     def on_progress(progress: dict):
+        latest_progress.update(progress)
         message = fetch_progress_message(year, progress, started_at)
         if progress.get("done"):
             logger.info(message)
@@ -112,14 +119,29 @@ async def fetch_jobs_for_year_with_progress(
             logger.debug("year %s fetch progress payload=%s", year, progress)
 
     logger.info("year %s: fetch started window=%s..%s", year, min_date, max_date)
-    jobs = await service.tracker.fetch_all_jobs(
-        filters,
-        page_size=page_size,
-        progress_callback=on_progress,
-        page_concurrency=page_concurrency,
-        max_retries=max_retries,
-        require_complete_cache=True,
-    )
+    try:
+        jobs = await service.tracker.fetch_all_jobs(
+            filters,
+            page_size=page_size,
+            progress_callback=on_progress,
+            page_concurrency=page_concurrency,
+            max_retries=max_retries,
+            require_complete_cache=True,
+        )
+    except Exception as exc:
+        store = getattr(service, "sector_snapshot_store", None)
+        if store and getattr(store, "enabled", False):
+            store.write_refresh_status(
+                year=year,
+                location_code=None,
+                status="failed",
+                last_error=str(exc),
+                last_checkpoint_page=latest_progress.get("page"),
+                fetched_jobs=int(latest_progress.get("fetched") or 0),
+                expected_jobs=int(latest_progress.get("total") or 0),
+                source=latest_progress.get("source"),
+            )
+        raise
     elapsed = time.perf_counter() - started_at
     logger.info("year %s: fetch completed jobs=%s elapsed=%.1fs", year, len(jobs), elapsed)
     return jobs, elapsed

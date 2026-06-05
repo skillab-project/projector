@@ -42,6 +42,21 @@ CREATE TABLE IF NOT EXISTS sector_yearly_snapshots (
 
 CREATE INDEX IF NOT EXISTS ix_sector_yearly_snapshots_lookup
     ON sector_yearly_snapshots (year, COALESCE(location_code, ''), job_count DESC);
+
+CREATE TABLE IF NOT EXISTS sector_snapshot_refresh_status (
+    year INTEGER NOT NULL,
+    location_code TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    last_success_at TIMESTAMPTZ,
+    last_failed_at TIMESTAMPTZ,
+    last_error TEXT,
+    last_checkpoint_page INTEGER,
+    fetched_jobs INTEGER NOT NULL DEFAULT 0,
+    expected_jobs INTEGER NOT NULL DEFAULT 0,
+    source TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (year, location_code)
+);
 """
 
 
@@ -114,6 +129,7 @@ class SectorSnapshotStore:
             },
             "total_jobs": run["total_jobs"],
             "sector_filter": [],
+            "refresh_status": self.read_refresh_status(year, location_code),
             "sectors": [
                 {
                     **dict(row),
@@ -145,6 +161,100 @@ class SectorSnapshotStore:
             ).fetchone()
 
         return row["completed_at"] if row else None
+
+    def read_refresh_status(self, year: int, location_code: Optional[str] = None):
+        if not self.enabled:
+            return None
+
+        rows = []
+        with self._connect() as conn:
+            for key in [location_code, ""] if location_code else [""]:
+                row = conn.execute(
+                    """
+                    SELECT status, last_success_at, last_failed_at, last_error,
+                           last_checkpoint_page, fetched_jobs, expected_jobs, source, updated_at
+                    FROM sector_snapshot_refresh_status
+                    WHERE year = %s AND location_code = %s
+                    LIMIT 1
+                    """,
+                    (year, key),
+                ).fetchone()
+                if row:
+                    rows.append(row)
+                    break
+
+        if not rows:
+            return None
+        row = rows[0]
+        return {
+            "status": row["status"],
+            "last_success_at": row["last_success_at"].isoformat() if row["last_success_at"] else None,
+            "last_failed_at": row["last_failed_at"].isoformat() if row["last_failed_at"] else None,
+            "last_error": row["last_error"],
+            "last_checkpoint_page": row["last_checkpoint_page"],
+            "fetched_jobs": row["fetched_jobs"],
+            "expected_jobs": row["expected_jobs"],
+            "source": row["source"],
+            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+        }
+
+    def write_refresh_status(
+            self,
+            year: int,
+            location_code: Optional[str],
+            status: str,
+            last_error: Optional[str] = None,
+            last_checkpoint_page: Optional[int] = None,
+            fetched_jobs: int = 0,
+            expected_jobs: int = 0,
+            source: Optional[str] = None,
+    ):
+        self.ensure_schema()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO sector_snapshot_refresh_status (
+                    year, location_code, status, last_success_at, last_failed_at,
+                    last_error, last_checkpoint_page, fetched_jobs, expected_jobs, source, updated_at
+                )
+                VALUES (
+                    %s, %s, %s,
+                    CASE WHEN %s = 'completed' THEN now() ELSE NULL END,
+                    CASE WHEN %s = 'failed' THEN now() ELSE NULL END,
+                    %s, %s, %s, %s, %s, now()
+                )
+                ON CONFLICT (year, location_code)
+                DO UPDATE SET
+                    status = EXCLUDED.status,
+                    last_success_at = CASE
+                        WHEN EXCLUDED.status = 'completed' THEN EXCLUDED.last_success_at
+                        ELSE sector_snapshot_refresh_status.last_success_at
+                    END,
+                    last_failed_at = CASE
+                        WHEN EXCLUDED.status = 'failed' THEN EXCLUDED.last_failed_at
+                        ELSE sector_snapshot_refresh_status.last_failed_at
+                    END,
+                    last_error = EXCLUDED.last_error,
+                    last_checkpoint_page = EXCLUDED.last_checkpoint_page,
+                    fetched_jobs = EXCLUDED.fetched_jobs,
+                    expected_jobs = EXCLUDED.expected_jobs,
+                    source = EXCLUDED.source,
+                    updated_at = now()
+                """,
+                (
+                    year,
+                    location_code or "",
+                    status,
+                    status,
+                    status,
+                    last_error,
+                    last_checkpoint_page,
+                    fetched_jobs,
+                    expected_jobs,
+                    source,
+                ),
+            )
+            conn.commit()
 
     def write_snapshot(
             self,
@@ -214,4 +324,12 @@ class SectorSnapshotStore:
                     (run_id,),
                 )
 
+        self.write_refresh_status(
+            year=year,
+            location_code=location_code,
+            status="completed",
+            fetched_jobs=total_jobs,
+            expected_jobs=total_jobs,
+            source="tracker",
+        )
         return run_id

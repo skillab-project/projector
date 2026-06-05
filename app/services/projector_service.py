@@ -248,7 +248,14 @@ class ProjectorService:
             reference_payload = self._read_sector_snapshot_store(reference_year, location_code) or {"sectors": []}
             return self._enrich_sector_snapshot_payload(store_payload, reference_payload, reference_year)
         if self._sector_snapshot_store_enabled():
-            return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "postgres")
+            return self._empty_sector_snapshot(
+                year,
+                min_date,
+                max_date,
+                sector_filter,
+                "postgres",
+                refresh_status=self._read_sector_refresh_status(year, location_code),
+            )
 
         normalized_source = str(data_source or "cache").strip().lower()
         if normalized_source not in {"cache", "live"}:
@@ -319,6 +326,7 @@ class ProjectorService:
                 "sectors": [],
                 "skills": [],
                 "matrix": [],
+                "refresh_status": self._read_sector_refresh_status(year, location_code),
                 "message": f"No static sector snapshot available for {year}. Run the snapshot refresh job first.",
             }
 
@@ -340,6 +348,7 @@ class ProjectorService:
             "data_source": current.get("data_source", "postgres"),
             "metric": metric,
             "window": current.get("window", self._sectoral_window_meta(f"{year} snapshot", min_date, max_date)),
+            "refresh_status": current.get("refresh_status") or self._read_sector_refresh_status(year, location_code),
             "sectors": [sector["sector_label"] for sector in selected_sectors],
             "skills": [skill["label"] for skill in selected_skills],
             "matrix": matrix,
@@ -357,6 +366,12 @@ class ProjectorService:
         if not self._sector_snapshot_store_enabled():
             return None
         return store.read_latest(int(year), location_code)
+
+    def _read_sector_refresh_status(self, year: int, location_code: Optional[str]):
+        store = self.sector_snapshot_store
+        if not self._sector_snapshot_store_enabled() or not hasattr(store, "read_refresh_status"):
+            return None
+        return store.read_refresh_status(int(year), location_code)
 
     def _sector_snapshot_store_enabled(self):
         return bool(self.sector_snapshot_store and getattr(self.sector_snapshot_store, "enabled", False))
@@ -615,6 +630,7 @@ class ProjectorService:
             sector_filter: List[str],
             data_source: str,
             total_jobs: int = 0,
+            refresh_status: Optional[dict] = None,
     ):
         return {
             "status": "not_available",
@@ -624,6 +640,7 @@ class ProjectorService:
             "total_jobs": total_jobs,
             "sector_filter": sector_filter,
             "sectors": [],
+            "refresh_status": refresh_status,
             "message": f"No static sector snapshot available for {year}. Run the snapshot refresh job first.",
         }
 
