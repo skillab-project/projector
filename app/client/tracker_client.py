@@ -191,6 +191,10 @@ class TrackerClient:
         query_sig, cache_dir, _cache_file = self._cache_file_for_filters(filters)
         return query_sig, cache_dir, f"{cache_dir}/search_{query_sig}.partial.json"
 
+    def _cache_meta_file_for_filters(self, filters: dict):
+        query_sig, cache_dir, _cache_file = self._cache_file_for_filters(filters)
+        return query_sig, cache_dir, f"{cache_dir}/search_{query_sig}.meta.json"
+
     def _write_json_atomic(self, path: str, payload):
         directory = os.path.dirname(path)
         if directory and not os.path.exists(directory):
@@ -201,7 +205,12 @@ class TrackerClient:
         os.replace(tmp_path, path)
 
     def load_cached_jobs(self, filters: dict):
+        cache_info = self.load_cached_jobs_info(filters)
+        return cache_info["jobs"] if cache_info else None
+
+    def load_cached_jobs_info(self, filters: dict):
         query_sig, _cache_dir, cache_file = self._cache_file_for_filters(filters)
+        _query_sig, _cache_dir, cache_meta_file = self._cache_meta_file_for_filters(filters)
         if not os.path.exists(cache_file):
             logger.info(f"Cache Miss: {query_sig}")
             return None
@@ -214,7 +223,49 @@ class TrackerClient:
             logger.info(f"Cache stale without job sectors: {query_sig}")
             return None
 
-        return cached_jobs
+        metadata = {}
+        if os.path.exists(cache_meta_file):
+            try:
+                with open(cache_meta_file, "r") as f:
+                    metadata = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                logger.warning(f"Cache metadata unreadable: {query_sig}")
+
+        return {
+            "jobs": cached_jobs,
+            "metadata": metadata,
+            "complete": self.is_complete_jobs_cache(cached_jobs, metadata),
+        }
+
+    def is_complete_jobs_cache(self, jobs: list, metadata: dict):
+        total = int(metadata.get("total") or 0)
+        fetched = int(metadata.get("fetched") or len(jobs))
+        return (
+            metadata.get("status") == "complete"
+            and total > 0
+            and fetched >= total
+            and len(jobs) >= total
+        )
+
+    def write_completed_jobs_cache(self, filters: dict, page_size: int, jobs: list, total: int):
+        query_sig, _cache_dir, cache_file = self._cache_file_for_filters(filters)
+        _query_sig, _cache_dir, cache_meta_file = self._cache_meta_file_for_filters(filters)
+        metadata = {
+            "filters": filters,
+            "page_size": page_size,
+            "fetched": len(jobs),
+            "total": total,
+            "status": "complete",
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        self._write_json_atomic(cache_file, jobs)
+        self._write_json_atomic(cache_meta_file, metadata)
+        logger.info(
+            "Cache completed: %s jobs=%s total=%s",
+            query_sig,
+            len(jobs),
+            total,
+        )
 
     def load_job_fetch_checkpoint(self, filters: dict, page_size: int):
         query_sig, _cache_dir, checkpoint_file = self._checkpoint_file_for_filters(filters)
@@ -344,6 +395,7 @@ class TrackerClient:
             max_retries: int = 5,
             retry_backoff_seconds: float = 1.0,
             page_concurrency: int = 1,
+            require_complete_cache: bool = False,
     ):
         """
            Fetches all job postings from the Tracker API using pagination and caching.
@@ -375,17 +427,16 @@ class TrackerClient:
 
            Side Effects:
                - Writes cache files to disk
-           """
+        """
         # Non resettiamo stop_requested qui, lo facciamo negli endpoint all'inizio
-        query_sig, cache_dir, cache_file = self._cache_file_for_filters(filters)
-
-        cached_jobs = self.load_cached_jobs(filters)
-        if cached_jobs is not None:
+        cached_info = self.load_cached_jobs_info(filters)
+        if cached_info is not None and (cached_info["complete"] or not require_complete_cache):
+            cached_jobs = cached_info["jobs"]
             if progress_callback:
                 progress_callback({
                     "source": "cache",
                     "fetched": len(cached_jobs),
-                    "total": len(cached_jobs),
+                    "total": int(cached_info["metadata"].get("total") or len(cached_jobs)),
                     "page": 0,
                     "page_size": page_size,
                     "done": True,
@@ -393,6 +444,35 @@ class TrackerClient:
             return cached_jobs
 
         if not self.engine.token: await self._get_token()
+
+        if cached_info is not None and require_complete_cache:
+            probe = await self._fetch_jobs_page(
+                filters,
+                page=1,
+                page_size=1,
+                max_retries=max_retries,
+                retry_backoff_seconds=retry_backoff_seconds,
+            )
+            available_total = int(probe.get("count") or 0)
+            cached_jobs = cached_info["jobs"]
+            if available_total and len(cached_jobs) >= available_total:
+                self.write_completed_jobs_cache(filters, page_size, cached_jobs, available_total)
+                if progress_callback:
+                    progress_callback({
+                        "source": "cache_validated",
+                        "fetched": len(cached_jobs),
+                        "total": available_total,
+                        "page": 0,
+                        "page_size": page_size,
+                        "done": True,
+                    })
+                return cached_jobs
+            logger.warning(
+                "Cache incomplete for Tracker jobs query: cached=%s available=%s. "
+                "Ignoring cache and resuming from checkpoint/API.",
+                len(cached_jobs),
+                available_total,
+            )
 
         checkpoint = self.load_job_fetch_checkpoint(filters, page_size)
         if checkpoint:
@@ -454,6 +534,12 @@ class TrackerClient:
 
                 total = data.get("count", 0)
                 total_from_checkpoint = total
+                if not items and total and len(all_jobs) < total:
+                    self.write_job_fetch_checkpoint(filters, page_size, all_jobs, batch_page, total)
+                    raise RuntimeError(
+                        f"Tracker jobs returned an empty page before completion at page {batch_page}: "
+                        f"{len(all_jobs)}/{total}. Checkpoint saved; rerun resumes from last completed page."
+                    )
                 done = len(all_jobs) >= total or not items
                 next_page = batch_page + 1
                 self.write_job_fetch_checkpoint(filters, page_size, all_jobs, next_page, total)
@@ -480,8 +566,8 @@ class TrackerClient:
             page = batch_pages[-1] + 1
             await asyncio.sleep(0.01)  # Checkpoint per event loop
 
-        if not self.engine.stop_requested and all_jobs:
-            self._write_json_atomic(cache_file, all_jobs)
+        if not self.engine.stop_requested and all_jobs and len(all_jobs) >= int(total_from_checkpoint or 0):
+            self.write_completed_jobs_cache(filters, page_size, all_jobs, int(total_from_checkpoint or len(all_jobs)))
             self.clear_job_fetch_checkpoint(filters)
 
         return all_jobs

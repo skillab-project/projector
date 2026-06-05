@@ -113,6 +113,7 @@ async def fetch_jobs_for_year_with_progress(
         progress_callback=on_progress,
         page_concurrency=page_concurrency,
         max_retries=max_retries,
+        require_complete_cache=True,
     )
     elapsed = time.perf_counter() - started_at
     logger.info("year %s: fetch completed jobs=%s elapsed=%.1fs", year, len(jobs), elapsed)
