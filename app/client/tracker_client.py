@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
-from typing import List
+from typing import Callable, List, Optional
 
 import httpx
 
@@ -202,7 +202,12 @@ class TrackerClient:
 
         return cached_jobs
 
-    async def fetch_all_jobs(self, filters: dict, page_size: int = 500):
+    async def fetch_all_jobs(
+            self,
+            filters: dict,
+            page_size: int = 500,
+            progress_callback: Optional[Callable[[dict], None]] = None,
+    ):
         """
            Fetches all job postings from the Tracker API using pagination and caching.
 
@@ -239,6 +244,15 @@ class TrackerClient:
 
         cached_jobs = self.load_cached_jobs(filters)
         if cached_jobs is not None:
+            if progress_callback:
+                progress_callback({
+                    "source": "cache",
+                    "fetched": len(cached_jobs),
+                    "total": len(cached_jobs),
+                    "page": 0,
+                    "page_size": page_size,
+                    "done": True,
+                })
             return cached_jobs
 
         if not self.engine.token: await self._get_token()
@@ -266,6 +280,15 @@ class TrackerClient:
 
                 total = data.get("count", 0)
                 logger.info(f"Fetching: {len(all_jobs)}/{total} (Pagina {page})")
+                if progress_callback:
+                    progress_callback({
+                        "source": "tracker",
+                        "fetched": len(all_jobs),
+                        "total": total,
+                        "page": page,
+                        "page_size": page_size,
+                        "done": len(all_jobs) >= total or not items,
+                    })
 
                 if len(all_jobs) >= total or not items: break
                 page += 1

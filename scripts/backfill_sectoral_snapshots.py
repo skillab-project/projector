@@ -1,7 +1,10 @@
 import argparse
 import asyncio
+import logging
 import sys
+import time
 from datetime import date, datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -11,15 +14,46 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.refresh_sectoral_snapshot import (
     available_location_codes,
     build_projector_service,
-    fetch_jobs_for_year,
     filter_jobs_by_location,
+    year_window,
     write_snapshot_from_jobs,
 )
 
 
-def log(message: str):
-    timestamp = datetime.now().isoformat(timespec="seconds")
-    print(f"[{timestamp}] {message}", flush=True)
+LOGGER_NAME = "sector_snapshot_backfill"
+logger = logging.getLogger(LOGGER_NAME)
+
+
+def setup_logging(log_file: str, debug: bool):
+    log_path = Path(log_file)
+    if not log_path.is_absolute():
+        log_path = REPO_ROOT / log_path
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    logger.handlers.clear()
+
+    formatter = logging.Formatter(
+        fmt="[%(asctime)s] %(levelname)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    console = logging.StreamHandler()
+    console.setLevel(logging.DEBUG if debug else logging.INFO)
+    console.setFormatter(formatter)
+
+    file_handler = RotatingFileHandler(
+        log_path,
+        maxBytes=2_000_000,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(console)
+    logger.addHandler(file_handler)
+    logger.info("logging initialized: file=%s debug=%s", log_path, debug)
 
 
 def progress_bar(current: int, total: int, width: int = 24):
@@ -28,6 +62,45 @@ def progress_bar(current: int, total: int, width: int = 24):
     filled = round(width * current / total)
     bar = "#" * filled + "-" * (width - filled)
     return f"[{bar}] {current}/{total}"
+
+
+def fetch_progress_message(year: int, progress: dict, started_at: float):
+    fetched = int(progress.get("fetched", 0) or 0)
+    total = int(progress.get("total", 0) or 0)
+    page = progress.get("page", "?")
+    source = progress.get("source", "tracker")
+    elapsed = time.perf_counter() - started_at
+    return (
+        f"year {year}: fetching Tracker jobs "
+        f"{progress_bar(fetched, total)} page={page} "
+        f"source={source} elapsed={elapsed:.1f}s"
+    )
+
+
+async def fetch_jobs_for_year_with_progress(service, year: int):
+    min_date, max_date = year_window(year)
+    filters = {
+        "min_upload_date": min_date,
+        "max_upload_date": max_date,
+    }
+    started_at = time.perf_counter()
+
+    def on_progress(progress: dict):
+        message = fetch_progress_message(year, progress, started_at)
+        if progress.get("done"):
+            logger.info(message)
+        else:
+            logger.info(message)
+            logger.debug("year %s fetch progress payload=%s", year, progress)
+
+    logger.info("year %s: fetch started window=%s..%s", year, min_date, max_date)
+    jobs = await service.tracker.fetch_all_jobs(
+        filters,
+        progress_callback=on_progress,
+    )
+    elapsed = time.perf_counter() - started_at
+    logger.info("year %s: fetch completed jobs=%s elapsed=%.1fs", year, len(jobs), elapsed)
+    return jobs, elapsed
 
 
 def parse_regions(values: list[str] | None):
@@ -45,13 +118,14 @@ async def backfill_year(
         include_global: bool,
 ):
     service = build_projector_service()
-    log(f"year {year}: fetching Tracker jobs")
-    jobs = await fetch_jobs_for_year(year)
-    log(f"year {year}: fetched {len(jobs)} jobs")
+    jobs, fetch_elapsed = await fetch_jobs_for_year_with_progress(service, year)
+    logger.info("year %s: fetched %s jobs in %.1fs", year, len(jobs), fetch_elapsed)
     selected_regions = regions or available_location_codes(jobs)
-    log(
-        f"year {year}: selected {len(selected_regions)} region(s)"
-        f"{' from CLI' if regions else ' from Tracker jobs'}"
+    logger.info(
+        "year %s: selected %s region(s) %s",
+        year,
+        len(selected_regions),
+        "from CLI" if regions else "from Tracker jobs",
     )
     results = []
     total_targets = len(selected_regions) + (1 if include_global else 0)
@@ -59,7 +133,11 @@ async def backfill_year(
 
     if include_global:
         current_target += 1
-        log(f"year {year}: {progress_bar(current_target, total_targets)} writing GLOBAL snapshot")
+        logger.info(
+            "year %s: %s writing GLOBAL snapshot",
+            year,
+            progress_bar(current_target, total_targets),
+        )
         run_id, job_count, sector_count = await write_snapshot_from_jobs(
             service,
             year,
@@ -67,17 +145,23 @@ async def backfill_year(
             None,
         )
         results.append((year, "GLOBAL", run_id, job_count, sector_count))
-        log(
-            f"year {year}: GLOBAL done run_id={run_id} "
-            f"jobs={job_count} sectors={sector_count}"
+        logger.info(
+            "year %s: GLOBAL done run_id=%s jobs=%s sectors=%s",
+            year,
+            run_id,
+            job_count,
+            sector_count,
         )
 
     for region in selected_regions:
         current_target += 1
         region_jobs = filter_jobs_by_location(jobs, region)
-        log(
-            f"year {year}: {progress_bar(current_target, total_targets)} "
-            f"writing region={region} jobs={len(region_jobs)}"
+        logger.info(
+            "year %s: %s writing region=%s jobs=%s",
+            year,
+            progress_bar(current_target, total_targets),
+            region,
+            len(region_jobs),
         )
         run_id, job_count, sector_count = await write_snapshot_from_jobs(
             service,
@@ -86,9 +170,13 @@ async def backfill_year(
             region,
         )
         results.append((year, region, run_id, job_count, sector_count))
-        log(
-            f"year {year}: region={region} done run_id={run_id} "
-            f"jobs={job_count} sectors={sector_count}"
+        logger.info(
+            "year %s: region=%s done run_id=%s jobs=%s sectors=%s",
+            year,
+            region,
+            run_id,
+            job_count,
+            sector_count,
         )
 
     return results
@@ -100,26 +188,39 @@ async def backfill_snapshots(
         regions: list[str] | None,
         include_global: bool,
 ):
+    if not logger.handlers:
+        setup_logging("logs/sector_snapshot_backfill.log", False)
+
     all_results = []
     years = list(range(start_year, end_year + 1))
-    log(
-        "backfill started: "
-        f"years={start_year}-{end_year} "
-        f"regions={'auto' if regions is None else ','.join(regions)} "
-        f"include_global={include_global}"
+    started_at = time.perf_counter()
+    logger.info(
+        "backfill started: years=%s-%s regions=%s include_global=%s",
+        start_year,
+        end_year,
+        "auto" if regions is None else ",".join(regions),
+        include_global,
     )
     for index, year in enumerate(years, start=1):
-        log(f"year progress {progress_bar(index, len(years))} current={year}")
-        year_results = await backfill_year(year, regions, include_global)
+        logger.info("year progress %s current=%s", progress_bar(index, len(years)), year)
+        try:
+            year_results = await backfill_year(year, regions, include_global)
+        except Exception:
+            logger.exception("year %s: backfill failed", year)
+            raise
         all_results.extend(year_results)
         for result in year_results:
             year, region, run_id, job_count, sector_count = result
-            log(
-                "sector snapshot backfilled: "
-                f"year={year} region={region} run_id={run_id} "
-                f"jobs={job_count} sectors={sector_count}"
+            logger.info(
+                "sector snapshot backfilled: year=%s region=%s run_id=%s jobs=%s sectors=%s",
+                year,
+                region,
+                run_id,
+                job_count,
+                sector_count,
             )
-    log(f"backfill completed: snapshots={len(all_results)}")
+    elapsed = time.perf_counter() - started_at
+    logger.info("backfill completed: snapshots=%s elapsed=%.1fs", len(all_results), elapsed)
     return all_results
 
 
@@ -141,11 +242,22 @@ def main():
         action="store_true",
         help="Do not write the global yearly snapshot.",
     )
+    parser.add_argument(
+        "--log-file",
+        default="logs/sector_snapshot_backfill.log",
+        help="Rotating log file path.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable DEBUG logs on console and file.",
+    )
     args = parser.parse_args()
 
     if args.end_year < args.start_year:
         raise ValueError("--end-year must be greater than or equal to --start-year")
 
+    setup_logging(args.log_file, args.debug)
     asyncio.run(
         backfill_snapshots(
             start_year=args.start_year,

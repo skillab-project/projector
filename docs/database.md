@@ -113,6 +113,17 @@ This fetches each year once, derives available `location_code` values from Track
 - one global snapshot per year
 - one regional snapshot per detected location and year
 
+Backfill logs include Tracker fetch progress, per-year elapsed time and rotating file logs:
+
+```bash
+python scripts/backfill_sectoral_snapshots.py \
+  --start-year 2020 \
+  --end-year 2024 \
+  --log-file logs/sector_snapshot_backfill.log
+```
+
+Use `--debug` for DEBUG-level console logs. The log file always receives DEBUG, INFO and ERROR entries and rotates automatically.
+
 Recurring refresh:
 
 ```bash
