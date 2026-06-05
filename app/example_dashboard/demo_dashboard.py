@@ -2115,6 +2115,40 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     st.info(T["no_data"])
                 st.stop()
 
+            portfolio_rows = build_skill_portfolio_rows(snapshot_sectors, snapshot_target)
+            st.subheader(T["skill_portfolio"], help=T["skill_portfolio_help"])
+            if portfolio_rows:
+                df_portfolio = pd.DataFrame(portfolio_rows)
+                fig_portfolio = px.scatter(
+                    df_portfolio,
+                    x="sector_breadth",
+                    y="importance",
+                    size="count",
+                    color="category",
+                    hover_name="label",
+                    hover_data={
+                        "skill_id": True,
+                        "count": True,
+                        "importance": ":.3f",
+                        "sector_breadth": True,
+                        "category": True,
+                    },
+                    labels={
+                        "sector_breadth": "sector breadth",
+                        "importance": "importance in sector",
+                        "count": "count",
+                        "category": "type",
+                    },
+                )
+                fig_portfolio.update_layout(height=420)
+                st.plotly_chart(
+                    fig_portfolio,
+                    width="stretch",
+                    key=f"skill_portfolio_{sectoral_snapshot_year}_{sectoral_location or 'global'}_{snapshot_target.get('sector')}"
+                )
+            else:
+                st.info(T["no_data"])
+
             snap_skill_col, snap_title_col = st.columns(2)
 
             with snap_skill_col:
@@ -2188,38 +2222,6 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                                 ),
                             }
                         )
-
-                portfolio_rows = build_skill_portfolio_rows(snapshot_sectors, snapshot_target)
-                if portfolio_rows:
-                    st.subheader(T["skill_portfolio"], help=T["skill_portfolio_help"])
-                    df_portfolio = pd.DataFrame(portfolio_rows)
-                    fig_portfolio = px.scatter(
-                        df_portfolio,
-                        x="sector_breadth",
-                        y="importance",
-                        size="count",
-                        color="category",
-                        hover_name="label",
-                        hover_data={
-                            "skill_id": True,
-                            "count": True,
-                            "importance": ":.3f",
-                            "sector_breadth": True,
-                            "category": True,
-                        },
-                        labels={
-                            "sector_breadth": "sector breadth",
-                            "importance": "importance in sector",
-                            "count": "count",
-                            "category": "type",
-                        },
-                    )
-                    fig_portfolio.update_layout(height=420)
-                    st.plotly_chart(
-                        fig_portfolio,
-                        width="stretch",
-                        key=f"skill_portfolio_{sectoral_snapshot_year}_{sectoral_location or 'global'}_{snapshot_target.get('sector')}"
-                    )
 
             with snap_title_col:
                 st.subheader(T["sectoral_top_titles"], help=STAT_HELP["title_count"])
