@@ -1,6 +1,6 @@
 # GitHub App for Jenkins
 
-Use a GitHub App when Jenkins should publish PR comments and commit statuses as a bot instead of a personal user.
+Use a GitHub App when Jenkins should publish PR comments, commit comments, and commit statuses as a bot instead of a personal user.
 
 ## App Settings
 
@@ -14,6 +14,7 @@ Create the app under the GitHub organization:
 Permissions:
 
 - Commit statuses: read/write
+- Contents: read/write
 - Issues: read/write
 - Pull requests: read
 - Metadata: read
@@ -44,4 +45,4 @@ GITHUB_TOKEN=$(python tools/github_app_token.py \
 
 Then pass `GITHUB_TOKEN` to `tools/github_statuses.py`.
 
-The resulting PR comments and commit status will be authored by the GitHub App bot.
+The resulting PR comments, commit comments, and commit status will be authored by the GitHub App bot.
