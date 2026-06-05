@@ -291,14 +291,21 @@ async def test_refresh_script_refresh_snapshot_composes_steps(monkeypatch):
     monkeypatch.setattr(refresh_script, "build_projector_service", lambda: service)
     fetch_jobs = AsyncMock(return_value=[{"id": 1}])
     write_jobs = AsyncMock(return_value=(7, 1, 1))
+    clear_cache = MagicMock()
     monkeypatch.setattr(refresh_script, "fetch_jobs_for_year", fetch_jobs)
     monkeypatch.setattr(refresh_script, "write_snapshot_from_jobs", write_jobs)
+    monkeypatch.setattr(refresh_script.tracker, "clear_completed_jobs_cache", clear_cache)
 
     result = await refresh_script.refresh_snapshot(2024, "IT")
 
     assert result == (7, 1, 1)
     fetch_jobs.assert_awaited_once_with(2024, "IT")
     write_jobs.assert_awaited_once_with(service, 2024, [{"id": 1}], "IT")
+    clear_cache.assert_called_once_with({
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+        "location_code": ["IT"],
+    })
 
 
 def test_refresh_script_build_projector_service_requires_database(monkeypatch):
@@ -433,7 +440,7 @@ async def test_backfill_script_fetch_jobs_with_progress(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_backfill_script_backfill_year_writes_global_and_regions(monkeypatch):
-    service = object()
+    service = SimpleNamespace(tracker=MagicMock())
     jobs = [
         {"id": 1, "location_code": "IT"},
         {"id": 2, "location_code": "DE"},
@@ -469,6 +476,10 @@ async def test_backfill_script_backfill_year_writes_global_and_regions(monkeypat
         (2024, "IT", 3, 1, 1),
     ]
     fetch_jobs.assert_awaited_once_with(service, 2024, 100, 4, 2)
+    service.tracker.clear_completed_jobs_cache.assert_called_once_with({
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    })
     assert writes == [
         (service, 2024, [1, 2], None),
         (service, 2024, [2], "DE"),
@@ -478,7 +489,8 @@ async def test_backfill_script_backfill_year_writes_global_and_regions(monkeypat
 
 @pytest.mark.asyncio
 async def test_backfill_script_backfill_year_cli_regions_without_global(monkeypatch):
-    monkeypatch.setattr(backfill_script, "build_projector_service", lambda: object())
+    service = SimpleNamespace(tracker=MagicMock())
+    monkeypatch.setattr(backfill_script, "build_projector_service", lambda: service)
     monkeypatch.setattr(
         backfill_script,
         "fetch_jobs_for_year_with_progress",
@@ -500,6 +512,10 @@ async def test_backfill_script_backfill_year_cli_regions_without_global(monkeypa
     )
 
     assert result == [(2024, "IT", 11, 1, 1)]
+    service.tracker.clear_completed_jobs_cache.assert_called_once_with({
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    })
 
 
 @pytest.mark.asyncio
@@ -1939,6 +1955,26 @@ async def test_fetch_all_jobs_uses_complete_cache_when_api_count_matches(tmp_pat
     assert result == cached_jobs
     assert mock_post.await_count == 1
     assert mock_post.await_args.kwargs["params"] == {"page": 1, "page_size": 1}
+
+
+def test_tracker_clear_completed_jobs_cache_keeps_checkpoint(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    checkpoint_file = cache_dir / f"search_{query_sig}.partial.json"
+    cache_file.write_text("[]")
+    meta_file.write_text("{}")
+    checkpoint_file.write_text("{}")
+
+    tracker.clear_completed_jobs_cache(filters)
+
+    assert not cache_file.exists()
+    assert not meta_file.exists()
+    assert checkpoint_file.exists()
 
 
 @pytest.mark.asyncio

@@ -84,6 +84,14 @@ def fetch_progress_message(year: int, progress: dict, started_at: float):
     )
 
 
+def year_filters(year: int):
+    min_date, max_date = year_window(year)
+    return {
+        "min_upload_date": min_date,
+        "max_upload_date": max_date,
+    }
+
+
 async def fetch_jobs_for_year_with_progress(
         service,
         year: int,
@@ -92,10 +100,7 @@ async def fetch_jobs_for_year_with_progress(
         max_retries: int,
 ):
     min_date, max_date = year_window(year)
-    filters = {
-        "min_upload_date": min_date,
-        "max_upload_date": max_date,
-    }
+    filters = year_filters(year)
     started_at = time.perf_counter()
 
     def on_progress(progress: dict):
@@ -204,6 +209,9 @@ async def backfill_year(
             job_count,
             sector_count,
         )
+
+    service.tracker.clear_completed_jobs_cache(year_filters(year))
+    logger.info("year %s: completed raw Tracker jobs cache deleted", year)
 
     return results
 

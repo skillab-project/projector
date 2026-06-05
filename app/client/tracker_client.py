@@ -326,6 +326,16 @@ class TrackerClient:
         except FileNotFoundError:
             pass
 
+    def clear_completed_jobs_cache(self, filters: dict):
+        query_sig, _cache_dir, cache_file = self._cache_file_for_filters(filters)
+        _query_sig, _cache_dir, cache_meta_file = self._cache_meta_file_for_filters(filters)
+        for path in (cache_file, cache_meta_file):
+            try:
+                os.remove(path)
+                logger.info("Completed Tracker jobs cache deleted: %s path=%s", query_sig, path)
+            except FileNotFoundError:
+                pass
+
     async def _fetch_jobs_page(
             self,
             filters: dict,

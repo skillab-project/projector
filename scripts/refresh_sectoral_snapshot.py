@@ -53,6 +53,10 @@ def available_location_codes(jobs: Iterable[dict]):
 
 
 async def fetch_jobs_for_year(year: int, location_code: str | None = None):
+    return await tracker.fetch_all_jobs(year_filters(year, location_code))
+
+
+def year_filters(year: int, location_code: str | None = None):
     min_date = f"{year:04d}-01-01"
     max_date = f"{year:04d}-12-31"
     filters = {
@@ -61,8 +65,7 @@ async def fetch_jobs_for_year(year: int, location_code: str | None = None):
     }
     if location_code:
         filters["location_code"] = [location_code]
-
-    return await tracker.fetch_all_jobs(filters)
+    return filters
 
 
 async def write_snapshot_from_jobs(
@@ -89,7 +92,9 @@ async def write_snapshot_from_jobs(
 async def refresh_snapshot(year: int, location_code: str | None):
     service = build_projector_service()
     jobs = await fetch_jobs_for_year(year, location_code)
-    return await write_snapshot_from_jobs(service, year, jobs, location_code)
+    result = await write_snapshot_from_jobs(service, year, jobs, location_code)
+    tracker.clear_completed_jobs_cache(year_filters(year, location_code))
+    return result
 
 
 def main():
