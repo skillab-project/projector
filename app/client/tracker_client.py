@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import time
 from typing import Callable, List, Optional
 
 import httpx
@@ -186,6 +187,19 @@ class TrackerClient:
         query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
         return query_sig, "cache_data", f"cache_data/search_{query_sig}.json"
 
+    def _checkpoint_file_for_filters(self, filters: dict):
+        query_sig, cache_dir, _cache_file = self._cache_file_for_filters(filters)
+        return query_sig, cache_dir, f"{cache_dir}/search_{query_sig}.partial.json"
+
+    def _write_json_atomic(self, path: str, payload):
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        tmp_path = f"{path}.tmp"
+        with open(tmp_path, "w") as f:
+            json.dump(payload, f)
+        os.replace(tmp_path, path)
+
     def load_cached_jobs(self, filters: dict):
         query_sig, _cache_dir, cache_file = self._cache_file_for_filters(filters)
         if not os.path.exists(cache_file):
@@ -202,11 +216,72 @@ class TrackerClient:
 
         return cached_jobs
 
+    def load_job_fetch_checkpoint(self, filters: dict, page_size: int):
+        query_sig, _cache_dir, checkpoint_file = self._checkpoint_file_for_filters(filters)
+        if not os.path.exists(checkpoint_file):
+            return None
+
+        try:
+            with open(checkpoint_file, "r") as f:
+                checkpoint = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            logger.warning(f"Fetch checkpoint unreadable: {query_sig}")
+            return None
+
+        if checkpoint.get("filters") != filters or checkpoint.get("page_size") != page_size:
+            logger.info(f"Fetch checkpoint stale for query/page size: {query_sig}")
+            return None
+
+        jobs = checkpoint.get("jobs", [])
+        next_page = int(checkpoint.get("next_page") or 1)
+        logger.info(
+            "Fetch checkpoint loaded: %s jobs=%s next_page=%s",
+            query_sig,
+            len(jobs),
+            next_page,
+        )
+        return checkpoint
+
+    def write_job_fetch_checkpoint(
+            self,
+            filters: dict,
+            page_size: int,
+            jobs: list,
+            next_page: int,
+            total: int,
+    ):
+        query_sig, _cache_dir, checkpoint_file = self._checkpoint_file_for_filters(filters)
+        payload = {
+            "filters": filters,
+            "page_size": page_size,
+            "jobs": jobs,
+            "next_page": next_page,
+            "total": total,
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        self._write_json_atomic(checkpoint_file, payload)
+        logger.debug(
+            "Fetch checkpoint saved: %s jobs=%s next_page=%s total=%s",
+            query_sig,
+            len(jobs),
+            next_page,
+            total,
+        )
+
+    def clear_job_fetch_checkpoint(self, filters: dict):
+        _query_sig, _cache_dir, checkpoint_file = self._checkpoint_file_for_filters(filters)
+        try:
+            os.remove(checkpoint_file)
+        except FileNotFoundError:
+            pass
+
     async def fetch_all_jobs(
             self,
             filters: dict,
             page_size: int = 500,
             progress_callback: Optional[Callable[[dict], None]] = None,
+            max_retries: int = 5,
+            retry_backoff_seconds: float = 1.0,
     ):
         """
            Fetches all job postings from the Tracker API using pagination and caching.
@@ -257,7 +332,24 @@ class TrackerClient:
 
         if not self.engine.token: await self._get_token()
 
-        all_jobs, page = [], 1
+        checkpoint = self.load_job_fetch_checkpoint(filters, page_size)
+        if checkpoint:
+            all_jobs = checkpoint.get("jobs", [])
+            page = int(checkpoint.get("next_page") or 1)
+            total_from_checkpoint = int(checkpoint.get("total") or 0)
+            if progress_callback:
+                progress_callback({
+                    "source": "checkpoint",
+                    "fetched": len(all_jobs),
+                    "total": total_from_checkpoint,
+                    "page": page,
+                    "page_size": page_size,
+                    "done": False,
+                    "resumed": True,
+                })
+        else:
+            all_jobs, page, total_from_checkpoint = [], 1, 0
+
         headers = {"Authorization": f"Bearer {self.engine.token}"}
 
         while True:
@@ -265,45 +357,98 @@ class TrackerClient:
                 logger.warning("Fetch fermato per stop richiesto.")
                 break
 
-            try:
-                res = await self.client.post(
-                    f"{self.api_url}/jobs",
-                    headers=headers,
-                    data=filters,
-                    params={"page": page, "page_size": page_size}
+            res = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    res = await self.client.post(
+                        f"{self.api_url}/jobs",
+                        headers=headers,
+                        data=filters,
+                        params={"page": page, "page_size": page_size}
+                    )
+                    if res.status_code == 401 and attempt < max_retries:
+                        await self._get_token()
+                        headers = {"Authorization": f"Bearer {self.engine.token}"}
+                        logger.warning("Fetch page %s unauthorized. Token refreshed, retry=%s", page, attempt)
+                        continue
+                    if res.status_code == 200:
+                        break
+                    logger.warning(
+                        "Fetch page %s failed: status=%s retry=%s/%s",
+                        page,
+                        res.status_code,
+                        attempt,
+                        max_retries,
+                    )
+                except httpx.ReadTimeout:
+                    logger.warning(
+                        "Fetch page %s timeout retry=%s/%s",
+                        page,
+                        attempt,
+                        max_retries,
+                    )
+                except httpx.HTTPError as e:
+                    logger.warning(
+                        "Fetch page %s HTTP error retry=%s/%s error=%s",
+                        page,
+                        attempt,
+                        max_retries,
+                        e,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Fetch page %s error retry=%s/%s error=%s",
+                        page,
+                        attempt,
+                        max_retries,
+                        e,
+                    )
+
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_backoff_seconds * attempt)
+
+            if res is None or res.status_code != 200:
+                self.write_job_fetch_checkpoint(
+                    filters,
+                    page_size,
+                    all_jobs,
+                    page,
+                    total_from_checkpoint,
+                )
+                raise RuntimeError(
+                    f"Tracker jobs fetch failed at page {page} after {max_retries} retries. "
+                    "Checkpoint saved; rerun resumes from last completed page."
                 )
 
-                if res.status_code != 200: break
-                data = res.json()
-                items = data.get("items", [])
-                all_jobs.extend(items)
+            data = res.json()
+            items = data.get("items", [])
+            all_jobs.extend(items)
 
-                total = data.get("count", 0)
-                logger.info(f"Fetching: {len(all_jobs)}/{total} (Pagina {page})")
-                if progress_callback:
-                    progress_callback({
-                        "source": "tracker",
-                        "fetched": len(all_jobs),
-                        "total": total,
-                        "page": page,
-                        "page_size": page_size,
-                        "done": len(all_jobs) >= total or not items,
-                    })
+            total = data.get("count", 0)
+            total_from_checkpoint = total
+            done = len(all_jobs) >= total or not items
+            next_page = page + 1 if not done else page
+            self.write_job_fetch_checkpoint(filters, page_size, all_jobs, next_page, total)
 
-                if len(all_jobs) >= total or not items: break
-                page += 1
-                await asyncio.sleep(0.01)  # Checkpoint per event loop
+            logger.info(f"Fetching: {len(all_jobs)}/{total} (Pagina {page})")
+            if progress_callback:
+                progress_callback({
+                    "source": "tracker",
+                    "fetched": len(all_jobs),
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "done": done,
+                    "checkpoint_saved": True,
+                })
 
-            except httpx.ReadTimeout:
-                logger.error("Timeout durante il fetch. L'API Tracker è lenta.")
+            if done:
                 break
-            except Exception as e:
-                logger.error(f"Errore fetch: {e}")
-                break
+            page += 1
+            await asyncio.sleep(0.01)  # Checkpoint per event loop
 
         if not self.engine.stop_requested and all_jobs:
-            if not os.path.exists(cache_dir): os.makedirs(cache_dir)
-            with open(cache_file, 'w') as f:
-                json.dump(all_jobs, f)
+            self._write_json_atomic(cache_file, all_jobs)
+            self.clear_job_fetch_checkpoint(filters)
 
         return all_jobs

@@ -113,6 +113,20 @@ This fetches each year once, derives available `location_code` values from Track
 - one global snapshot per year
 - one regional snapshot per detected location and year
 
+Tracker job fetch is resumable. During each paginated fetch, partial results are saved to:
+
+```text
+cache_data/search_<query_hash>.partial.json
+```
+
+If connection fails, rerun the same command. The fetch resumes from the last completed page instead of starting from page 1. Completed fetches are promoted to:
+
+```text
+cache_data/search_<query_hash>.json
+```
+
+The partial checkpoint is then removed.
+
 Backfill logs include Tracker fetch progress, per-year elapsed time and rotating file logs:
 
 ```bash

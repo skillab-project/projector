@@ -749,13 +749,94 @@ async def test_calculate_smart_trends_logic():
 
 
 @pytest.mark.asyncio
-async def test_fetch_all_jobs_read_timeout_resilience():
+async def test_fetch_all_jobs_read_timeout_resilience(tmp_path, monkeypatch):
     """Testa la gestione del ReadTimeout (Coverage del blocco except)."""
+    monkeypatch.chdir(tmp_path)
     engine.token = "fake"
     with patch.object(engine.client, 'post', side_effect=httpx.ReadTimeout("Timeout")):
-        # Deve catturare l'errore, loggare e restituire i job accumulati finora (vuoti)
-        result = await tracker.fetch_all_jobs({"kw": "test"})
-        assert result == []
+        with pytest.raises(RuntimeError, match="Checkpoint saved"):
+            await tracker.fetch_all_jobs(
+                {"kw": "test"},
+                max_retries=1,
+                retry_backoff_seconds=0,
+            )
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_retries_page_failure(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "count": 1,
+        "items": [{"id": 1, "skills": ["skill-a"], "sectors": ["Education"]}],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [httpx.ReadTimeout("Timeout"), response]
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            max_retries=2,
+            retry_backoff_seconds=0,
+        )
+
+    assert result == [{"id": 1, "skills": ["skill-a"], "sectors": ["Education"]}]
+    assert mock_post.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_checkpoint_resume_after_interruption(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "skills": ["skill-a"], "sectors": ["Education"]},
+            {"id": 2, "skills": ["skill-b"], "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {
+        "count": 3,
+        "items": [{"id": 3, "skills": ["skill-c"], "sectors": ["Manufacturing"]}],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [first, httpx.ReadTimeout("Timeout")]
+        with pytest.raises(RuntimeError, match="page 2"):
+            await tracker.fetch_all_jobs(
+                {"keywords": ["data"]},
+                page_size=2,
+                max_retries=1,
+                retry_backoff_seconds=0,
+            )
+
+    checkpoint_files = list((tmp_path / "cache_data").glob("search_*.partial.json"))
+    assert len(checkpoint_files) == 1
+    checkpoint = json.loads(checkpoint_files[0].read_text())
+    assert checkpoint["next_page"] == 2
+    assert [job["id"] for job in checkpoint["jobs"]] == [1, 2]
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = second
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            page_size=2,
+            retry_backoff_seconds=0,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 1
+    assert mock_post.await_args.kwargs["params"] == {"page": 2, "page_size": 2}
+    assert not checkpoint_files[0].exists()
 
 
 @pytest.mark.asyncio
