@@ -159,6 +159,56 @@ python scripts/schedule_sectoral_snapshot_refresh.py --interval-months 3
 
 This runs the backfill logic repeatedly. By default it refreshes the current year every 3 months.
 
+Docker scheduler service:
+
+```bash
+docker compose up -d projector-db projector-snapshot-refresh
+```
+
+It runs the scheduler as a long-running container. Defaults:
+
+- current year
+- run immediately on start
+- repeat every 3 months
+- global snapshot plus detected regions
+- resumable cache in `/workspace/cache_data`
+- rotating logs in `/workspace/logs`
+
+Configure with environment variables:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SNAPSHOT_INTERVAL_MONTHS` | `3` | scheduler interval |
+| `SNAPSHOT_START_YEAR` | current year | first year |
+| `SNAPSHOT_END_YEAR` | current year | last year |
+| `SNAPSHOT_REGIONS` | auto | comma-separated location codes |
+| `SNAPSHOT_SKIP_GLOBAL` | `false` | skip global snapshot |
+| `SNAPSHOT_RUN_IMMEDIATELY` | `true` | run at startup |
+| `SNAPSHOT_PAGE_SIZE` | `500` | Tracker page size |
+| `SNAPSHOT_PAGE_CONCURRENCY` | `4` | parallel Tracker pages |
+| `SNAPSHOT_MAX_RETRIES` | `5` | retries per page |
+
+Example:
+
+```bash
+SNAPSHOT_START_YEAR=2024 \
+SNAPSHOT_END_YEAR=2024 \
+SNAPSHOT_PAGE_CONCURRENCY=8 \
+docker compose up -d projector-snapshot-refresh
+```
+
+Logs:
+
+```bash
+docker compose logs -f projector-snapshot-refresh
+```
+
+Stop scheduler only:
+
+```bash
+docker compose stop projector-snapshot-refresh
+```
+
 Each refresh/write:
 
 1. fetches Tracker jobs for the year/location
