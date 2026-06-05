@@ -430,7 +430,7 @@ class TrackerClient:
         """
         # Non resettiamo stop_requested qui, lo facciamo negli endpoint all'inizio
         cached_info = self.load_cached_jobs_info(filters)
-        if cached_info is not None and (cached_info["complete"] or not require_complete_cache):
+        if cached_info is not None and not require_complete_cache:
             cached_jobs = cached_info["jobs"]
             if progress_callback:
                 progress_callback({
@@ -455,7 +455,7 @@ class TrackerClient:
             )
             available_total = int(probe.get("count") or 0)
             cached_jobs = cached_info["jobs"]
-            if available_total and len(cached_jobs) >= available_total:
+            if available_total and cached_info["complete"] and len(cached_jobs) == available_total:
                 self.write_completed_jobs_cache(filters, page_size, cached_jobs, available_total)
                 if progress_callback:
                     progress_callback({
@@ -465,13 +465,14 @@ class TrackerClient:
                         "page": 0,
                         "page_size": page_size,
                         "done": True,
-                    })
+                })
                 return cached_jobs
             logger.warning(
-                "Cache incomplete for Tracker jobs query: cached=%s available=%s. "
+                "Cache not aligned with Tracker jobs query: cached=%s available=%s complete=%s. "
                 "Ignoring cache and resuming from checkpoint/API.",
                 len(cached_jobs),
                 available_total,
+                cached_info["complete"],
             )
 
         checkpoint = self.load_job_fetch_checkpoint(filters, page_size)

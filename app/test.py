@@ -1842,6 +1842,106 @@ async def test_fetch_all_jobs_requires_complete_cache_for_backfill(tmp_path, mon
 
 
 @pytest.mark.asyncio
+async def test_fetch_all_jobs_refreshes_when_complete_cache_count_changed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cache_file.write_text(json.dumps([
+        {"id": 1, "sectors": ["Education"]},
+        {"id": 2, "sectors": ["Research"]},
+    ]))
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 2,
+        "total": 2,
+        "status": "complete",
+    }))
+
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.json.return_value = {"count": 3, "items": [{"id": 1, "sectors": ["Education"]}]}
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "sectors": ["Education"]},
+            {"id": 2, "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {"count": 3, "items": [{"id": 3, "sectors": ["Manufacturing"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [probe, first, second]
+        result = await tracker.fetch_all_jobs(
+            filters,
+            page_size=2,
+            retry_backoff_seconds=0,
+            require_complete_cache=True,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 3
+    metadata = json.loads(meta_file.read_text())
+    assert metadata["status"] == "complete"
+    assert metadata["fetched"] == 3
+    assert metadata["total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_uses_complete_cache_when_api_count_matches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cached_jobs = [
+        {"id": 1, "sectors": ["Education"]},
+        {"id": 2, "sectors": ["Research"]},
+    ]
+    cache_file.write_text(json.dumps(cached_jobs))
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 2,
+        "total": 2,
+        "status": "complete",
+    }))
+
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.json.return_value = {"count": 2, "items": [{"id": 1, "sectors": ["Education"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = probe
+        result = await tracker.fetch_all_jobs(
+            filters,
+            page_size=2,
+            retry_backoff_seconds=0,
+            require_complete_cache=True,
+        )
+
+    assert result == cached_jobs
+    assert mock_post.await_count == 1
+    assert mock_post.await_args.kwargs["params"] == {"page": 1, "page_size": 1}
+
+
+@pytest.mark.asyncio
 async def test_analyze_market_data_empty_jobs():
     """Testa il metodo _empty_res (Coverage dei rami edge)."""
     result = await market.analyze_market_data([])
