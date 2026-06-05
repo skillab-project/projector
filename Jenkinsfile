@@ -12,7 +12,9 @@ pipeline {
 
     environment {
         CI_IMAGE = "projector-ci:${env.BUILD_NUMBER}"
-        GITHUB_STATUS_CREDENTIALS_ID = "1efb02bc-566c-433b-9e76-577fcb07cf5b"
+        GITHUB_APP_ID_CREDENTIALS_ID = "github-app-id"
+        GITHUB_APP_INSTALLATION_ID_CREDENTIALS_ID = "github-app-installation-id"
+        GITHUB_APP_PRIVATE_KEY_CREDENTIALS_ID = "github-app-private-key"
     }
 
     stages {
@@ -302,7 +304,11 @@ PY
 
             script {
                 try {
-                    withCredentials([usernamePassword(credentialsId: env.GITHUB_STATUS_CREDENTIALS_ID, usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+                    withCredentials([
+                        string(credentialsId: env.GITHUB_APP_ID_CREDENTIALS_ID, variable: 'GITHUB_APP_ID'),
+                        string(credentialsId: env.GITHUB_APP_INSTALLATION_ID_CREDENTIALS_ID, variable: 'GITHUB_APP_INSTALLATION_ID'),
+                        file(credentialsId: env.GITHUB_APP_PRIVATE_KEY_CREDENTIALS_ID, variable: 'GITHUB_APP_PRIVATE_KEY_FILE')
+                    ]) {
                         sh '''
                             set +e
                             if docker image inspect ${CI_IMAGE} >/dev/null 2>&1; then
@@ -316,11 +322,14 @@ PY
                                     -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
                                     -e CHANGE_TARGET="${CHANGE_TARGET}" \
                                     -e JOB_NAME="${JOB_NAME}" \
-                                    -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+                                    -e GITHUB_APP_ID="${GITHUB_APP_ID}" \
+                                    -e GITHUB_APP_INSTALLATION_ID="${GITHUB_APP_INSTALLATION_ID}" \
+                                    -e GITHUB_APP_PRIVATE_KEY_FILE="/github-app-private-key.pem" \
+                                    -v "${GITHUB_APP_PRIVATE_KEY_FILE}:/github-app-private-key.pem:ro" \
                                     -v "$WORKSPACE:/workspace" \
                                     -w /workspace \
                                     ${CI_IMAGE} \
-                                    sh -c "python tools/github_statuses.py" || true
+                                    sh -c 'export GITHUB_TOKEN="$(python tools/github_app_token.py)" && python tools/github_statuses.py' || true
                             else
                                 echo "CI image ${CI_IMAGE} not available; skipping GitHub commit statuses."
                             fi
