@@ -1,9 +1,12 @@
 import hashlib
+import importlib
 import os
 import json
+import sys
 import tempfile
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -17,6 +20,9 @@ from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
 from app.services.projector_service import ProjectorService
+from scripts import backfill_sectoral_snapshots as backfill_script
+from scripts import refresh_sectoral_snapshot as refresh_script
+from scripts import schedule_sectoral_snapshot_refresh as scheduler_script
 from scripts.schedule_sectoral_snapshot_refresh import due_targets
 
 from dotenv import load_dotenv
@@ -155,6 +161,570 @@ def test_scheduler_due_targets_returns_elapsed_snapshots():
     due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
 
     assert due == [(2024, "GLOBAL")]
+
+
+def test_refresh_script_helpers_filter_jobs_and_years():
+    jobs = [
+        {"id": 1, "location_code": "IT"},
+        {"id": 2, "location_code": " DE "},
+        {"id": 3, "location_code": ""},
+        {"id": 4},
+    ]
+
+    assert refresh_script.year_window(2024) == ("2024-01-01", "2024-12-31")
+    assert [job["id"] for job in refresh_script.filter_jobs_by_location(jobs, None)] == [1, 2, 3, 4]
+    assert [job["id"] for job in refresh_script.filter_jobs_by_location(jobs, "IT")] == [1]
+    assert refresh_script.available_location_codes(jobs) == ["DE", "IT"]
+
+
+def test_script_import_bootstrap_inserts_repo_root(monkeypatch):
+    module_names = [
+        "scripts.backfill_sectoral_snapshots",
+        "scripts.refresh_sectoral_snapshot",
+        "scripts.schedule_sectoral_snapshot_refresh",
+    ]
+    originals = {name: sys.modules.get(name) for name in module_names}
+    original_path = list(sys.path)
+    repo_root = str(refresh_script.REPO_ROOT)
+
+    try:
+        for name in module_names:
+            sys.path[:] = [path for path in sys.path if path != repo_root]
+            monkeypatch.delitem(sys.modules, name, raising=False)
+            importlib.import_module(name)
+            assert repo_root in sys.path
+    finally:
+        sys.path[:] = original_path
+        for name, module in originals.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_fetch_jobs_for_year_adds_location(monkeypatch):
+    fake_fetch = AsyncMock(return_value=[{"id": 1}])
+    monkeypatch.setattr(refresh_script.tracker, "fetch_all_jobs", fake_fetch)
+
+    result = await refresh_script.fetch_jobs_for_year(2024, "IT")
+
+    assert result == [{"id": 1}]
+    assert fake_fetch.await_args.args[0] == {
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+        "location_code": ["IT"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_fetch_jobs_for_year_without_location(monkeypatch):
+    fake_fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(refresh_script.tracker, "fetch_all_jobs", fake_fetch)
+
+    await refresh_script.fetch_jobs_for_year(2024)
+
+    assert fake_fetch.await_args.args[0] == {
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    }
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_write_snapshot_from_jobs():
+    store = MagicMock()
+    store.write_snapshot.return_value = 42
+    service = SimpleNamespace(
+        sector_snapshot_store=store,
+        _ensure_skill_labels=AsyncMock(),
+        _build_sector_snapshot_rows=MagicMock(return_value=[{"sector": "Education"}]),
+    )
+    jobs = [{"id": 1, "skills": ["skill-a"], "sectors": ["Education"]}]
+
+    result = await refresh_script.write_snapshot_from_jobs(service, 2024, jobs, "IT")
+
+    assert result == (42, 1, 1)
+    service._ensure_skill_labels.assert_awaited_once_with(jobs)
+    service._build_sector_snapshot_rows.assert_called_once_with(jobs)
+    store.write_snapshot.assert_called_once_with(
+        year=2024,
+        location_code="IT",
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        total_jobs=1,
+        sectors=[{"sector": "Education"}],
+    )
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_refresh_snapshot_composes_steps(monkeypatch):
+    service = object()
+    monkeypatch.setattr(refresh_script, "build_projector_service", lambda: service)
+    fetch_jobs = AsyncMock(return_value=[{"id": 1}])
+    write_jobs = AsyncMock(return_value=(7, 1, 1))
+    monkeypatch.setattr(refresh_script, "fetch_jobs_for_year", fetch_jobs)
+    monkeypatch.setattr(refresh_script, "write_snapshot_from_jobs", write_jobs)
+
+    result = await refresh_script.refresh_snapshot(2024, "IT")
+
+    assert result == (7, 1, 1)
+    fetch_jobs.assert_awaited_once_with(2024, "IT")
+    write_jobs.assert_awaited_once_with(service, 2024, [{"id": 1}], "IT")
+
+
+def test_refresh_script_build_projector_service_requires_database(monkeypatch):
+    class FakeStore:
+        enabled = False
+
+        def __init__(self, database_url):
+            self.database_url = database_url
+
+    monkeypatch.setattr(refresh_script, "DATABASE_URL", "")
+    monkeypatch.setattr(refresh_script, "SectorSnapshotStore", FakeStore)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL not configured"):
+        refresh_script.build_projector_service()
+
+
+def test_refresh_script_build_projector_service_returns_service(monkeypatch):
+    class FakeStore:
+        enabled = True
+
+        def __init__(self, database_url):
+            self.database_url = database_url
+
+    created = {}
+
+    class FakeProjectorService:
+        def __init__(self, *args):
+            created["args"] = args
+
+    monkeypatch.setattr(refresh_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(refresh_script, "SectorSnapshotStore", FakeStore)
+    monkeypatch.setattr(refresh_script, "ProjectorService", FakeProjectorService)
+
+    service_obj = refresh_script.build_projector_service()
+
+    assert isinstance(service_obj, FakeProjectorService)
+    assert created["args"][-1].database_url == "postgresql://db"
+
+
+def test_refresh_script_main_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["refresh", "--year", "2024", "--location-code", "IT"])
+    monkeypatch.setattr(refresh_script, "refresh_snapshot", AsyncMock(return_value=(9, 10, 3)))
+
+    refresh_script.main()
+
+    out = capsys.readouterr().out
+    assert "sector snapshot refreshed: run_id=9 year=2024 jobs=10 sectors=3" in out
+
+
+def test_backfill_script_helpers(tmp_path, monkeypatch):
+    monkeypatch.setattr(backfill_script, "REPO_ROOT", tmp_path)
+    backfill_script.setup_logging("logs/test.log", True)
+    absolute_log = tmp_path / "absolute.log"
+    backfill_script.setup_logging(str(absolute_log), False)
+
+    assert (tmp_path / "logs" / "test.log").exists()
+    assert absolute_log.exists()
+    assert backfill_script.progress_bar(0, 0) == "[------------------------] 0/0"
+    assert backfill_script.progress_bar(5, 10, width=10) == "[#####-----] 5/10"
+    assert backfill_script.parse_regions(None) is None
+    assert backfill_script.parse_regions(["IT, DE", "IT"]) == ["DE", "IT"]
+
+
+def test_backfill_script_fetch_progress_message(monkeypatch):
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 12.5)
+
+    message = backfill_script.fetch_progress_message(
+        2024,
+        {"fetched": 5, "total": 10, "page": 2, "page_concurrency": 4, "source": "tracker_parallel"},
+        10.0,
+    )
+
+    assert "year 2024: fetching Tracker jobs" in message
+    assert "page=2" in message
+    assert "concurrency=4" in message
+    assert "elapsed=2.5s" in message
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_jobs_with_progress(monkeypatch):
+    callbacks = []
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, filters, page_size, progress_callback, page_concurrency, max_retries):
+            assert filters == {"min_upload_date": "2024-01-01", "max_upload_date": "2024-12-31"}
+            assert page_size == 100
+            assert page_concurrency == 4
+            assert max_retries == 2
+            progress_callback({"fetched": 1, "total": 2, "page": 1, "done": False})
+            progress_callback({"fetched": 2, "total": 2, "page": 2, "done": True})
+            callbacks.append("called")
+            return [{"id": 1}, {"id": 2}]
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+    jobs, elapsed = await backfill_script.fetch_jobs_for_year_with_progress(
+        SimpleNamespace(tracker=FakeTracker()),
+        2024,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert jobs == [{"id": 1}, {"id": 2}]
+    assert elapsed == 0.0
+    assert callbacks == ["called"]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_year_writes_global_and_regions(monkeypatch):
+    service = object()
+    jobs = [
+        {"id": 1, "location_code": "IT"},
+        {"id": 2, "location_code": "DE"},
+    ]
+    writes = []
+
+    monkeypatch.setattr(backfill_script, "build_projector_service", lambda: service)
+    monkeypatch.setattr(
+        backfill_script,
+        "fetch_jobs_for_year_with_progress",
+        AsyncMock(return_value=(jobs, 1.5)),
+    )
+
+    async def fake_write_snapshot_from_jobs(service_arg, year, selected_jobs, location_code):
+        writes.append((service_arg, year, [job["id"] for job in selected_jobs], location_code))
+        return len(writes), len(selected_jobs), 1
+
+    monkeypatch.setattr(backfill_script, "write_snapshot_from_jobs", fake_write_snapshot_from_jobs)
+
+    result = await backfill_script.backfill_year(
+        2024,
+        regions=None,
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert result == [
+        (2024, "GLOBAL", 1, 2, 1),
+        (2024, "DE", 2, 1, 1),
+        (2024, "IT", 3, 1, 1),
+    ]
+    assert writes == [
+        (service, 2024, [1, 2], None),
+        (service, 2024, [2], "DE"),
+        (service, 2024, [1], "IT"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_year_cli_regions_without_global(monkeypatch):
+    monkeypatch.setattr(backfill_script, "build_projector_service", lambda: object())
+    monkeypatch.setattr(
+        backfill_script,
+        "fetch_jobs_for_year_with_progress",
+        AsyncMock(return_value=([{"id": 1, "location_code": "IT"}], 1.0)),
+    )
+    monkeypatch.setattr(
+        backfill_script,
+        "write_snapshot_from_jobs",
+        AsyncMock(return_value=(11, 1, 1)),
+    )
+
+    result = await backfill_script.backfill_year(
+        2024,
+        regions=["IT"],
+        include_global=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert result == [(2024, "IT", 11, 1, 1)]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_snapshots_success(monkeypatch):
+    monkeypatch.setattr(backfill_script.logger, "handlers", [backfill_script.logging.NullHandler()])
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+    monkeypatch.setattr(
+        backfill_script,
+        "backfill_year",
+        AsyncMock(side_effect=[
+            [(2023, "GLOBAL", 1, 2, 3)],
+            [(2024, "GLOBAL", 2, 3, 4)],
+        ]),
+    )
+
+    result = await backfill_script.backfill_snapshots(
+        2023,
+        2024,
+        regions=["IT"],
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert result == [(2023, "GLOBAL", 1, 2, 3), (2024, "GLOBAL", 2, 3, 4)]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_snapshots_sets_logging_and_reraises(monkeypatch):
+    monkeypatch.setattr(backfill_script.logger, "handlers", [])
+    setup = MagicMock()
+    monkeypatch.setattr(backfill_script, "setup_logging", setup)
+    monkeypatch.setattr(backfill_script, "backfill_year", AsyncMock(side_effect=RuntimeError("boom")))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await backfill_script.backfill_snapshots(2024, 2024, None, True)
+
+    setup.assert_called_once_with("logs/sector_snapshot_backfill.log", False)
+
+
+def test_backfill_script_main_validates_args(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["backfill", "--start-year", "2025", "--end-year", "2024"])
+
+    with pytest.raises(ValueError, match="--end-year"):
+        backfill_script.main()
+
+    for flag, value, message in [
+        ("--page-size", "0", "--page-size"),
+        ("--page-concurrency", "0", "--page-concurrency"),
+        ("--max-retries", "0", "--max-retries"),
+    ]:
+        monkeypatch.setattr(sys, "argv", ["backfill", "--start-year", "2024", flag, value])
+        with pytest.raises(ValueError, match=message):
+            backfill_script.main()
+
+
+def test_backfill_script_main_runs(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "backfill",
+            "--start-year",
+            "2024",
+            "--end-year",
+            "2024",
+            "--regions",
+            "IT,DE",
+            "--skip-global",
+            "--log-file",
+            "custom.log",
+            "--debug",
+            "--page-size",
+            "100",
+            "--page-concurrency",
+            "4",
+            "--max-retries",
+            "2",
+        ],
+    )
+    setup = MagicMock()
+    backfill = AsyncMock(return_value=[])
+    monkeypatch.setattr(backfill_script, "setup_logging", setup)
+    monkeypatch.setattr(backfill_script, "backfill_snapshots", backfill)
+
+    backfill_script.main()
+
+    setup.assert_called_once_with("custom.log", True)
+    backfill.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        regions=["DE", "IT"],
+        include_global=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+
+def test_scheduler_env_helpers(monkeypatch):
+    monkeypatch.delenv("SNAPSHOT_INT", raising=False)
+    monkeypatch.setenv("SNAPSHOT_INT_VALUE", "5")
+    monkeypatch.setenv("SNAPSHOT_BOOL_TRUE", "yes")
+    monkeypatch.setenv("SNAPSHOT_BOOL_FALSE", "no")
+    monkeypatch.setenv("SNAPSHOT_REGIONS_TEST", "IT, DE")
+
+    assert scheduler_script.env_int("SNAPSHOT_INT", 3) == 3
+    assert scheduler_script.env_int("SNAPSHOT_INT_VALUE", 3) == 5
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_TRUE", False) is True
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_FALSE", True) is False
+    assert scheduler_script.env_regions("SNAPSHOT_REGIONS_TEST") == ["DE", "IT"]
+    assert scheduler_script.env_regions("MISSING_REGIONS") is None
+
+
+def test_scheduler_targets_and_time_normalization():
+    naive = datetime(2024, 1, 1, 12, 0, 0)
+    aware = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    assert scheduler_script.normalize_completed_at(None) is None
+    assert scheduler_script.normalize_completed_at(naive).tzinfo == timezone.utc
+    assert scheduler_script.normalize_completed_at(aware) == aware
+    assert scheduler_script.snapshot_targets(2024, 2025, ["IT"], True) == [
+        (2024, None),
+        (2024, "IT"),
+        (2025, None),
+        (2025, "IT"),
+    ]
+    assert scheduler_script.snapshot_targets(2024, 2024, None, False) == []
+
+
+def test_scheduler_due_targets_without_targets():
+    due = due_targets(_FakeSchedulerSnapshotStore({}), 2024, 2024, None, False, 3)
+
+    assert due == [("unknown", "auto")]
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_due_then_stops(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(scheduler_script, "SectorSnapshotStore", lambda database_url: _FakeSchedulerSnapshotStore({}))
+    monkeypatch.setattr(scheduler_script, "due_targets", MagicMock(return_value=[(2024, "GLOBAL")]))
+    backfill = AsyncMock(return_value=[])
+    monkeypatch.setattr(scheduler_script, "backfill_snapshots", backfill)
+
+    async def stop_sleep(_seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(scheduler_script.asyncio, "sleep", stop_sleep)
+
+    with pytest.raises(KeyboardInterrupt):
+        await scheduler_script.run_scheduled_refresh(
+            start_year=2024,
+            end_year=2024,
+            interval_months=3,
+            check_interval_days=1,
+            regions=["IT"],
+            include_global=True,
+            run_immediately=True,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    backfill.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        regions=["IT"],
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_skip_and_initial_wait(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(scheduler_script, "SectorSnapshotStore", lambda database_url: _FakeSchedulerSnapshotStore({}))
+    monkeypatch.setattr(scheduler_script, "due_targets", MagicMock(return_value=[]))
+    backfill = AsyncMock(return_value=[])
+    sleep_calls = []
+
+    async def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+        if len(sleep_calls) == 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(scheduler_script.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(scheduler_script, "backfill_snapshots", backfill)
+
+    with pytest.raises(KeyboardInterrupt):
+        await scheduler_script.run_scheduled_refresh(
+            start_year=2024,
+            end_year=2024,
+            interval_months=3,
+            check_interval_days=2,
+            regions=None,
+            include_global=False,
+            run_immediately=False,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    assert sleep_calls == [2 * scheduler_script.SECONDS_PER_DAY, 2 * scheduler_script.SECONDS_PER_DAY]
+    backfill.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_validates(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+
+    with pytest.raises(ValueError, match="--interval-months"):
+        await scheduler_script.run_scheduled_refresh(2024, 2024, 0, 1, None, True, True, 100, 4, 2)
+    with pytest.raises(ValueError, match="--check-interval-days"):
+        await scheduler_script.run_scheduled_refresh(2024, 2024, 3, 0, None, True, True, 100, 4, 2)
+
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "")
+    with pytest.raises(RuntimeError, match="DATABASE_URL not configured"):
+        await scheduler_script.run_scheduled_refresh(2024, 2024, 3, 1, None, True, True, 100, 4, 2)
+
+
+def test_scheduler_main_validates_args(monkeypatch):
+    for args, message in [
+        (["scheduler", "--start-year", "2025", "--end-year", "2024"], "--end-year"),
+        (["scheduler", "--interval-months", "0"], "--interval-months"),
+        (["scheduler", "--check-interval-days", "0"], "--check-interval-days"),
+        (["scheduler", "--page-size", "0"], "--page-size"),
+        (["scheduler", "--page-concurrency", "0"], "--page-concurrency"),
+        (["scheduler", "--max-retries", "0"], "--max-retries"),
+    ]:
+        monkeypatch.setattr(sys, "argv", args)
+        with pytest.raises(ValueError, match=message):
+            scheduler_script.main()
+
+
+def test_scheduler_main_runs_and_handles_keyboard_interrupt(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "scheduler",
+            "--interval-months",
+            "3",
+            "--check-interval-days",
+            "1",
+            "--start-year",
+            "2024",
+            "--end-year",
+            "2024",
+            "--regions",
+            "IT,DE",
+            "--skip-global",
+            "--no-run-immediately",
+            "--page-size",
+            "100",
+            "--page-concurrency",
+            "4",
+            "--max-retries",
+            "2",
+        ],
+    )
+    run_refresh = AsyncMock(side_effect=KeyboardInterrupt)
+    monkeypatch.setattr(scheduler_script, "run_scheduled_refresh", run_refresh)
+
+    scheduler_script.main()
+
+    run_refresh.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        interval_months=3,
+        check_interval_days=1,
+        regions=["DE", "IT"],
+        include_global=False,
+        run_immediately=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+    assert "scheduled sector snapshot refresh stopped" in capsys.readouterr().out
 
 
 def _make_projector_service(jobs, sector_snapshot_store=None):

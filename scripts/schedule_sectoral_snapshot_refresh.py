@@ -208,5 +208,5 @@ def main():
         print("scheduled sector snapshot refresh stopped")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
