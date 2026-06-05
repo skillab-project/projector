@@ -68,16 +68,23 @@ def fetch_progress_message(year: int, progress: dict, started_at: float):
     fetched = int(progress.get("fetched", 0) or 0)
     total = int(progress.get("total", 0) or 0)
     page = progress.get("page", "?")
+    concurrency = progress.get("page_concurrency", 1)
     source = progress.get("source", "tracker")
     elapsed = time.perf_counter() - started_at
     return (
         f"year {year}: fetching Tracker jobs "
         f"{progress_bar(fetched, total)} page={page} "
-        f"source={source} elapsed={elapsed:.1f}s"
+        f"concurrency={concurrency} source={source} elapsed={elapsed:.1f}s"
     )
 
 
-async def fetch_jobs_for_year_with_progress(service, year: int):
+async def fetch_jobs_for_year_with_progress(
+        service,
+        year: int,
+        page_size: int,
+        page_concurrency: int,
+        max_retries: int,
+):
     min_date, max_date = year_window(year)
     filters = {
         "min_upload_date": min_date,
@@ -96,7 +103,10 @@ async def fetch_jobs_for_year_with_progress(service, year: int):
     logger.info("year %s: fetch started window=%s..%s", year, min_date, max_date)
     jobs = await service.tracker.fetch_all_jobs(
         filters,
+        page_size=page_size,
         progress_callback=on_progress,
+        page_concurrency=page_concurrency,
+        max_retries=max_retries,
     )
     elapsed = time.perf_counter() - started_at
     logger.info("year %s: fetch completed jobs=%s elapsed=%.1fs", year, len(jobs), elapsed)
@@ -116,9 +126,18 @@ async def backfill_year(
         year: int,
         regions: list[str] | None,
         include_global: bool,
+        page_size: int,
+        page_concurrency: int,
+        max_retries: int,
 ):
     service = build_projector_service()
-    jobs, fetch_elapsed = await fetch_jobs_for_year_with_progress(service, year)
+    jobs, fetch_elapsed = await fetch_jobs_for_year_with_progress(
+        service,
+        year,
+        page_size,
+        page_concurrency,
+        max_retries,
+    )
     logger.info("year %s: fetched %s jobs in %.1fs", year, len(jobs), fetch_elapsed)
     selected_regions = regions or available_location_codes(jobs)
     logger.info(
@@ -187,6 +206,9 @@ async def backfill_snapshots(
         end_year: int,
         regions: list[str] | None,
         include_global: bool,
+        page_size: int = 500,
+        page_concurrency: int = 1,
+        max_retries: int = 5,
 ):
     if not logger.handlers:
         setup_logging("logs/sector_snapshot_backfill.log", False)
@@ -201,10 +223,23 @@ async def backfill_snapshots(
         "auto" if regions is None else ",".join(regions),
         include_global,
     )
+    logger.info(
+        "fetch config: page_size=%s page_concurrency=%s max_retries=%s",
+        page_size,
+        page_concurrency,
+        max_retries,
+    )
     for index, year in enumerate(years, start=1):
         logger.info("year progress %s current=%s", progress_bar(index, len(years)), year)
         try:
-            year_results = await backfill_year(year, regions, include_global)
+            year_results = await backfill_year(
+                year,
+                regions,
+                include_global,
+                page_size,
+                page_concurrency,
+                max_retries,
+            )
         except Exception:
             logger.exception("year %s: backfill failed", year)
             raise
@@ -252,10 +287,34 @@ def main():
         action="store_true",
         help="Enable DEBUG logs on console and file.",
     )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=500,
+        help="Requested Tracker page size.",
+    )
+    parser.add_argument(
+        "--page-concurrency",
+        type=int,
+        default=1,
+        help="Number of Tracker job pages to fetch in parallel.",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=5,
+        help="Retries per Tracker page before checkpointing and failing.",
+    )
     args = parser.parse_args()
 
     if args.end_year < args.start_year:
         raise ValueError("--end-year must be greater than or equal to --start-year")
+    if args.page_size < 1:
+        raise ValueError("--page-size must be greater than 0")
+    if args.page_concurrency < 1:
+        raise ValueError("--page-concurrency must be greater than 0")
+    if args.max_retries < 1:
+        raise ValueError("--max-retries must be greater than 0")
 
     setup_logging(args.log_file, args.debug)
     asyncio.run(
@@ -264,6 +323,9 @@ def main():
             end_year=args.end_year,
             regions=parse_regions(args.regions),
             include_global=not args.skip_global,
+            page_size=args.page_size,
+            page_concurrency=args.page_concurrency,
+            max_retries=args.max_retries,
         )
     )
 

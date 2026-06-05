@@ -840,6 +840,49 @@ async def test_fetch_all_jobs_checkpoint_resume_after_interruption(tmp_path, mon
 
 
 @pytest.mark.asyncio
+async def test_fetch_all_jobs_parallel_page_batches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 4,
+        "items": [
+            {"id": 1, "skills": ["skill-a"], "sectors": ["Education"]},
+            {"id": 2, "skills": ["skill-b"], "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {
+        "count": 4,
+        "items": [
+            {"id": 3, "skills": ["skill-c"], "sectors": ["Manufacturing"]},
+            {"id": 4, "skills": ["skill-d"], "sectors": ["Technology"]},
+        ],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [first, second]
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            page_size=2,
+            page_concurrency=2,
+            retry_backoff_seconds=0,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3, 4]
+    assert mock_post.await_count == 2
+    requested_pages = [
+        call.kwargs["params"]["page"]
+        for call in mock_post.await_args_list
+    ]
+    assert requested_pages == [1, 2]
+
+
+@pytest.mark.asyncio
 async def test_fetch_skill_names_enriches_api_skills_and_requests_token():
     engine.skill_map = {}
     engine.token = None

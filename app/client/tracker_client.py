@@ -275,6 +275,67 @@ class TrackerClient:
         except FileNotFoundError:
             pass
 
+    async def _fetch_jobs_page(
+            self,
+            filters: dict,
+            page: int,
+            page_size: int,
+            max_retries: int,
+            retry_backoff_seconds: float,
+    ):
+        res = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                headers = {"Authorization": f"Bearer {self.engine.token}"}
+                res = await self.client.post(
+                    f"{self.api_url}/jobs",
+                    headers=headers,
+                    data=filters,
+                    params={"page": page, "page_size": page_size}
+                )
+                if res.status_code == 401 and attempt < max_retries:
+                    await self._get_token()
+                    logger.warning("Fetch page %s unauthorized. Token refreshed, retry=%s", page, attempt)
+                    continue
+                if res.status_code == 200:
+                    return res.json()
+                logger.warning(
+                    "Fetch page %s failed: status=%s retry=%s/%s",
+                    page,
+                    res.status_code,
+                    attempt,
+                    max_retries,
+                )
+            except httpx.ReadTimeout:
+                logger.warning(
+                    "Fetch page %s timeout retry=%s/%s",
+                    page,
+                    attempt,
+                    max_retries,
+                )
+            except httpx.HTTPError as e:
+                logger.warning(
+                    "Fetch page %s HTTP error retry=%s/%s error=%s",
+                    page,
+                    attempt,
+                    max_retries,
+                    e,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Fetch page %s error retry=%s/%s error=%s",
+                    page,
+                    attempt,
+                    max_retries,
+                    e,
+                )
+
+            if attempt < max_retries:
+                await asyncio.sleep(retry_backoff_seconds * attempt)
+
+        status = getattr(res, "status_code", "no-response")
+        raise RuntimeError(f"Tracker jobs fetch failed at page {page} after {max_retries} retries. status={status}")
+
     async def fetch_all_jobs(
             self,
             filters: dict,
@@ -282,6 +343,7 @@ class TrackerClient:
             progress_callback: Optional[Callable[[dict], None]] = None,
             max_retries: int = 5,
             retry_backoff_seconds: float = 1.0,
+            page_concurrency: int = 1,
     ):
         """
            Fetches all job postings from the Tracker API using pagination and caching.
@@ -350,101 +412,72 @@ class TrackerClient:
         else:
             all_jobs, page, total_from_checkpoint = [], 1, 0
 
-        headers = {"Authorization": f"Bearer {self.engine.token}"}
+        page_concurrency = max(1, int(page_concurrency or 1))
 
         while True:
             if self.engine.stop_requested:
                 logger.warning("Fetch fermato per stop richiesto.")
                 break
 
-            res = None
-            for attempt in range(1, max_retries + 1):
-                try:
-                    res = await self.client.post(
-                        f"{self.api_url}/jobs",
-                        headers=headers,
-                        data=filters,
-                        params={"page": page, "page_size": page_size}
-                    )
-                    if res.status_code == 401 and attempt < max_retries:
-                        await self._get_token()
-                        headers = {"Authorization": f"Bearer {self.engine.token}"}
-                        logger.warning("Fetch page %s unauthorized. Token refreshed, retry=%s", page, attempt)
-                        continue
-                    if res.status_code == 200:
-                        break
-                    logger.warning(
-                        "Fetch page %s failed: status=%s retry=%s/%s",
-                        page,
-                        res.status_code,
-                        attempt,
+            batch_pages = list(range(page, page + page_concurrency))
+            results = await asyncio.gather(
+                *[
+                    self._fetch_jobs_page(
+                        filters,
+                        batch_page,
+                        page_size,
                         max_retries,
+                        retry_backoff_seconds,
                     )
-                except httpx.ReadTimeout:
-                    logger.warning(
-                        "Fetch page %s timeout retry=%s/%s",
-                        page,
-                        attempt,
-                        max_retries,
+                    for batch_page in batch_pages
+                ],
+                return_exceptions=True,
+            )
+
+            done = False
+            for batch_page, result in zip(batch_pages, results):
+                if isinstance(result, Exception):
+                    self.write_job_fetch_checkpoint(
+                        filters,
+                        page_size,
+                        all_jobs,
+                        batch_page,
+                        total_from_checkpoint,
                     )
-                except httpx.HTTPError as e:
-                    logger.warning(
-                        "Fetch page %s HTTP error retry=%s/%s error=%s",
-                        page,
-                        attempt,
-                        max_retries,
-                        e,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Fetch page %s error retry=%s/%s error=%s",
-                        page,
-                        attempt,
-                        max_retries,
-                        e,
-                    )
+                    raise RuntimeError(
+                        f"{result} Checkpoint saved; rerun resumes from last completed page."
+                    ) from result
 
-                if attempt < max_retries:
-                    await asyncio.sleep(retry_backoff_seconds * attempt)
+                data = result
+                items = data.get("items", [])
+                all_jobs.extend(items)
 
-            if res is None or res.status_code != 200:
-                self.write_job_fetch_checkpoint(
-                    filters,
-                    page_size,
-                    all_jobs,
-                    page,
-                    total_from_checkpoint,
-                )
-                raise RuntimeError(
-                    f"Tracker jobs fetch failed at page {page} after {max_retries} retries. "
-                    "Checkpoint saved; rerun resumes from last completed page."
-                )
+                total = data.get("count", 0)
+                total_from_checkpoint = total
+                done = len(all_jobs) >= total or not items
+                next_page = batch_page + 1
+                self.write_job_fetch_checkpoint(filters, page_size, all_jobs, next_page, total)
 
-            data = res.json()
-            items = data.get("items", [])
-            all_jobs.extend(items)
+                logger.info(f"Fetching: {len(all_jobs)}/{total} (Pagina {batch_page})")
+                if progress_callback:
+                    progress_callback({
+                        "source": "tracker_parallel" if page_concurrency > 1 else "tracker",
+                        "fetched": len(all_jobs),
+                        "total": total,
+                        "page": batch_page,
+                        "page_size": page_size,
+                        "page_concurrency": page_concurrency,
+                        "done": done,
+                        "checkpoint_saved": True,
+                    })
 
-            total = data.get("count", 0)
-            total_from_checkpoint = total
-            done = len(all_jobs) >= total or not items
-            next_page = page + 1 if not done else page
-            self.write_job_fetch_checkpoint(filters, page_size, all_jobs, next_page, total)
-
-            logger.info(f"Fetching: {len(all_jobs)}/{total} (Pagina {page})")
-            if progress_callback:
-                progress_callback({
-                    "source": "tracker",
-                    "fetched": len(all_jobs),
-                    "total": total,
-                    "page": page,
-                    "page_size": page_size,
-                    "done": done,
-                    "checkpoint_saved": True,
-                })
+                if done:
+                    break
 
             if done:
                 break
-            page += 1
+
+            page = batch_pages[-1] + 1
             await asyncio.sleep(0.01)  # Checkpoint per event loop
 
         if not self.engine.stop_requested and all_jobs:

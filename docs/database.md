@@ -138,6 +138,19 @@ python scripts/backfill_sectoral_snapshots.py \
 
 Use `--debug` for DEBUG-level console logs. The log file always receives DEBUG, INFO and ERROR entries and rotates automatically.
 
+For large years, fetch Tracker pages in parallel:
+
+```bash
+python scripts/backfill_sectoral_snapshots.py \
+  --start-year 2024 \
+  --end-year 2024 \
+  --page-size 500 \
+  --page-concurrency 8 \
+  --max-retries 5
+```
+
+Use moderate concurrency first (`4` or `8`). Higher values can overload Tracker or trigger rate limits.
+
 Recurring refresh:
 
 ```bash
