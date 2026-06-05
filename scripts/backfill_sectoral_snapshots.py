@@ -22,6 +22,10 @@ from scripts.refresh_sectoral_snapshot import (
 
 LOGGER_NAME = "sector_snapshot_backfill"
 logger = logging.getLogger(LOGGER_NAME)
+DEFAULT_PROGRESS_BAR_WIDTH = 24
+DEFAULT_PAGE_SIZE = 500
+DEFAULT_PAGE_CONCURRENCY = 1
+DEFAULT_MAX_RETRIES = 5
 
 
 def setup_logging(log_file: str, debug: bool):
@@ -56,7 +60,9 @@ def setup_logging(log_file: str, debug: bool):
     logger.info("logging initialized: file=%s debug=%s", log_path, debug)
 
 
-def progress_bar(current: int, total: int, width: int = 24):
+def progress_bar(current: int, total: int, width: int | None = None):
+    if width is None:
+        width = DEFAULT_PROGRESS_BAR_WIDTH
     if total <= 0:
         return "[------------------------] 0/0"
     filled = round(width * current / total)
@@ -206,10 +212,14 @@ async def backfill_snapshots(
         end_year: int,
         regions: list[str] | None,
         include_global: bool,
-        page_size: int = 500,
-        page_concurrency: int = 1,
-        max_retries: int = 5,
+        page_size: int | None = None,
+        page_concurrency: int | None = None,
+        max_retries: int | None = None,
 ):
+    page_size = DEFAULT_PAGE_SIZE if page_size is None else page_size
+    page_concurrency = DEFAULT_PAGE_CONCURRENCY if page_concurrency is None else page_concurrency
+    max_retries = DEFAULT_MAX_RETRIES if max_retries is None else max_retries
+
     if not logger.handlers:
         setup_logging("logs/sector_snapshot_backfill.log", False)
 

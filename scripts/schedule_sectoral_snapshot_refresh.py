@@ -66,21 +66,78 @@ def due_targets(
         interval_months: int,
         now: datetime | None = None,
 ):
+    return [
+        (item["year"], item["location_code"] or "GLOBAL")
+        for item in refresh_plan(
+            store,
+            start_year,
+            end_year,
+            regions,
+            include_global,
+            interval_months,
+            now,
+        )
+        if item["due"]
+    ]
+
+
+def refresh_plan(
+        store: SectorSnapshotStore,
+        start_year: int,
+        end_year: int,
+        regions: list[str] | None,
+        include_global: bool,
+        interval_months: int,
+        now: datetime | None = None,
+):
     now = now or datetime.now(timezone.utc)
     threshold_seconds = interval_months * SECONDS_PER_MONTH
     targets = snapshot_targets(start_year, end_year, regions, include_global)
     if not targets:
-        return [("unknown", "auto")]
+        return [{
+            "year": "unknown",
+            "location_code": "auto",
+            "due": True,
+            "last_completed_at": None,
+            "next_refresh_at": None,
+            "reason": "no explicit targets configured",
+        }]
 
-    due = []
+    plan = []
     for year, location_code in targets:
         completed_at = normalize_completed_at(store.latest_completed_at(year, location_code))
         if not completed_at:
-            due.append((year, location_code or "GLOBAL"))
+            plan.append({
+                "year": year,
+                "location_code": location_code,
+                "due": True,
+                "last_completed_at": None,
+                "next_refresh_at": None,
+                "reason": "never refreshed",
+            })
             continue
-        if (now - completed_at).total_seconds() >= threshold_seconds:
-            due.append((year, location_code or "GLOBAL"))
-    return due
+        next_refresh_at = completed_at.timestamp() + threshold_seconds
+        due = now.timestamp() >= next_refresh_at
+        plan.append({
+            "year": year,
+            "location_code": location_code,
+            "due": due,
+            "last_completed_at": completed_at,
+            "next_refresh_at": datetime.fromtimestamp(next_refresh_at, tz=timezone.utc),
+            "reason": "interval elapsed" if due else "interval not elapsed",
+        })
+    return plan
+
+
+def format_plan_item(item: dict):
+    last_completed_at = item["last_completed_at"]
+    next_refresh_at = item["next_refresh_at"]
+    return (
+        f"{item['year']}:{item['location_code'] or 'GLOBAL'} "
+        f"reason={item['reason']} "
+        f"last={last_completed_at.isoformat(timespec='seconds') if last_completed_at else 'never'} "
+        f"next={next_refresh_at.isoformat(timespec='seconds') if next_refresh_at else 'now'}"
+    )
 
 
 async def run_scheduled_refresh(
@@ -110,7 +167,7 @@ async def run_scheduled_refresh(
 
     while True:
         started_at = datetime.now().isoformat(timespec="seconds")
-        due = due_targets(
+        plan = refresh_plan(
             store,
             start_year,
             end_year,
@@ -118,11 +175,17 @@ async def run_scheduled_refresh(
             include_global,
             interval_months,
         )
+        due = [
+            (item["year"], item["location_code"] or "GLOBAL")
+            for item in plan
+            if item["due"]
+        ]
         if due:
             print(
                 "scheduled sector snapshot refresh due: "
                 f"at={started_at} years={start_year}-{end_year} "
-                f"interval_months={interval_months} due={due}"
+                f"interval_months={interval_months} due={due} "
+                f"plan={[format_plan_item(item) for item in plan]}"
             )
             await backfill_snapshots(
                 start_year=start_year,
@@ -139,7 +202,8 @@ async def run_scheduled_refresh(
             print(
                 "scheduled sector snapshot refresh skipped: "
                 f"at={started_at} years={start_year}-{end_year} "
-                f"interval_months={interval_months} next_check_days={check_interval_days}"
+                f"interval_months={interval_months} next_check_days={check_interval_days} "
+                f"plan={[format_plan_item(item) for item in plan]}"
             )
         await asyncio.sleep(check_interval_seconds)
 
