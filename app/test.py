@@ -4,9 +4,10 @@ import os
 import json
 import sys
 import tempfile
+from contextlib import contextmanager
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import httpx
 import pytest
@@ -20,6 +21,7 @@ from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
 from app.services.projector_service import ProjectorService
+from app.services.sector_snapshot_store import SectorSnapshotStore
 from scripts import backfill_sectoral_snapshots as backfill_script
 from scripts import refresh_sectoral_snapshot as refresh_script
 from scripts import schedule_sectoral_snapshot_refresh as scheduler_script
@@ -136,6 +138,47 @@ class _FakeSchedulerSnapshotStore:
         return self.completed_at_by_key.get((year, location_code))
 
 
+class _FakeStoreResult:
+    def __init__(self, one=None, many=None):
+        self.one = one
+        self.many = many or []
+
+    def fetchone(self):
+        return self.one
+
+    def fetchall(self):
+        return self.many
+
+
+class _FakeStoreTransaction:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class _FakeStoreConnection:
+    def __init__(self, results=None):
+        self.results = list(results or [])
+        self.calls = []
+        self.commits = 0
+
+    def execute(self, sql, params=None):
+        if sql is None:
+            raise AssertionError("SQL query must be provided")
+        self.calls.append((sql, params))
+        if self.results:
+            return self.results.pop(0)
+        return _FakeStoreResult()
+
+    def commit(self):
+        self.commits += 1
+
+    def transaction(self):
+        return _FakeStoreTransaction()
+
+
 def test_scheduler_due_targets_returns_missing_snapshots():
     store = _FakeSchedulerSnapshotStore({})
     now = datetime(2026, 6, 5, tzinfo=timezone.utc)
@@ -143,6 +186,472 @@ def test_scheduler_due_targets_returns_missing_snapshots():
     due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
 
     assert due == [(2024, "GLOBAL"), (2024, "IT")]
+
+
+def test_sector_snapshot_store_disabled_reads_return_none():
+    store = SectorSnapshotStore(None)
+
+    assert store.enabled is False
+    assert store.read_latest(2024) is None
+    assert store.latest_completed_at(2024) is None
+    assert store.read_refresh_status(2024) is None
+
+
+def test_sector_snapshot_store_connect_requires_database_url():
+    store = SectorSnapshotStore(None)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL not configured"):
+        with store._connect():
+            pass
+
+
+def test_sector_snapshot_store_connect_requires_psycopg(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    original_import = __import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "psycopg":
+            raise ImportError("missing psycopg")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fake_import)
+
+    with pytest.raises(RuntimeError, match="psycopg is required"):
+        with store._connect():
+            pass
+
+
+def test_sector_snapshot_store_connect_yields_psycopg_connection(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    fake_connection = object()
+
+    class FakePsycopgConnection:
+        def __enter__(self):
+            return fake_connection
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    psycopg_module = ModuleType("psycopg")
+    psycopg_module.connect = MagicMock(return_value=FakePsycopgConnection())
+    rows_module = ModuleType("psycopg.rows")
+    rows_module.dict_row = object()
+    monkeypatch.setitem(sys.modules, "psycopg", psycopg_module)
+    monkeypatch.setitem(sys.modules, "psycopg.rows", rows_module)
+
+    with store._connect() as conn:
+        assert conn is fake_connection
+
+    psycopg_module.connect.assert_called_once_with("postgresql://db", row_factory=rows_module.dict_row)
+
+
+def test_sector_snapshot_store_ensure_schema_executes_schema(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection()
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    store.ensure_schema()
+
+    assert "sector_snapshot_refresh_status" in conn.calls[0][0]
+    assert conn.commits == 1
+
+
+def test_sector_snapshot_store_read_refresh_status_formats_and_fallbacks(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    completed_at = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+    failed_at = datetime(2026, 6, 6, 12, 0, tzinfo=timezone.utc)
+    updated_at = datetime(2026, 6, 6, 12, 5, tzinfo=timezone.utc)
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(one=None),
+        _FakeStoreResult(one={
+            "status": "failed",
+            "last_success_at": completed_at,
+            "last_failed_at": failed_at,
+            "last_error": "boom",
+            "last_checkpoint_page": 5,
+            "fetched_jobs": 100,
+            "expected_jobs": 250,
+            "source": "tracker",
+            "updated_at": updated_at,
+        }),
+    ])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    status = store.read_refresh_status(2024, "IT")
+
+    assert status == {
+        "status": "failed",
+        "last_success_at": completed_at.isoformat(),
+        "last_failed_at": failed_at.isoformat(),
+        "last_error": "boom",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+        "updated_at": updated_at.isoformat(),
+    }
+    assert conn.calls[0][1] == (2024, "IT")
+    assert conn.calls[1][1] == (2024, "")
+
+
+def test_sector_snapshot_store_read_refresh_status_returns_none(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection([_FakeStoreResult(one=None)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.read_refresh_status(2024) is None
+    assert conn.calls[0][1] == (2024, "")
+
+
+def test_sector_snapshot_store_write_refresh_status_upserts(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection()
+    connections = [schema_conn, write_conn]
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    store.write_refresh_status(
+        year=2024,
+        location_code=None,
+        status="failed",
+        last_error="boom",
+        last_checkpoint_page=5,
+        fetched_jobs=100,
+        expected_jobs=250,
+        source="tracker",
+    )
+
+    assert schema_conn.commits == 1
+    assert "INSERT INTO sector_snapshot_refresh_status" in write_conn.calls[0][0]
+    assert "ON CONFLICT" in write_conn.calls[0][0]
+    assert write_conn.calls[0][1] == (
+        2024,
+        "",
+        "failed",
+        "failed",
+        "failed",
+        "boom",
+        5,
+        100,
+        250,
+        "tracker",
+    )
+    assert write_conn.commits == 1
+
+
+def test_sector_snapshot_store_write_refresh_status_defaults(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection()
+    connections = [schema_conn, write_conn]
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    store.write_refresh_status(year=2024, location_code="IT", status="completed")
+
+    assert write_conn.calls[0][1] == (
+        2024,
+        "IT",
+        "completed",
+        "completed",
+        "completed",
+        None,
+        None,
+        0,
+        0,
+        None,
+    )
+
+
+def test_sector_snapshot_store_write_refresh_status_default_signature():
+    assert SectorSnapshotStore.write_refresh_status.__defaults__ == (None, None, 0, 0, None)
+
+
+def test_sector_snapshot_store_read_latest_includes_refresh_status(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    run = {
+        "id": 9,
+        "year": 2024,
+        "period_start": "2024-01-01",
+        "period_end": "2024-12-31",
+        "total_jobs": 3,
+    }
+    rows = [{
+        "sector": "ICT",
+        "sector_label": "ICT",
+        "job_count": 3,
+        "job_share": 1.0,
+        "total_skill_mentions": 4,
+        "unique_skills": 1,
+        "top_skills": [{"skill_id": "s1"}],
+        "all_skills": [],
+        "top_job_titles": [{"name": "Developer", "count": 2}],
+    }]
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(one=run),
+        _FakeStoreResult(many=rows),
+    ])
+    refresh_status = {"status": "completed"}
+    read_refresh_status = MagicMock(return_value=refresh_status)
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "read_refresh_status", read_refresh_status)
+
+    result = store.read_latest(2024, "IT")
+
+    assert result["status"] == "completed"
+    assert result["year"] == 2024
+    assert result["data_source"] == "postgres"
+    assert result["window"] == {
+        "label": "2024 snapshot",
+        "min_date": "2024-01-01",
+        "max_date": "2024-12-31",
+    }
+    assert result["total_jobs"] == 3
+    assert result["sector_filter"] == []
+    assert result["refresh_status"] == refresh_status
+    assert set(result["sectors"][0]) == {
+        "sector",
+        "sector_label",
+        "job_count",
+        "job_share",
+        "total_skill_mentions",
+        "unique_skills",
+        "top_skills",
+        "all_skills",
+        "top_job_titles",
+    }
+    assert result["sectors"][0]["all_skills"] == [{"skill_id": "s1"}]
+    assert result["sectors"][0]["top_job_titles"] == [{"name": "Developer", "count": 2}]
+    assert conn.calls[0][1] == (2024, "IT")
+    assert conn.calls[1][1] == (9,)
+    read_refresh_status.assert_called_once_with(2024, "IT")
+
+
+def test_sector_snapshot_store_read_latest_returns_none_on_miss(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection([_FakeStoreResult(one=None)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.read_latest(2024) is None
+
+
+def test_sector_snapshot_store_read_latest_keeps_all_skills(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    run = {
+        "id": 10,
+        "year": 2024,
+        "period_start": "2024-01-01",
+        "period_end": "2024-12-31",
+        "total_jobs": 3,
+    }
+    rows = [{
+        "sector": "ICT",
+        "sector_label": "ICT",
+        "job_count": 3,
+        "job_share": 1.0,
+        "total_skill_mentions": 4,
+        "unique_skills": 2,
+        "top_skills": [{"skill_id": "s1"}],
+        "all_skills": [{"skill_id": "s1"}, {"skill_id": "s2"}],
+        "top_job_titles": [{"name": "Developer", "count": 2}],
+    }]
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(one=run),
+        _FakeStoreResult(many=rows),
+    ])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    read_refresh_status = MagicMock(return_value=None)
+    monkeypatch.setattr(store, "read_refresh_status", read_refresh_status)
+
+    result = store.read_latest(2024)
+
+    assert result["sectors"][0]["all_skills"] == [{"skill_id": "s1"}, {"skill_id": "s2"}]
+    assert result["sectors"][0]["top_skills"] == [{"skill_id": "s1"}]
+    assert conn.calls[0][1] == (2024, "")
+    read_refresh_status.assert_called_once_with(2024, None)
+
+
+def test_sector_snapshot_store_latest_completed_at(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    completed_at = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+    conn = _FakeStoreConnection([_FakeStoreResult(one={"completed_at": completed_at})])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.latest_completed_at(2024) == completed_at
+    assert conn.calls[0][1] == (2024, "")
+
+
+def test_sector_snapshot_store_latest_completed_at_uses_location(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    completed_at = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+    conn = _FakeStoreConnection([_FakeStoreResult(one={"completed_at": completed_at})])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.latest_completed_at(2024, "IT") == completed_at
+    assert conn.calls[0][1] == (2024, "IT")
+
+
+def test_sector_snapshot_store_latest_completed_at_returns_none_on_miss(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection([_FakeStoreResult(one=None)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.latest_completed_at(2024) is None
+
+
+def test_sector_snapshot_store_write_snapshot_writes_rows_and_status(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection([
+        _FakeStoreResult(one={"next_version": 3}),
+        _FakeStoreResult(one={"id": 42}),
+        _FakeStoreResult(),
+        _FakeStoreResult(),
+    ])
+    connections = [schema_conn, write_conn]
+    statuses = []
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "write_refresh_status", lambda **kwargs: statuses.append(kwargs))
+
+    run_id = store.write_snapshot(
+        year=2024,
+        location_code="IT",
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        total_jobs=3,
+        sectors=[{
+            "sector": "ICT",
+            "sector_label": "ICT",
+            "job_count": 3,
+            "job_share": 1.0,
+            "total_skill_mentions": 4,
+            "unique_skills": 1,
+            "top_skills": [{"skill_id": "s1"}],
+            "all_skills": [{"skill_id": "s1"}, {"skill_id": "s2"}],
+            "top_job_titles": [{"name": "Developer", "count": 2}],
+        }, {
+            "sector": "Retail",
+            "sector_label": "Retail",
+            "job_count": 1,
+            "job_share": 0.25,
+            "total_skill_mentions": 1,
+            "unique_skills": 1,
+            "top_skills": [{"skill_id": "s3"}],
+            "top_job_titles": [{"name": "Seller", "count": 1}],
+        }],
+    )
+
+    assert run_id == 42
+    assert schema_conn.commits == 1
+    assert "SELECT COALESCE(MAX(version), 0) + 1 AS next_version" in write_conn.calls[0][0]
+    assert write_conn.calls[0][1] == (2024, "IT")
+    assert "INSERT INTO sector_snapshot_runs" in write_conn.calls[1][0]
+    assert write_conn.calls[1][1] == (2024, "IT", 3, "2024-01-01", "2024-12-31", 3)
+    assert "INSERT INTO sector_yearly_snapshots" in write_conn.calls[2][0]
+    assert json.loads(write_conn.calls[2][1][9]) == [{"skill_id": "s1"}]
+    assert json.loads(write_conn.calls[2][1][10]) == [{"skill_id": "s1"}, {"skill_id": "s2"}]
+    assert json.loads(write_conn.calls[2][1][11]) == [{"name": "Developer", "count": 2}]
+    assert json.loads(write_conn.calls[3][1][9]) == [{"skill_id": "s3"}]
+    assert json.loads(write_conn.calls[3][1][10]) == [{"skill_id": "s3"}]
+    assert json.loads(write_conn.calls[3][1][11]) == [{"name": "Seller", "count": 1}]
+    assert "UPDATE sector_snapshot_runs" in write_conn.calls[4][0]
+    assert write_conn.calls[4][1] == (42,)
+    assert statuses == [{
+        "year": 2024,
+        "location_code": "IT",
+        "status": "completed",
+        "fetched_jobs": 3,
+        "expected_jobs": 3,
+        "source": "tracker",
+    }]
+
+
+def test_sector_snapshot_store_write_snapshot_uses_global_location(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection([
+        _FakeStoreResult(one={"next_version": 1}),
+        _FakeStoreResult(one={"id": 42}),
+    ])
+    connections = [schema_conn, write_conn]
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "write_refresh_status", lambda **kwargs: None)
+
+    store.write_snapshot(
+        year=2024,
+        location_code=None,
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        total_jobs=0,
+        sectors=[],
+    )
+
+    assert write_conn.calls[0][1] == (2024, "")
+    assert write_conn.calls[1][1] == (2024, None, 1, "2024-01-01", "2024-12-31", 0)
 
 
 def test_scheduler_due_targets_skips_recent_snapshots():
