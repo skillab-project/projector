@@ -205,10 +205,12 @@ class SectorSnapshotStore:
             status: str,
             last_error: Optional[str] = None,
             last_checkpoint_page: Optional[int] = None,
-            fetched_jobs: int = 0,
-            expected_jobs: int = 0,
+            fetched_jobs: Optional[int] = None,
+            expected_jobs: Optional[int] = None,
             source: Optional[str] = None,
     ):
+        fetched_jobs = 0 if fetched_jobs is None else fetched_jobs
+        expected_jobs = 0 if expected_jobs is None else expected_jobs
         self.ensure_schema()
         with self._connect() as conn:
             conn.execute(

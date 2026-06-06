@@ -388,7 +388,7 @@ def test_sector_snapshot_store_write_refresh_status_defaults(monkeypatch):
 
 
 def test_sector_snapshot_store_write_refresh_status_default_signature():
-    assert SectorSnapshotStore.write_refresh_status.__defaults__ == (None, None, 0, 0, None)
+    assert SectorSnapshotStore.write_refresh_status.__defaults__ == (None, None, None, None, None)
 
 
 def test_sector_snapshot_store_read_latest_includes_refresh_status(monkeypatch):
