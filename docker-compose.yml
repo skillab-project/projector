@@ -42,7 +42,7 @@ services:
     volumes:
       - projector-snapshot-cache:/workspace/cache_data
       - projector-snapshot-logs:/workspace/logs
-    restart: unless-stopped
+    restart: always
 
 volumes:
   projector-db-data:
