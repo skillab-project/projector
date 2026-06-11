@@ -146,7 +146,7 @@ This keeps long Tracker aggregation out of normal dashboard requests.
 - Green and digital flags are currently false by default in runtime enrichment.
 - Sector counts are relationship-oriented when one job has many sectors.
 - The shared `ProjectorEngine` state is process-local and in-memory.
-- Snapshot refresh scheduling is not yet automated in-process.
+- Real Tracker backfills still need operational validation before closing the refresh pipeline.
 
 ## Production Hardening Priorities
 
@@ -156,4 +156,4 @@ This keeps long Tracker aggregation out of normal dashboard requests.
 4. Add versioning, for example `/api/v1/projector/...`.
 5. Extend `/projector/health` with Tracker readiness.
 6. Expand automated tests for API-only sectoral payloads and no-data responses.
-7. Add external scheduling for `scripts/refresh_sectoral_snapshot.py`.
+7. Monitor scheduled snapshot refreshes in production and alert on repeated failures.
