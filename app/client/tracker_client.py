@@ -465,7 +465,7 @@ class TrackerClient:
             )
             available_total = int(probe.get("count") or 0)
             cached_jobs = cached_info["jobs"]
-            if available_total and cached_info["complete"] and len(cached_jobs) == available_total:
+            if available_total and len(cached_jobs) == available_total:
                 self.write_completed_jobs_cache(filters, page_size, cached_jobs, available_total)
                 if progress_callback:
                     progress_callback({
