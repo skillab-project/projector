@@ -151,6 +151,27 @@ python scripts/backfill_sectoral_snapshots.py \
 
 Use moderate concurrency first (`4` or `8`). Higher values can overload Tracker or trigger rate limits.
 
+Validate a completed DB snapshot:
+
+```bash
+python scripts/validate_sectoral_snapshot_pipeline.py --year 2024
+```
+
+Validate DB, service methods and HTTP endpoints against a running API:
+
+```bash
+python scripts/validate_sectoral_snapshot_pipeline.py \
+  --year 2024 \
+  --location-code IT \
+  --api-base-url http://127.0.0.1:8000
+```
+
+Fetch Tracker first, then validate:
+
+```bash
+python scripts/validate_sectoral_snapshot_pipeline.py --year 2024 --refresh
+```
+
 Recurring refresh:
 
 ```bash

@@ -110,6 +110,13 @@ Backfill all available regions for a year range:
 python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
 ```
 
+Validate snapshot pipeline:
+
+```bash
+python scripts/validate_sectoral_snapshot_pipeline.py --year 2024
+python scripts/validate_sectoral_snapshot_pipeline.py --year 2024 --api-base-url http://127.0.0.1:8000
+```
+
 Recurring refresh:
 
 ```bash

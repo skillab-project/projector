@@ -25,6 +25,7 @@ from app.services.sector_snapshot_store import SectorSnapshotStore
 from scripts import backfill_sectoral_snapshots as backfill_script
 from scripts import refresh_sectoral_snapshot as refresh_script
 from scripts import schedule_sectoral_snapshot_refresh as scheduler_script
+from scripts import validate_sectoral_snapshot_pipeline as validate_script
 from scripts.schedule_sectoral_snapshot_refresh import due_targets
 
 from dotenv import load_dotenv
@@ -726,6 +727,7 @@ def test_script_import_bootstrap_inserts_repo_root(monkeypatch):
         "scripts.backfill_sectoral_snapshots",
         "scripts.refresh_sectoral_snapshot",
         "scripts.schedule_sectoral_snapshot_refresh",
+        "scripts.validate_sectoral_snapshot_pipeline",
     ]
     originals = {name: sys.modules.get(name) for name in module_names}
     original_path = list(sys.path)
@@ -878,6 +880,274 @@ def test_refresh_script_main_prints_summary(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert "sector snapshot refreshed: run_id=9 year=2024 jobs=10 sectors=3" in out
+
+
+def _validator_snapshot_payload(year=2024):
+    return {
+        "status": "completed",
+        "year": year,
+        "data_source": "postgres",
+        "window": {
+            "label": f"{year} snapshot",
+            "min_date": f"{year}-01-01",
+            "max_date": f"{year}-12-31",
+        },
+        "total_jobs": 2,
+        "sector_filter": [],
+        "sectors": [{
+            "sector": "ICT",
+            "sector_label": "ICT",
+            "job_count": 2,
+            "job_share": 1.0,
+            "total_skill_mentions": 3,
+            "unique_skills": 1,
+            "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 3}],
+            "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 3}],
+            "top_job_titles": [{"name": "Developer", "count": 2}],
+        }],
+    }
+
+
+def _validator_comparison_payload(year=2024):
+    return {
+        "status": "completed",
+        "year": year,
+        "reference_year": year - 1,
+        "data_source": "postgres",
+        "metric": "share",
+        "window": {
+            "label": f"{year} snapshot",
+            "min_date": f"{year}-01-01",
+            "max_date": f"{year}-12-31",
+        },
+        "sectors": ["ICT"],
+        "skills": ["Python"],
+        "matrix": [{
+            "sector": "ICT",
+            "sector_label": "ICT",
+            "skill_id": "skill-python",
+            "label": "Python",
+            "count": 3,
+            "share": 1.0,
+            "rank": 1,
+            "rank_score": 1.0,
+            "value": 1.0,
+            "display_value": "100.0%",
+        }],
+    }
+
+
+def test_validate_script_assert_completed_snapshot():
+    snapshot = _validator_snapshot_payload()
+
+    assert validate_script.location_payload("IT") == ["IT"]
+    assert validate_script.location_payload(None) is None
+    assert validate_script.assert_completed_snapshot(snapshot, 2024, 1) == snapshot["sectors"]
+
+    with pytest.raises(RuntimeError, match="No completed"):
+        validate_script.assert_completed_snapshot({}, 2024, 1)
+    with pytest.raises(RuntimeError, match="not completed"):
+        validate_script.assert_completed_snapshot({**snapshot, "status": "running"}, 2024, 1)
+    with pytest.raises(RuntimeError, match="not DB-backed"):
+        validate_script.assert_completed_snapshot({**snapshot, "data_source": "cache"}, 2024, 1)
+    with pytest.raises(RuntimeError, match="year mismatch"):
+        validate_script.assert_completed_snapshot({**snapshot, "year": 2023}, 2024, 1)
+    with pytest.raises(RuntimeError, match="too few sectors"):
+        validate_script.assert_completed_snapshot({**snapshot, "sectors": []}, 2024, 1)
+
+    bad_row = {k: v for k, v in snapshot["sectors"][0].items() if k != "all_skills"}
+    with pytest.raises(RuntimeError, match="misses fields"):
+        validate_script.assert_completed_snapshot({**snapshot, "sectors": [bad_row]}, 2024, 1)
+
+
+def test_validate_script_assert_comparison_payload():
+    comparison = _validator_comparison_payload()
+
+    validate_script.assert_comparison_payload(comparison, 2024)
+
+    with pytest.raises(RuntimeError, match="not completed"):
+        validate_script.assert_comparison_payload({**comparison, "status": "running"}, 2024)
+    with pytest.raises(RuntimeError, match="not DB-backed"):
+        validate_script.assert_comparison_payload({**comparison, "data_source": "cache"}, 2024)
+    with pytest.raises(RuntimeError, match="year mismatch"):
+        validate_script.assert_comparison_payload({**comparison, "year": 2023}, 2024)
+    with pytest.raises(RuntimeError, match="matrix is empty"):
+        validate_script.assert_comparison_payload({**comparison, "matrix": []}, 2024)
+
+
+@pytest.mark.asyncio
+async def test_validate_script_validate_pipeline(monkeypatch):
+    snapshot = _validator_snapshot_payload()
+    comparison = _validator_comparison_payload()
+
+    class FakeStore:
+        def __init__(self):
+            self.schema_checked = False
+
+        def ensure_schema(self):
+            self.schema_checked = True
+
+        def read_latest(self, year, location_code=None):
+            assert (year, location_code) == (2024, "IT")
+            return snapshot
+
+    class FakeService:
+        def __init__(self):
+            self.sector_snapshot_store = FakeStore()
+            self.snapshot_calls = []
+            self.comparison_calls = []
+
+        async def sectoral_snapshot(self, **kwargs):
+            self.snapshot_calls.append(kwargs)
+            return snapshot
+
+        async def sector_skills_comparison(self, **kwargs):
+            self.comparison_calls.append(kwargs)
+            return comparison
+
+    fake_service = FakeService()
+    refresh = AsyncMock()
+    monkeypatch.setattr(validate_script, "build_projector_service", lambda: fake_service)
+    monkeypatch.setattr(validate_script, "refresh_snapshot", refresh)
+
+    result = await validate_script.validate_pipeline(
+        year=2024,
+        location_code="IT",
+        reference_year=2023,
+        run_refresh=True,
+    )
+
+    refresh.assert_awaited_once_with(2024, "IT")
+    assert fake_service.sector_snapshot_store.schema_checked is True
+    assert fake_service.snapshot_calls == [{"year": 2024, "reference_year": 2023, "locations": ["IT"]}]
+    assert fake_service.comparison_calls == [{
+        "year": 2024,
+        "reference_year": 2023,
+        "locations": ["IT"],
+        "sectors": ["ICT"],
+        "skills": ["Python"],
+        "metric": "share",
+    }]
+    assert result["status"] == "completed"
+    assert result["db_snapshot"] is True
+    assert result["service_comparison"] is True
+
+
+@pytest.mark.asyncio
+async def test_validate_script_validate_pipeline_checks_http(monkeypatch):
+    snapshot = _validator_snapshot_payload()
+    comparison = _validator_comparison_payload()
+
+    class FakeStore:
+        def ensure_schema(self):
+            pass
+
+        def read_latest(self, *_args, **_kwargs):
+            return snapshot
+
+    class FakeService:
+        sector_snapshot_store = FakeStore()
+
+        async def sectoral_snapshot(self, **_kwargs):
+            return snapshot
+
+        async def sector_skills_comparison(self, **_kwargs):
+            return comparison
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    posts = []
+
+    def fake_post(url, data, timeout):
+        posts.append((url, data, timeout))
+        if url.endswith("/sectoral-snapshot"):
+            return FakeResponse(snapshot)
+        return FakeResponse(comparison)
+
+    monkeypatch.setattr(validate_script, "build_projector_service", lambda: FakeService())
+    monkeypatch.setattr(validate_script.requests, "post", fake_post)
+
+    result = await validate_script.validate_pipeline(
+        year=2024,
+        api_base_url="http://127.0.0.1:8000",
+        timeout_seconds=7,
+    )
+
+    assert result["http_snapshot"] is True
+    assert result["http_comparison"] is True
+    assert posts == [
+        ("http://127.0.0.1:8000/projector/sectoral-snapshot", {"year": 2024}, 7),
+        (
+            "http://127.0.0.1:8000/projector/sector-skills-comparison",
+            {"year": 2024, "sectors": "ICT", "metric": "share", "skills": "Python"},
+            7,
+        ),
+    ]
+
+
+def test_validate_script_http_error():
+    class FakeResponse:
+        status_code = 500
+        text = "boom"
+
+    with pytest.raises(RuntimeError, match="HTTP 500"):
+        validate_script.assert_http_response(FakeResponse(), "sectoral-snapshot")
+
+
+def test_validate_script_main_validates_args(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["validate", "--year", "2024", "--min-sectors", "0"])
+    with pytest.raises(ValueError, match="--min-sectors"):
+        validate_script.main()
+
+    monkeypatch.setattr(sys, "argv", ["validate", "--year", "2024", "--timeout-seconds", "0"])
+    with pytest.raises(ValueError, match="--timeout-seconds"):
+        validate_script.main()
+
+
+def test_validate_script_main_runs(monkeypatch, capsys):
+    validate = AsyncMock(return_value={"status": "completed", "year": 2024})
+    monkeypatch.setattr(validate_script, "validate_pipeline", validate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validate",
+            "--year",
+            "2024",
+            "--location-code",
+            "IT",
+            "--reference-year",
+            "2023",
+            "--min-sectors",
+            "2",
+            "--api-base-url",
+            "http://127.0.0.1:8000",
+            "--timeout-seconds",
+            "9",
+            "--refresh",
+        ],
+    )
+
+    validate_script.main()
+
+    validate.assert_awaited_once_with(
+        year=2024,
+        location_code="IT",
+        reference_year=2023,
+        min_sectors=2,
+        api_base_url="http://127.0.0.1:8000",
+        timeout_seconds=9,
+        run_refresh=True,
+    )
+    assert '"status": "completed"' in capsys.readouterr().out
 
 
 def test_backfill_script_helpers(tmp_path, monkeypatch):
