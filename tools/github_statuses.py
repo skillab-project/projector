@@ -216,7 +216,16 @@ def mutation_status(gates):
     if not mutation.get("exists"):
         if coverage_gate_failed(gates):
             return ("error", skipped_after_early_failure("coverage gate failure"), artifact_url("quality-dashboard/index.html"))
+        if mutation.get("warning"):
+            return ("success", describe(f"Mutation warning: {mutation['warning']}"), artifact_url("quality-dashboard/index.html"))
         return ("error", describe("Missing mutation stats"), artifact_url("quality-dashboard/index.html"))
+
+    if mutation.get("warning"):
+        return (
+            "success",
+            describe(f"Mutation warning: {mutation['warning']}"),
+            artifact_url("mutation-report/index.html") or artifact_url("quality-dashboard/index.html"),
+        )
 
     value = mutation["score"] * 100
     advisory = gates["mutation_advisory"]
@@ -309,6 +318,8 @@ def render_pr_comment(statuses):
         result = "⏭️ Skipped" if summary.startswith("Skipped after ") else state_icons.get(state, state.upper())
         if " below advisory " in summary:
             result = "🟡 Below"
+        if summary.startswith("Mutation warning:"):
+            result = "⚠️ Warning"
         display_label = f"{check_icons.get(label, '•')} {label}"
         lines.append(
             f"| {display_label} | {result} | {summary} | "

@@ -94,6 +94,7 @@ code {
 }
 .pass { background: var(--green); }
 .fail { background: var(--red); }
+.warning { background: var(--amber); }
 .below { background: var(--amber); }
 .info { background: var(--blue); }
 .missing { background: var(--muted); }
@@ -150,6 +151,7 @@ def pill(status):
     labels = {
         "pass": "PASS",
         "fail": "FAIL",
+        "warning": "WARNING",
         "below": "BELOW",
         "info": "INFO",
         "missing": "MISSING",
@@ -241,17 +243,29 @@ def parse_coverage(path):
     }
 
 
-def parse_mutation(path):
+def parse_mutation(path, status_path="mutants/mutmut-stage-status.json"):
     file_path = Path(path)
+    stage_status = {}
+    stage_status_path = Path(status_path)
+    if stage_status_path.exists():
+        stage_status = json.loads(stage_status_path.read_text(encoding="utf-8"))
+
     if not file_path.exists():
-        return {"exists": False}
+        return {"exists": False, **stage_status}
 
     data = json.loads(file_path.read_text(encoding="utf-8"))
     killed = int(data.get("killed", 0))
     survived = int(data.get("survived", 0))
     effective = killed + survived
     score = (killed / effective) if effective else 0.0
-    return {"exists": True, "score": score, **data}
+    warning = stage_status.get("warning")
+    if not warning:
+        exit_code = stage_status.get("mutmut_exit_code")
+        if exit_code not in (None, 0):
+            warning = f"mutmut run exited with code {exit_code}"
+        elif effective == 0:
+            warning = "mutmut produced no effective mutants"
+    return {"exists": True, "score": score, "warning": warning, **stage_status, **data}
 
 
 def parse_pylint(path):
@@ -365,11 +379,15 @@ def render_gate_table(
         coverage_note = f'{check_policies["coverage"]["rule"]}: coverage.xml not found'
 
     if mutation.get("exists"):
-        mutation_outcome = "pass" if mutation["score"] * 100 >= mutation_advisory else "below"
-        mutation_note = f'{pct(mutation["score"])} advisory threshold {mutation_advisory:.0f}%'
+        if mutation.get("warning"):
+            mutation_outcome = "warning"
+            mutation_note = mutation["warning"]
+        else:
+            mutation_outcome = "pass" if mutation["score"] * 100 >= mutation_advisory else "below"
+            mutation_note = f'{pct(mutation["score"])} advisory threshold {mutation_advisory:.0f}%'
     else:
         mutation_outcome = "missing"
-        mutation_note = "mutmut stats not found"
+        mutation_note = mutation.get("warning") or "mutmut stats not found"
 
     if lint.get("exists") and lint.get("score") is not None:
         lint_outcome = "pass" if lint["score"] >= pylint_advisory else "below"
@@ -384,7 +402,12 @@ def render_gate_table(
     rows = [
         ("tests", test_outcome, test_outcome, check_policies["tests"]["rule"]),
         ("coverage", coverage_outcome, coverage_outcome, coverage_note),
-        ("mutation", "pass" if mutation.get("exists") else "missing", mutation_outcome, mutation_note),
+        (
+            "mutation",
+            "warning" if mutation.get("warning") else "pass" if mutation.get("exists") else "missing",
+            mutation_outcome,
+            mutation_note,
+        ),
         ("lint", "pass" if lint.get("exists") else "missing", lint_outcome, lint_note),
     ]
     body = "\n".join(
@@ -448,8 +471,14 @@ def render_mutation(mutation, mutation_advisory):
     rows = [
         ("Score", pct(mutation["score"])),
         ("Advisory threshold", f"{mutation_advisory:.0f}%"),
+        ("Stage warning", mutation.get("warning") or "none"),
+        ("mutmut exit code", mutation.get("mutmut_exit_code", "unknown")),
         ("Killed", mutation.get("killed", 0)),
         ("Survived", mutation.get("survived", 0)),
+        (
+            "Effective mutants",
+            mutation.get("effective_mutants", mutation.get("killed", 0) + mutation.get("survived", 0)),
+        ),
         ("No tests", mutation.get("no_tests", 0)),
         ("Skipped", mutation.get("skipped", 0)),
         ("Timeout", mutation.get("timeout", 0)),

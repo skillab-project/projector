@@ -238,6 +238,42 @@ PY
                             fi
                             echo "--- MUTATION TEST SUMMARY END ---"
 
+                            python - <<PY
+import json
+from pathlib import Path
+
+stats_path = Path("mutants/mutmut-cicd-stats.json")
+status_path = Path("mutants/mutmut-stage-status.json")
+status_path.parent.mkdir(parents=True, exist_ok=True)
+
+exit_code = int("${MUTMUT_EXIT}")
+status = {
+    "mutmut_exit_code": exit_code,
+    "stats_exists": stats_path.exists(),
+    "warning": None,
+}
+
+if stats_path.exists():
+    stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    killed = int(stats.get("killed", 0))
+    survived = int(stats.get("survived", 0))
+    status["effective_mutants"] = killed + survived
+    status["total_mutants"] = int(stats.get("total", 0))
+else:
+    status["effective_mutants"] = 0
+    status["total_mutants"] = 0
+
+if exit_code != 0:
+    status["warning"] = f"mutmut run exited with code {exit_code}"
+elif not status["stats_exists"]:
+    status["warning"] = "mutmut stats file was not generated"
+elif status["effective_mutants"] == 0:
+    status["warning"] = "mutmut produced no effective mutants"
+
+status_path.write_text(json.dumps(status, indent=4) + "\\n", encoding="utf-8")
+print(json.dumps(status, indent=4))
+PY
+
                             # Quality gate futuro, intenzionalmente disabilitato mentre fissiamo la baseline.
                             # Soglie suggerite:
                             # 1. score >= 55 dopo aver coperto i cluster principali di survivor.
@@ -300,7 +336,7 @@ PY
             '''
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'quality-dashboard/**, test-report/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'quality-dashboard/**, test-report/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json, mutants/mutmut-stage-status.json', allowEmptyArchive: true
 
             script {
                 try {
