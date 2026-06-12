@@ -17,6 +17,7 @@ also_copy = [
     "app/services/analytics/trends.py",
     "app/services/projector_service.py",
     "app/services/sector_snapshot_store.py",
+    "scripts/",
 ]
 tests_dir = ["app/test.py"]
 pytest_add_cli_args_test_selection = [
