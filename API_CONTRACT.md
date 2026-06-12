@@ -1,25 +1,29 @@
 # SKILLAB Projector API Contract
 
-This file is a root-level summary of the maintained API contract.
+Root-level summary of the maintained API contract.
 
-The canonical detailed reference is [docs/api-reference.md](docs/api-reference.md). Field meanings and metrics are documented in [docs/data-model.md](docs/data-model.md).
+Canonical docs:
+
+- [Quick start](docs/quick-start.md)
+- [API reference](docs/api-reference.md)
+- [Data model](docs/data-model.md)
+- [Statistics](docs/statistic.md)
+
+Related issues: #1, #8, #44, #52, #54.
 
 ## Runtime
-
-Current maintained backend entrypoint:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API is defined in:
-- `app/api/routes/projector.py`
-- `app/services/projector_service.py`
-- `app/schemas/responses.py`
+Dashboard:
 
-## Content Type
+```bash
+streamlit run app/example_dashboard/demo_dashboard.py
+```
 
-All public endpoints currently accept:
+Content type:
 
 ```http
 application/x-www-form-urlencoded
@@ -27,110 +31,51 @@ application/x-www-form-urlencoded
 
 ## Public Endpoints
 
-| Endpoint | Method | Purpose |
-| --- | --- | --- |
-| `/projector/analyze-skills` | `POST` | Full labor-market analysis |
-| `/projector/emerging-skills` | `POST` | Trend-only analysis |
-| `/projector/stop` | `POST` | Cooperative stop signal |
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /projector/analyze-skills` | keyword/job-search skill intelligence |
+| `POST /projector/sectoral-snapshot` | yearly sector snapshot and one-sector evolution |
+| `POST /projector/sector-skills-comparison` | sectors x skills heatmap |
+| `POST /projector/sectoral-intelligence` | legacy/drill-down observed sector detail |
+| `POST /projector/emerging-skills` | trend-only analysis |
+| `GET /projector/health` | service reachability |
+| `POST /projector/stop` | cooperative stop signal |
 
-## `POST /projector/analyze-skills`
+## Sector Contract
 
-Request fields:
-
-| Field | Required | Default |
-| --- | --- | --- |
-| `keywords` | no | `null` |
-| `locations` | no | `null` |
-| `min_date` | yes | none |
-| `max_date` | yes | none |
-| `page` | no | `1` |
-| `page_size` | no | `50` |
-| `demo` | no | `false` |
-| `include_sectoral` | no | `false` |
-| `sector_system` | no | `isco` |
-| `sector_level` | no | `isco_group` |
-| `skill_group_level` | no | `1` |
-| `occupation_level` | no | `1` |
-
-Supported `sector_system` values:
-- `isco`
-- `nace`
-- `both`
-
-Supported `sector_level` values:
-- `isco_group`
-- `nace_section`
-- `nace_division`
-- `nace_group`
-- `nace_class`
-- `nace_code`
-
-Response root:
-
-```json
-{
-  "status": "completed",
-  "dimension_summary": {},
-  "insights": {}
-}
-```
-
-Sectoral response fields, when enabled:
-- `insights.sectoral`
-- `insights.sectoral_mode`
-- `insights.sectoral_views`
-- `insights.sector_view_names`
-
-## `POST /projector/emerging-skills`
-
-Request fields:
-- `min_date`
-- `max_date`
-- `keywords`
-
-Response root:
-
-```json
-{
-  "status": "completed",
-  "insights": {
-    "market_health": {},
-    "trends": []
-  }
-}
-```
-
-## `POST /projector/stop`
-
-Request fields: none.
-
-Response:
-
-```json
-{
-  "status": "signal_sent"
-}
-```
-
-## Sector Semantics
-
-ISCO is occupation-based:
+Current sector intelligence uses Tracker API data only:
 
 ```text
-job -> occupation -> isco_group -> ISCO label
+job["sectors"] x job["skills"]
 ```
 
-NACE is economic-activity-based:
+No ISCO file, NACE file, ESCO-NACE crosswalk, canonical occupation-skill relation, skill group file or official ESCO matrix is used in the current sector dashboard flow.
+
+## Sector Snapshot Contract
+
+When `DATABASE_URL` is configured:
 
 ```text
-job -> occupation -> ESCO-NACE crosswalk -> NACE code/title
+/projector/sectoral-snapshot
+/projector/sector-skills-comparison
 ```
 
-NACE keeps multiple mappings when the crosswalk links one occupation to more than one economic activity. Treat NACE totals as relationship counts, not strict unique-job totals.
+read PostgreSQL yearly snapshots.
 
-## Known Contract Caveats
+Snapshot source tables:
+
+- `sector_snapshot_runs`
+- `sector_yearly_snapshots`
+
+Read rule:
+
+```text
+latest completed run for (year, location_code)
+```
+
+## Known Caveats
 
 - No versioned API prefix yet.
 - No standardized error envelope yet.
 - Date ordering is not explicitly validated.
-- Cache invalidation is manual.
+- Snapshot refresh scheduling is external/not automated in-process.

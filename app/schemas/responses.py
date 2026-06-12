@@ -93,6 +93,11 @@ class SkillEntry(BaseModel):
     label: Optional[str] = None
     is_green: Optional[bool] = None
     is_digital: Optional[bool] = None
+    share_in_sector: Optional[float] = None
+    rank: Optional[int] = None
+    growth_vs_reference_year: Optional[Union[float, Literal["new_entry"]]] = None
+    growth_value: Optional[float] = None
+    sector_breadth: Optional[int] = None
 
 
 class SkillGroupEntry(BaseModel):
@@ -107,6 +112,7 @@ class SectorSkillSummary(BaseModel):
     total_skill_mentions: int
     unique_skills: int
     top_skills: List[SkillEntry]
+    all_skills: Optional[List[SkillEntry]] = None
 
 
 class SectorGroupSummary(BaseModel):
@@ -165,6 +171,109 @@ class SectoralSectorItem(BaseModel):
 class SectoralView(BaseModel):
     sector_level: str
     items: List[SectoralSectorItem]
+    time_mode: Optional[Literal["latest", "selected_period", "year", "comparison"]] = None
+    window: Optional[dict[str, str]] = None
+    snapshots: Optional[dict[str, dict]] = None
+    comparison: Optional[dict] = None
+
+
+class SectoralIntelligenceResponse(BaseModel):
+    status: str
+    mode: Literal["latest", "selected_period", "year", "comparison"]
+    data_source: Literal["cache", "live"]
+    sector_level: str
+    window: dict[str, str]
+    sector_filter: List[str] = Field(default_factory=list)
+    items: List[SectoralSectorItem]
+    snapshots: Optional[dict[str, dict]] = None
+    comparison: Optional[dict] = None
+    sector_view_names: dict[str, str]
+
+
+class SectorSnapshotTitle(BaseModel):
+    name: str
+    count: int
+
+
+class SectorEvolutionSkill(BaseModel):
+    skill_id: str
+    label: Optional[str] = None
+    count: int
+    reference_count: int
+    delta: int
+
+
+class SectorEvolution(BaseModel):
+    reference_year: int
+    job_count_current: int
+    job_count_reference: int
+    job_delta: int
+    job_growth_percentage: Union[float, Literal["new_entry"]]
+    job_growth_value: float
+    new_skill_count: int
+    disappeared_skill_count: int
+    growing_skill_count: int
+    declining_skill_count: int
+    skill_churn: float
+    top_new_skills: List[SectorEvolutionSkill]
+    top_disappeared_skills: List[SectorEvolutionSkill]
+    top_growing_skills: List[SectorEvolutionSkill]
+    top_declining_skills: List[SectorEvolutionSkill]
+
+
+class SectorSnapshotRow(BaseModel):
+    sector: str
+    sector_label: str
+    job_count: int
+    job_share: float
+    total_skill_mentions: int
+    unique_skills: int
+    evolution: Optional[SectorEvolution] = None
+    top_skills: List[SkillEntry]
+    all_skills: Optional[List[SkillEntry]] = None
+    top_job_titles: List[SectorSnapshotTitle]
+
+
+class SectoralSnapshotResponse(BaseModel):
+    status: str
+    year: int
+    reference_year: Optional[int] = None
+    data_source: Literal["postgres", "cache", "live"]
+    window: dict[str, str]
+    total_jobs: int
+    sector_filter: List[str] = Field(default_factory=list)
+    sectors: List[SectorSnapshotRow]
+    message: Optional[str] = None
+
+
+class SectorSkillComparisonCell(BaseModel):
+    sector: str
+    sector_label: str
+    skill_id: str
+    label: str
+    count: int
+    share: float
+    rank: Optional[int] = None
+    rank_score: float
+    growth: Optional[Union[float, Literal["new_entry"]]] = None
+    growth_value: Optional[float] = None
+    value: float
+    display_value: str
+    is_green: Optional[bool] = None
+    is_digital: Optional[bool] = None
+
+
+class SectorSkillsComparisonResponse(BaseModel):
+    status: str
+    year: int
+    reference_year: Optional[int] = None
+    data_source: Literal["postgres", "cache", "live"]
+    metric: Literal["count", "share", "rank", "growth"]
+    window: dict[str, str]
+    sectors: List[str]
+    skills: List[str]
+    matrix: List[SectorSkillComparisonCell]
+    message: Optional[str] = None
 
 
 class NaceSectoralViews(BaseModel):

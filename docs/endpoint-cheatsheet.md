@@ -9,6 +9,9 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | Endpoint | Use it when you need | Returns in one sentence |
 | --- | --- | --- |
 | `POST /projector/analyze-skills` | A full dashboard snapshot | Skills, sectors, employers, titles, trends, geography and optional Tracker sector intelligence |
+| `POST /projector/sectoral-snapshot` | One-sector yearly snapshot or evolution | Static yearly sector rows enriched with skills, job titles and evolution metrics |
+| `POST /projector/sector-skills-comparison` | Multi-sector heatmap | Sectors x skills matrix for count, share, rank or growth |
+| `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
@@ -90,6 +93,58 @@ When `include_sectoral=true`:
 - no ISCO, canonical, matrix, or ESCO-NACE crosswalk data is used.
 
 Important: sector totals are relationship counts. A job with multiple sectors contributes to each listed sector.
+
+## `POST /projector/sectoral-snapshot`
+
+Use this for Sector Overview.
+
+### Snapshot Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "locations=IT"
+```
+
+### Evolution Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "reference_year=2023" \
+  -d "locations=IT"
+```
+
+### Main Fields
+
+| Field | Meaning |
+| --- | --- |
+| `sectors[].job_count` | jobs linked to the sector |
+| `sectors[].job_share` | sector share inside the snapshot |
+| `sectors[].top_skills` | top-10 skills |
+| `sectors[].all_skills` | full skill list |
+| `sectors[].top_job_titles` | most frequent job titles |
+| `sectors[].evolution` | sector change between `reference_year` and `year` |
+
+## `POST /projector/sector-skills-comparison`
+
+Use this for the Sector Skills Comparison heatmap.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sector-skills-comparison" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "metric=share"
+```
+
+Metrics:
+
+- `count`
+- `share`
+- `rank`
+- `growth`
 
 ## `POST /projector/emerging-skills`
 

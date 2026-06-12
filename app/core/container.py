@@ -7,6 +7,8 @@ from app.services.analytics.sectoral import SectoralAnalytics
 from app.services.analytics.trends import TrendAnalytics
 from app.services.esco_loader import EscoLoader
 from app.services.projector_service import ProjectorService
+from app.services.sector_snapshot_store import SectorSnapshotStore
+from app.core.config import DATABASE_URL
 
 engine = ProjectorEngine()
 tracker = TrackerClient(engine)
@@ -19,4 +21,5 @@ market = MarketAnalytics(engine, tracker, occupations)
 trends = TrendAnalytics(engine, tracker, market)
 
 sectoral = SectoralAnalytics(engine, occupations)
-service = ProjectorService(engine, tracker, occupations, regional, market, trends, sectoral)
+sector_snapshot_store = SectorSnapshotStore(DATABASE_URL)
+service = ProjectorService(engine, tracker, occupations, regional, market, trends, sectoral, sector_snapshot_store)

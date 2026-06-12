@@ -2,7 +2,14 @@ from typing import Optional, List, Literal
 from fastapi import APIRouter
 from fastapi import Form
 
-from app.schemas.responses import EmergingSkillsResponse, ProjectorResponse, StopResponse
+from app.schemas.responses import (
+    EmergingSkillsResponse,
+    ProjectorResponse,
+    SectoralIntelligenceResponse,
+    SectorSkillsComparisonResponse,
+    SectoralSnapshotResponse,
+    StopResponse,
+)
 from app.core.container import service
 
 router = APIRouter(prefix="/projector", tags=["Projector"])
@@ -56,6 +63,12 @@ async def analyze_skills(
         include_sectoral: bool = Form(False),
         sector_system: Literal["isco", "nace", "both"] = Form("isco"),
         sector_level: Literal["isco_group", "nace_section", "nace_division", "nace_group", "nace_class", "nace_code"] = Form("isco_group"),
+        sectoral_time_mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        sectoral_snapshot_year: Optional[int] = Form(None),
+        sectoral_compare_a_min_date: Optional[str] = Form(None),
+        sectoral_compare_a_max_date: Optional[str] = Form(None),
+        sectoral_compare_b_min_date: Optional[str] = Form(None),
+        sectoral_compare_b_max_date: Optional[str] = Form(None),
         skill_group_level: int = Form(1),
         occupation_level: int = Form(1),
 ):
@@ -99,8 +112,112 @@ async def analyze_skills(
                                  include_sectoral,
                                  sector_system,
                                  sector_level,
+                                 sectoral_time_mode,
+                                 sectoral_snapshot_year,
+                                 sectoral_compare_a_min_date,
+                                 sectoral_compare_a_max_date,
+                                 sectoral_compare_b_min_date,
+                                 sectoral_compare_b_max_date,
                                  skill_group_level,
                                  occupation_level)
+
+
+@router.post(
+    "/sectoral-intelligence",
+    response_model=SectoralIntelligenceResponse,
+    response_model_exclude_none=True,
+)
+async def sectoral_intelligence(
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        data_source: Literal["cache", "live"] = Form("cache"),
+        mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        min_date: Optional[str] = Form(None),
+        max_date: Optional[str] = Form(None),
+        snapshot_year: Optional[int] = Form(None),
+        compare_a_min_date: Optional[str] = Form(None),
+        compare_a_max_date: Optional[str] = Form(None),
+        compare_b_min_date: Optional[str] = Form(None),
+        compare_b_max_date: Optional[str] = Form(None),
+        skill_group_level: int = Form(1),
+        occupation_level: int = Form(1),
+):
+    """
+       Computes Tracker API sector intelligence as a dedicated sector dimension.
+
+       The endpoint is independent from `/projector/analyze-skills` and supports
+       latest, selected-period, yearly snapshot, and two-period comparison modes.
+    """
+    return await service.sectoral_intelligence(
+        keywords=keywords,
+        locations=locations,
+        sectors=sectors,
+        data_source=data_source,
+        mode=mode,
+        min_date=min_date,
+        max_date=max_date,
+        snapshot_year=snapshot_year,
+        compare_a_min_date=compare_a_min_date,
+        compare_a_max_date=compare_a_max_date,
+        compare_b_min_date=compare_b_min_date,
+        compare_b_max_date=compare_b_max_date,
+        skill_group_level=skill_group_level,
+        occupation_level=occupation_level,
+    )
+
+
+@router.post(
+    "/sectoral-snapshot",
+    response_model=SectoralSnapshotResponse,
+    response_model_exclude_none=True,
+)
+async def sectoral_snapshot(
+        year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+):
+    """
+       Computes a simple yearly sector overview for the final frontend.
+
+       This endpoint is intentionally aggregated: one row per Tracker sector,
+       with job volume, share, top skills, and top job titles.
+    """
+    return await service.sectoral_snapshot(
+        year=year,
+        reference_year=reference_year,
+        locations=locations,
+        data_source="cache",
+    )
+
+
+@router.post(
+    "/sector-skills-comparison",
+    response_model=SectorSkillsComparisonResponse,
+    response_model_exclude_none=True,
+)
+async def sector_skills_comparison(
+        year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        skills: Optional[List[str]] = Form(None),
+        metric: Literal["count", "share", "rank", "growth"] = Form("share"),
+):
+    """
+       Compares sectors through a sectors x skills matrix for a yearly snapshot.
+
+       The selected metric controls the heatmap value:
+       count, share in sector, rank score, or growth vs previous year.
+    """
+    return await service.sector_skills_comparison(
+        year=year,
+        reference_year=reference_year,
+        locations=locations,
+        sectors=sectors,
+        skills=skills,
+        metric=metric,
+    )
 
 
 @router.post("/stop", response_model=StopResponse)

@@ -12,6 +12,8 @@ It provides:
 
 The project also includes a Streamlit dashboard for exploring the API output.
 
+Start from [docs/quick-start.md](docs/quick-start.md) for the current intelligence design, local run commands and dashboard navigation.
+
 ## Current Runtime Entry Points
 
 Start the API from the repository root:
@@ -54,6 +56,24 @@ Create a `.env` file in the repository root:
 TRACKER_API=https://your-tracker-url
 TRACKER_USERNAME=your_username
 TRACKER_PASSWORD=your_password
+DATABASE_URL=postgresql://skillab:skillab@localhost:5433/skillab_projector
+```
+
+## Local Database
+
+Only PostgreSQL is dockerized for now:
+
+```bash
+docker compose up -d projector-db
+```
+
+The container applies `migrations/*.sql` on first boot and seeds demo sector snapshots for 2020-2024, including demo/regional data.
+
+To reseed from scratch:
+
+```bash
+docker compose down -v
+docker compose up -d projector-db
 ```
 
 ## Repository Layout
@@ -73,6 +93,8 @@ repo-root/
 │   └── example_dashboard/demo_dashboard.py
 ├── complementary_data/
 ├── docs/
+├── migrations/
+├── scripts/
 ├── cache_data/
 └── requirements.txt
 ```
@@ -92,6 +114,9 @@ app.main
 The current public endpoints are:
 
 - `POST /projector/analyze-skills`
+- `POST /projector/sectoral-snapshot`
+- `POST /projector/sector-skills-comparison`
+- `POST /projector/sectoral-intelligence`
 - `POST /projector/emerging-skills`
 - `POST /projector/stop`
 

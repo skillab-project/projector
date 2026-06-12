@@ -1,91 +1,85 @@
 # Sector Dimension: Current Implementation
 
-This document is a compact technical note for the current sector dimension.
+Compact technical note for the current sector dimension.
 
-The maintained, reader-facing sector documentation is [docs/sector-intelligence.md](docs/sector-intelligence.md).
+Maintained docs:
+
+- [Sector intelligence](docs/sector-intelligence.md)
+- [Database](docs/database.md)
+- [Statistics](docs/statistic.md)
+
+Related issues: #44, #47, #48, #49, #52, #54.
 
 ## Goal
 
-The sector dimension connects jobs, occupations and skills so the API can answer:
+The sector dimension answers:
 
-- which skills appear in a sector,
-- which skills are canonically associated with that sector according to ESCO,
-- how observed market evidence differs from ESCO references,
-- how skills aggregate into ESCO skill groups,
-- how ISCO and NACE views differ.
+- what skills are requested in one sector,
+- how one sector changes across years,
+- how multiple sectors compare on selected skills,
+- which job titles appear in a sector.
 
-## Runtime Flow
+## Runtime Source
 
-```text
-Tracker job
- ├── occupations
- └── skills
-      ↓
-occupation -> ISCO sector
-occupation -> NACE sector through ESCO-NACE crosswalk
-occupation -> canonical ESCO skills
-skill -> ESCO skill group
-      ↓
-sector -> observed skills
-sector -> canonical skills
-sector -> observed skill groups
-sector -> canonical skill groups
-sector -> official ESCO matrix groups
-```
-
-## Systems
-
-ISCO:
+Current sector intelligence uses Tracker API fields:
 
 ```text
-job -> occupation -> isco_group -> ISCO label
+job["sectors"]
+job["skills"]
+job["title"]
+job["location_code"]
 ```
 
-NACE:
+Core mapping:
 
 ```text
-job -> occupation -> ESCO-NACE crosswalk -> NACE code/title
+Tracker job["sectors"] x Tracker job["skills"]
 ```
 
-NACE supports:
-- `nace_section`
-- `nace_division`
-- `nace_group`
-- `nace_class`
+## Current Views
 
-`nace_code` remains accepted by the route for technical compatibility, but dashboard-facing views are built for section, division, group and class.
+```text
+Sector Overview
+├── Snapshot
+│   one sector, one year
+│
+└── Sector Evolution
+    one sector, two years
 
-## Analytical Layers
+Sector Skills Comparison
+└── Heatmap
+    many sectors x many skills
+```
 
-Observed:
-- built from Tracker job skills,
-- represents current market evidence.
+## Static Snapshot Flow
 
-Canonical:
-- built from `occupationSkillRelations_en.csv`,
-- represents ESCO occupation-skill reference knowledge.
+```text
+Tracker API
+ -> scripts/refresh_sectoral_snapshot.py
+ -> PostgreSQL
+ -> /projector/sectoral-snapshot
+ -> dashboard
+```
 
-Skill groups:
-- built from `skillsHierarchy_en.csv`,
-- aggregates skills into higher-level ESCO groups.
+The dashboard reads pre-aggregated yearly snapshots. Heavy Tracker aggregation should happen in refresh jobs, not live dashboard requests.
 
-Official matrix:
-- built from `Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx`,
-- represents official occupation-group to skill-group profiles.
+## Excluded Legacy Runtime
 
-## API Output
+The current sector dashboard flow does not use:
 
-When `include_sectoral=true`, `/projector/analyze-skills` returns:
+- ISCO comparison
+- NACE hierarchy files
+- ESCO-NACE crosswalk
+- canonical ESCO occupation-skill relations
+- ESCO skill groups
+- official ESCO matrix
 
-- `insights.sectoral`
-- `insights.sectoral_mode`
-- `insights.sectoral_views`
-- `insights.sector_view_names`
-
-`insights.sectoral_views` contains both ISCO and NACE payloads. NACE includes all supported hierarchy levels.
+These can remain in the repository for historical compatibility, but they are not part of the current sector intelligence runtime.
 
 ## Interpretation Caveat
 
-NACE is relation-oriented in the current implementation. If one occupation maps to multiple NACE sectors, all mappings are kept and the same skill evidence can appear in multiple NACE sectors.
+Sector totals are relationship-oriented.
 
-Use NACE totals for relationship discovery, not strict one-job-one-sector accounting.
+If one job has multiple sectors, it contributes to each listed sector.
+
+If one job has multiple sectors and multiple skills, every sector-skill pair contributes to the sector-skill matrix.

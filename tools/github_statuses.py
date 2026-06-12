@@ -127,12 +127,37 @@ def post_pr_comment(repo, issue_number, token, body):
         response.read()
 
 
+def post_commit_comment(repo, sha, token, body):
+    payload = {"body": body}
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/commits/{sha}/comments",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "projector-jenkins-quality-statuses",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=20) as response:
+        response.read()
+
+
 def explain_comment_http_error(exc):
     if exc.code in (401, 403):
         return "token cannot write PR comments; grant Issues: write or use the GitHub App token"
     if exc.code == 404:
         return "PR comment endpoint not found; check repo, PR number, and token repository access"
     return "GitHub rejected the PR comment request"
+
+
+def explain_commit_comment_http_error(exc):
+    if exc.code in (401, 403):
+        return "token cannot write commit comments; grant Contents: write or use the GitHub App token"
+    if exc.code == 404:
+        return "commit comment endpoint not found; check repo, commit SHA, and token repository access"
+    return "GitHub rejected the commit comment request"
 
 
 def tests_status(gates):
@@ -191,7 +216,16 @@ def mutation_status(gates):
     if not mutation.get("exists"):
         if coverage_gate_failed(gates):
             return ("error", skipped_after_early_failure("coverage gate failure"), artifact_url("quality-dashboard/index.html"))
+        if mutation.get("warning"):
+            return ("success", describe(f"Mutation warning: {mutation['warning']}"), artifact_url("quality-dashboard/index.html"))
         return ("error", describe("Missing mutation stats"), artifact_url("quality-dashboard/index.html"))
+
+    if mutation.get("warning"):
+        return (
+            "success",
+            describe(f"Mutation warning: {mutation['warning']}"),
+            artifact_url("mutation-report/index.html") or artifact_url("quality-dashboard/index.html"),
+        )
 
     value = mutation["score"] * 100
     advisory = gates["mutation_advisory"]
@@ -284,6 +318,8 @@ def render_pr_comment(statuses):
         result = "⏭️ Skipped" if summary.startswith("Skipped after ") else state_icons.get(state, state.upper())
         if " below advisory " in summary:
             result = "🟡 Below"
+        if summary.startswith("Mutation warning:"):
+            result = "⚠️ Warning"
         display_label = f"{check_icons.get(label, '•')} {label}"
         lines.append(
             f"| {display_label} | {result} | {summary} | "
@@ -322,6 +358,7 @@ def main():
     }
 
     state, description, target_url = ci_status(statuses)
+    comment_body = render_pr_comment(statuses)
     try:
         post_status(repo, sha, token, "Jenkins / CI", state, description, target_url)
         print(f"Published Jenkins / CI: {state} - {description}")
@@ -334,7 +371,7 @@ def main():
     issue_number = infer_pr_number()
     if issue_number:
         try:
-            post_pr_comment(repo, issue_number, token, render_pr_comment(statuses))
+            post_pr_comment(repo, issue_number, token, comment_body)
             print(f"Published Jenkins CI comment on PR #{issue_number}.")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
@@ -344,6 +381,16 @@ def main():
             print(f"Failed to publish Jenkins CI comment: {exc}")
     else:
         print("No PR number found; skipping Jenkins CI PR comment.")
+
+    try:
+        post_commit_comment(repo, sha, token, comment_body)
+        print(f"Published Jenkins CI comment on commit {sha[:7]}.")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        print(f"Failed to publish Jenkins CI commit comment: HTTP {exc.code} {explain_commit_comment_http_error(exc)}")
+        print(body)
+    except Exception as exc:
+        print(f"Failed to publish Jenkins CI commit comment: {exc}")
 
 
 if __name__ == "__main__":

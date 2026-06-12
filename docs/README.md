@@ -4,16 +4,26 @@ This folder contains the maintained documentation for the current `app/` impleme
 
 ## Reading Order
 
-1. [Overview](overview.md) explains what the service does and who it is for.
-2. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
-3. [API reference](api-reference.md) documents current public endpoints and form fields.
-4. [Data model](data-model.md) explains response fields.
-5. [Statistics](statistic.md) explains metric formulas.
-6. [Architecture](architecture.md) maps the runtime flow to the current code.
-7. [Examples](examples.md) provides request examples and frontend integration patterns.
-8. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics.
+1. [Quick start](quick-start.md) gives the short operational guide, intelligence design and final navigation.
+2. [Overview](overview.md) explains what the service does and who it is for.
+3. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
+4. [API reference](api-reference.md) documents current public endpoints and form fields.
+5. [Data model](data-model.md) explains response fields.
+6. [Statistics](statistic.md) explains metric formulas.
+7. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
+8. [Database](database.md) documents PostgreSQL sector snapshot storage.
 9. [Data sources](data-sources.md) explains Tracker API data usage.
-10. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+10. [Architecture](architecture.md) maps the runtime flow to the current code.
+11. [Examples](examples.md) provides request examples and frontend integration patterns.
+12. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+
+## Issue Coverage
+
+- #1: quick start and demo launch instructions.
+- #7: architecture, data flow and maintainability notes.
+- #8: endpoint cheatsheet and API reference.
+- #44, #54: PostgreSQL sector snapshot storage and refresh pipeline.
+- #47, #48, #49, #52: sector-first yearly views, detailed skills, redesign and comparison heatmap.
 
 ## Current Code Layout
 
@@ -27,7 +37,10 @@ repo-root/
 │   ├── schemas/responses.py
 │   ├── services/projector_service.py
 │   ├── services/esco_loader.py
+│   ├── services/sector_snapshot_store.py
 │   └── services/analytics/
+├── migrations/
+├── scripts/
 ├── complementary_data/
 └── docs/
 ```

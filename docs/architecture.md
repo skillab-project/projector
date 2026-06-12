@@ -8,6 +8,7 @@ This document describes the maintained `app/` implementation.
 - `httpx.AsyncClient` for Tracker communication
 - Pydantic response models
 - file-based JSON cache for Tracker job batches
+- PostgreSQL for yearly sector snapshots
 - Streamlit dashboard for local exploration
 
 ## Current Module Flow
@@ -23,6 +24,7 @@ app.main
     -> app.services.analytics.regional.RegionalAnalytics
     -> app.services.analytics.sectoral.SectoralAnalytics
     -> app.services.analytics.occupations.OccupationAnalytics
+    -> app.services.sector_snapshot_store.SectorSnapshotStore
 ```
 
 Shared runtime state lives in `app.core.state.ProjectorEngine`.
@@ -109,6 +111,33 @@ job["sectors"] x job["skills"]
 
 One job can contain multiple sectors and multiple skills. Every sector-skill pair in the same job contributes to the observed sector-skill matrix.
 
+## Sector Snapshot Strategy
+
+Sector Overview and Sector Skills Comparison are static-first.
+
+```text
+Tracker API
+ -> scripts/refresh_sectoral_snapshot.py
+ -> SectorSnapshotStore.write_snapshot()
+ -> PostgreSQL
+ -> /projector/sectoral-snapshot
+ -> /projector/sector-skills-comparison
+ -> Streamlit dashboard
+```
+
+Tables:
+
+- `sector_snapshot_runs`: refresh metadata, status, version and year/location.
+- `sector_yearly_snapshots`: one sector row per completed run.
+
+Read rule:
+
+```text
+latest completed run for (year, location_code)
+```
+
+This keeps long Tracker aggregation out of normal dashboard requests.
+
 ## Current Caveats
 
 - There is no standardized error response model.
@@ -117,6 +146,7 @@ One job can contain multiple sectors and multiple skills. Every sector-skill pai
 - Green and digital flags are currently false by default in runtime enrichment.
 - Sector counts are relationship-oriented when one job has many sectors.
 - The shared `ProjectorEngine` state is process-local and in-memory.
+- Real Tracker backfills still need operational validation before closing the refresh pipeline.
 
 ## Production Hardening Priorities
 
@@ -126,3 +156,4 @@ One job can contain multiple sectors and multiple skills. Every sector-skill pai
 4. Add versioning, for example `/api/v1/projector/...`.
 5. Extend `/projector/health` with Tracker readiness.
 6. Expand automated tests for API-only sectoral payloads and no-data responses.
+7. Monitor scheduled snapshot refreshes in production and alert on repeated failures.

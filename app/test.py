@@ -1,8 +1,13 @@
 import hashlib
+import importlib
 import os
 import json
+import sys
 import tempfile
+from contextlib import contextmanager
 from collections import defaultdict, Counter
+from datetime import datetime, timedelta, timezone
+from types import ModuleType, SimpleNamespace
 
 import httpx
 import pytest
@@ -16,6 +21,12 @@ from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
 from app.services.projector_service import ProjectorService
+from app.services.sector_snapshot_store import SectorSnapshotStore
+from scripts import backfill_sectoral_snapshots as backfill_script
+from scripts import refresh_sectoral_snapshot as refresh_script
+from scripts import schedule_sectoral_snapshot_refresh as scheduler_script
+from scripts import validate_sectoral_snapshot_pipeline as validate_script
+from scripts.schedule_sectoral_snapshot_refresh import due_targets
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -35,10 +46,12 @@ class _FakeServiceTracker:
     def __init__(self, jobs):
         self.jobs = jobs
         self.fetch_payload = None
+        self.fetch_payloads = []
         self.skill_names_requested = None
 
     async def fetch_all_jobs(self, payload):
         self.fetch_payload = payload
+        self.fetch_payloads.append(payload)
         return self.jobs
 
     async def fetch_skill_names(self, skill_ids):
@@ -84,10 +97,1726 @@ class _FakeServiceSectoral:
 
     def build_sectoral_intelligence(self, **kwargs):
         self.kwargs = kwargs
-        return [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}]
+        job = (kwargs.get("jobs") or [{"sectors": ["Education"]}])[0]
+        sector = (job.get("sectors") or ["Education"])[0]
+        return [{
+            "sector": sector,
+            "sector_label": sector,
+            "observed_skills": {
+                "sector": sector,
+                "total_skill_mentions": 1,
+                "unique_skills": 1,
+                "top_skills": [{"skill_id": "skill-python", "count": 1, "frequency": 1.0}],
+            },
+        }]
 
 
-def _make_projector_service(jobs):
+class _FakeSectorSnapshotStore:
+    enabled = True
+
+    def __init__(self, payload=None, refresh_status=None):
+        self.payload = payload
+        self.refresh_status = refresh_status
+        self.requests = []
+        self.refresh_status_requests = []
+
+    def read_latest(self, year, location_code=None):
+        self.requests.append((year, location_code))
+        if isinstance(self.payload, dict) and "by_year" in self.payload:
+            return self.payload["by_year"].get(year)
+        return self.payload
+
+    def read_refresh_status(self, year, location_code=None):
+        self.refresh_status_requests.append((year, location_code))
+        return self.refresh_status
+
+
+class _FakeSchedulerSnapshotStore:
+    def __init__(self, completed_at_by_key):
+        self.completed_at_by_key = completed_at_by_key
+
+    def latest_completed_at(self, year, location_code=None):
+        return self.completed_at_by_key.get((year, location_code))
+
+
+class _FakeStoreResult:
+    def __init__(self, one=None, many=None):
+        self.one = one
+        self.many = many or []
+
+    def fetchone(self):
+        return self.one
+
+    def fetchall(self):
+        return self.many
+
+
+class _FakeStoreTransaction:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class _FakeStoreConnection:
+    def __init__(self, results=None):
+        self.results = list(results or [])
+        self.calls = []
+        self.commits = 0
+
+    def execute(self, sql, params=None):
+        if sql is None:
+            raise AssertionError("SQL query must be provided")
+        self.calls.append((sql, params))
+        if self.results:
+            return self.results.pop(0)
+        return _FakeStoreResult()
+
+    def commit(self):
+        self.commits += 1
+
+    def transaction(self):
+        return _FakeStoreTransaction()
+
+
+def test_scheduler_due_targets_returns_missing_snapshots():
+    store = _FakeSchedulerSnapshotStore({})
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+
+    due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
+
+    assert due == [(2024, "GLOBAL"), (2024, "IT")]
+
+
+def test_sector_snapshot_store_disabled_reads_return_none():
+    store = SectorSnapshotStore(None)
+
+    assert store.enabled is False
+    assert store.read_latest(2024) is None
+    assert store.latest_completed_at(2024) is None
+    assert store.read_refresh_status(2024) is None
+
+
+def test_sector_snapshot_store_connect_requires_database_url():
+    store = SectorSnapshotStore(None)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL not configured"):
+        with store._connect():
+            pass
+
+
+def test_sector_snapshot_store_connect_requires_psycopg(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    original_import = __import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "psycopg":
+            raise ImportError("missing psycopg")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fake_import)
+
+    with pytest.raises(RuntimeError, match="psycopg is required"):
+        with store._connect():
+            pass
+
+
+def test_sector_snapshot_store_connect_yields_psycopg_connection(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    fake_connection = object()
+
+    class FakePsycopgConnection:
+        def __enter__(self):
+            return fake_connection
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    psycopg_module = ModuleType("psycopg")
+    psycopg_module.connect = MagicMock(return_value=FakePsycopgConnection())
+    rows_module = ModuleType("psycopg.rows")
+    rows_module.dict_row = object()
+    monkeypatch.setitem(sys.modules, "psycopg", psycopg_module)
+    monkeypatch.setitem(sys.modules, "psycopg.rows", rows_module)
+
+    with store._connect() as conn:
+        assert conn is fake_connection
+
+    psycopg_module.connect.assert_called_once_with("postgresql://db", row_factory=rows_module.dict_row)
+
+
+def test_sector_snapshot_store_ensure_schema_executes_schema(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection()
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    store.ensure_schema()
+
+    assert "sector_snapshot_refresh_status" in conn.calls[0][0]
+    assert conn.commits == 1
+
+
+def test_sector_snapshot_store_read_refresh_status_formats_and_fallbacks(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    completed_at = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+    failed_at = datetime(2026, 6, 6, 12, 0, tzinfo=timezone.utc)
+    updated_at = datetime(2026, 6, 6, 12, 5, tzinfo=timezone.utc)
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(one=None),
+        _FakeStoreResult(one={
+            "status": "failed",
+            "last_success_at": completed_at,
+            "last_failed_at": failed_at,
+            "last_error": "boom",
+            "last_checkpoint_page": 5,
+            "fetched_jobs": 100,
+            "expected_jobs": 250,
+            "source": "tracker",
+            "updated_at": updated_at,
+        }),
+    ])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    status = store.read_refresh_status(2024, "IT")
+
+    assert status == {
+        "status": "failed",
+        "last_success_at": completed_at.isoformat(),
+        "last_failed_at": failed_at.isoformat(),
+        "last_error": "boom",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+        "updated_at": updated_at.isoformat(),
+    }
+    assert conn.calls[0][1] == (2024, "IT")
+    assert conn.calls[1][1] == (2024, "")
+
+
+def test_sector_snapshot_store_read_refresh_status_returns_none(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection([_FakeStoreResult(one=None)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.read_refresh_status(2024) is None
+    assert conn.calls[0][1] == (2024, "")
+
+
+def test_sector_snapshot_store_write_refresh_status_upserts(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection()
+    connections = [schema_conn, write_conn]
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    store.write_refresh_status(
+        year=2024,
+        location_code=None,
+        status="failed",
+        last_error="boom",
+        last_checkpoint_page=5,
+        fetched_jobs=100,
+        expected_jobs=250,
+        source="tracker",
+    )
+
+    assert schema_conn.commits == 1
+    assert "INSERT INTO sector_snapshot_refresh_status" in write_conn.calls[0][0]
+    assert "ON CONFLICT" in write_conn.calls[0][0]
+    assert write_conn.calls[0][1] == (
+        2024,
+        "",
+        "failed",
+        "failed",
+        "failed",
+        "boom",
+        5,
+        100,
+        250,
+        "tracker",
+    )
+    assert write_conn.commits == 1
+
+
+def test_sector_snapshot_store_write_refresh_status_defaults(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection()
+    connections = [schema_conn, write_conn]
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    store.write_refresh_status(year=2024, location_code="IT", status="completed")
+
+    assert write_conn.calls[0][1] == (
+        2024,
+        "IT",
+        "completed",
+        "completed",
+        "completed",
+        None,
+        None,
+        0,
+        0,
+        None,
+    )
+
+
+def test_sector_snapshot_store_write_refresh_status_default_signature():
+    assert SectorSnapshotStore.write_refresh_status.__defaults__ == (None, None, None, None, None)
+
+
+def test_sector_snapshot_store_read_latest_includes_refresh_status(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    run = {
+        "id": 9,
+        "year": 2024,
+        "period_start": "2024-01-01",
+        "period_end": "2024-12-31",
+        "total_jobs": 3,
+    }
+    rows = [{
+        "sector": "ICT",
+        "sector_label": "ICT",
+        "job_count": 3,
+        "job_share": 1.0,
+        "total_skill_mentions": 4,
+        "unique_skills": 1,
+        "top_skills": [{"skill_id": "s1"}],
+        "all_skills": [],
+        "top_job_titles": [{"name": "Developer", "count": 2}],
+    }]
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(one=run),
+        _FakeStoreResult(many=rows),
+    ])
+    refresh_status = {"status": "completed"}
+    read_refresh_status = MagicMock(return_value=refresh_status)
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "read_refresh_status", read_refresh_status)
+
+    result = store.read_latest(2024, "IT")
+
+    assert result["status"] == "completed"
+    assert result["year"] == 2024
+    assert result["data_source"] == "postgres"
+    assert result["window"] == {
+        "label": "2024 snapshot",
+        "min_date": "2024-01-01",
+        "max_date": "2024-12-31",
+    }
+    assert result["total_jobs"] == 3
+    assert result["sector_filter"] == []
+    assert result["refresh_status"] == refresh_status
+    assert set(result["sectors"][0]) == {
+        "sector",
+        "sector_label",
+        "job_count",
+        "job_share",
+        "total_skill_mentions",
+        "unique_skills",
+        "top_skills",
+        "all_skills",
+        "top_job_titles",
+    }
+    assert result["sectors"][0]["all_skills"] == [{"skill_id": "s1"}]
+    assert result["sectors"][0]["top_job_titles"] == [{"name": "Developer", "count": 2}]
+    assert conn.calls[0][1] == (2024, "IT")
+    assert conn.calls[1][1] == (9,)
+    read_refresh_status.assert_called_once_with(2024, "IT")
+
+
+def test_sector_snapshot_store_read_latest_returns_none_on_miss(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection([_FakeStoreResult(one=None)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.read_latest(2024) is None
+
+
+def test_sector_snapshot_store_read_latest_keeps_all_skills(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    run = {
+        "id": 10,
+        "year": 2024,
+        "period_start": "2024-01-01",
+        "period_end": "2024-12-31",
+        "total_jobs": 3,
+    }
+    rows = [{
+        "sector": "ICT",
+        "sector_label": "ICT",
+        "job_count": 3,
+        "job_share": 1.0,
+        "total_skill_mentions": 4,
+        "unique_skills": 2,
+        "top_skills": [{"skill_id": "s1"}],
+        "all_skills": [{"skill_id": "s1"}, {"skill_id": "s2"}],
+        "top_job_titles": [{"name": "Developer", "count": 2}],
+    }]
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(one=run),
+        _FakeStoreResult(many=rows),
+    ])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    read_refresh_status = MagicMock(return_value=None)
+    monkeypatch.setattr(store, "read_refresh_status", read_refresh_status)
+
+    result = store.read_latest(2024)
+
+    assert result["sectors"][0]["all_skills"] == [{"skill_id": "s1"}, {"skill_id": "s2"}]
+    assert result["sectors"][0]["top_skills"] == [{"skill_id": "s1"}]
+    assert conn.calls[0][1] == (2024, "")
+    read_refresh_status.assert_called_once_with(2024, None)
+
+
+def test_sector_snapshot_store_latest_completed_at(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    completed_at = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+    conn = _FakeStoreConnection([_FakeStoreResult(one={"completed_at": completed_at})])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.latest_completed_at(2024) == completed_at
+    assert conn.calls[0][1] == (2024, "")
+
+
+def test_sector_snapshot_store_latest_completed_at_uses_location(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    completed_at = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
+    conn = _FakeStoreConnection([_FakeStoreResult(one={"completed_at": completed_at})])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.latest_completed_at(2024, "IT") == completed_at
+    assert conn.calls[0][1] == (2024, "IT")
+
+
+def test_sector_snapshot_store_latest_completed_at_returns_none_on_miss(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    conn = _FakeStoreConnection([_FakeStoreResult(one=None)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    assert store.latest_completed_at(2024) is None
+
+
+def test_sector_snapshot_store_write_snapshot_writes_rows_and_status(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection([
+        _FakeStoreResult(one={"next_version": 3}),
+        _FakeStoreResult(one={"id": 42}),
+        _FakeStoreResult(),
+        _FakeStoreResult(),
+    ])
+    connections = [schema_conn, write_conn]
+    statuses = []
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "write_refresh_status", lambda **kwargs: statuses.append(kwargs))
+
+    run_id = store.write_snapshot(
+        year=2024,
+        location_code="IT",
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        total_jobs=3,
+        sectors=[{
+            "sector": "ICT",
+            "sector_label": "ICT",
+            "job_count": 3,
+            "job_share": 1.0,
+            "total_skill_mentions": 4,
+            "unique_skills": 1,
+            "top_skills": [{"skill_id": "s1"}],
+            "all_skills": [{"skill_id": "s1"}, {"skill_id": "s2"}],
+            "top_job_titles": [{"name": "Developer", "count": 2}],
+        }, {
+            "sector": "Retail",
+            "sector_label": "Retail",
+            "job_count": 1,
+            "job_share": 0.25,
+            "total_skill_mentions": 1,
+            "unique_skills": 1,
+            "top_skills": [{"skill_id": "s3"}],
+            "top_job_titles": [{"name": "Seller", "count": 1}],
+        }],
+    )
+
+    assert run_id == 42
+    assert schema_conn.commits == 1
+    assert "SELECT COALESCE(MAX(version), 0) + 1 AS next_version" in write_conn.calls[0][0]
+    assert write_conn.calls[0][1] == (2024, "IT")
+    assert "INSERT INTO sector_snapshot_runs" in write_conn.calls[1][0]
+    assert write_conn.calls[1][1] == (2024, "IT", 3, "2024-01-01", "2024-12-31", 3)
+    assert "INSERT INTO sector_yearly_snapshots" in write_conn.calls[2][0]
+    assert json.loads(write_conn.calls[2][1][9]) == [{"skill_id": "s1"}]
+    assert json.loads(write_conn.calls[2][1][10]) == [{"skill_id": "s1"}, {"skill_id": "s2"}]
+    assert json.loads(write_conn.calls[2][1][11]) == [{"name": "Developer", "count": 2}]
+    assert json.loads(write_conn.calls[3][1][9]) == [{"skill_id": "s3"}]
+    assert json.loads(write_conn.calls[3][1][10]) == [{"skill_id": "s3"}]
+    assert json.loads(write_conn.calls[3][1][11]) == [{"name": "Seller", "count": 1}]
+    assert "UPDATE sector_snapshot_runs" in write_conn.calls[4][0]
+    assert write_conn.calls[4][1] == (42,)
+    assert statuses == [{
+        "year": 2024,
+        "location_code": "IT",
+        "status": "completed",
+        "fetched_jobs": 3,
+        "expected_jobs": 3,
+        "source": "tracker",
+    }]
+
+
+def test_sector_snapshot_store_write_snapshot_uses_global_location(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    schema_conn = _FakeStoreConnection()
+    write_conn = _FakeStoreConnection([
+        _FakeStoreResult(one={"next_version": 1}),
+        _FakeStoreResult(one={"id": 42}),
+    ])
+    connections = [schema_conn, write_conn]
+
+    @contextmanager
+    def fake_connect():
+        yield connections.pop(0)
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "write_refresh_status", lambda **kwargs: None)
+
+    store.write_snapshot(
+        year=2024,
+        location_code=None,
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        total_jobs=0,
+        sectors=[],
+    )
+
+    assert write_conn.calls[0][1] == (2024, "")
+    assert write_conn.calls[1][1] == (2024, None, 1, "2024-01-01", "2024-12-31", 0)
+
+
+def test_scheduler_due_targets_skips_recent_snapshots():
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    store = _FakeSchedulerSnapshotStore({
+        (2024, None): now - timedelta(days=20),
+        (2024, "IT"): now - timedelta(days=20),
+    })
+
+    due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
+
+    assert due == []
+
+
+def test_scheduler_due_targets_returns_elapsed_snapshots():
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    store = _FakeSchedulerSnapshotStore({
+        (2024, None): now - timedelta(days=120),
+        (2024, "IT"): now - timedelta(days=20),
+    })
+
+    due = due_targets(store, 2024, 2024, ["IT"], True, 3, now)
+
+    assert due == [(2024, "GLOBAL")]
+
+
+def test_scheduler_refresh_plan_explains_refresh_state():
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    old_completed = now - timedelta(days=120)
+    recent_completed = now - timedelta(days=20)
+    store = _FakeSchedulerSnapshotStore({
+        (2024, None): old_completed,
+        (2024, "IT"): recent_completed,
+    })
+
+    plan = scheduler_script.refresh_plan(store, 2024, 2024, ["IT", "DE"], True, 3, now)
+
+    assert plan[0] == {
+        "year": 2024,
+        "location_code": None,
+        "due": True,
+        "last_completed_at": old_completed,
+        "next_refresh_at": old_completed + timedelta(seconds=3 * scheduler_script.SECONDS_PER_MONTH),
+        "reason": "interval elapsed",
+    }
+    assert plan[1]["due"] is False
+    assert plan[1]["reason"] == "interval not elapsed"
+    assert plan[1]["last_completed_at"] == recent_completed
+    assert plan[2]["due"] is True
+    assert plan[2]["reason"] == "never refreshed"
+    assert plan[2]["last_completed_at"] is None
+    assert plan[2]["next_refresh_at"] is None
+
+
+def test_refresh_script_helpers_filter_jobs_and_years():
+    jobs = [
+        {"id": 1, "location_code": "IT"},
+        {"id": 2, "location_code": " DE "},
+        {"id": 3, "location_code": ""},
+        {"id": 4},
+    ]
+
+    assert refresh_script.year_window(2024) == ("2024-01-01", "2024-12-31")
+    assert [job["id"] for job in refresh_script.filter_jobs_by_location(jobs, None)] == [1, 2, 3, 4]
+    assert [job["id"] for job in refresh_script.filter_jobs_by_location(jobs, "IT")] == [1]
+    assert refresh_script.filter_jobs_by_location(jobs, "XXXX") == []
+    assert refresh_script.available_location_codes(jobs) == ["DE", "IT"]
+
+
+def test_script_import_bootstrap_inserts_repo_root(monkeypatch):
+    module_names = [
+        "scripts.backfill_sectoral_snapshots",
+        "scripts.refresh_sectoral_snapshot",
+        "scripts.schedule_sectoral_snapshot_refresh",
+        "scripts.validate_sectoral_snapshot_pipeline",
+    ]
+    originals = {name: sys.modules.get(name) for name in module_names}
+    original_path = list(sys.path)
+    repo_root = str(refresh_script.REPO_ROOT)
+
+    try:
+        for name in module_names:
+            sys.path[:] = [path for path in sys.path if path != repo_root]
+            monkeypatch.delitem(sys.modules, name, raising=False)
+            importlib.import_module(name)
+            assert repo_root in sys.path
+    finally:
+        sys.path[:] = original_path
+        for name, module in originals.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_fetch_jobs_for_year_adds_location(monkeypatch):
+    fake_fetch = AsyncMock(return_value=[{"id": 1}])
+    monkeypatch.setattr(refresh_script.tracker, "fetch_all_jobs", fake_fetch)
+
+    result = await refresh_script.fetch_jobs_for_year(2024, "IT")
+
+    assert result == [{"id": 1}]
+    assert fake_fetch.await_args.args[0] == {
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+        "location_code": ["IT"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_fetch_jobs_for_year_without_location(monkeypatch):
+    fake_fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(refresh_script.tracker, "fetch_all_jobs", fake_fetch)
+
+    await refresh_script.fetch_jobs_for_year(2024)
+
+    assert fake_fetch.await_args.args[0] == {
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    }
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_write_snapshot_from_jobs():
+    store = MagicMock()
+    store.write_snapshot.return_value = 42
+    service = SimpleNamespace(
+        sector_snapshot_store=store,
+        _ensure_skill_labels=AsyncMock(),
+        _build_sector_snapshot_rows=MagicMock(return_value=[{"sector": "Education"}]),
+    )
+    jobs = [{"id": 1, "skills": ["skill-a"], "sectors": ["Education"]}]
+
+    result = await refresh_script.write_snapshot_from_jobs(service, 2024, jobs, "IT")
+
+    assert result == (42, 1, 1)
+    service._ensure_skill_labels.assert_awaited_once_with(jobs)
+    service._build_sector_snapshot_rows.assert_called_once_with(jobs)
+    store.write_snapshot.assert_called_once_with(
+        year=2024,
+        location_code="IT",
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        total_jobs=1,
+        sectors=[{"sector": "Education"}],
+    )
+
+
+@pytest.mark.asyncio
+async def test_refresh_script_refresh_snapshot_composes_steps(monkeypatch):
+    service = object()
+    monkeypatch.setattr(refresh_script, "build_projector_service", lambda: service)
+    fetch_jobs = AsyncMock(return_value=[{"id": 1}])
+    write_jobs = AsyncMock(return_value=(7, 1, 1))
+    clear_cache = MagicMock()
+    monkeypatch.setattr(refresh_script, "fetch_jobs_for_year", fetch_jobs)
+    monkeypatch.setattr(refresh_script, "write_snapshot_from_jobs", write_jobs)
+    monkeypatch.setattr(refresh_script.tracker, "clear_completed_jobs_cache", clear_cache)
+
+    result = await refresh_script.refresh_snapshot(2024, "IT")
+
+    assert result == (7, 1, 1)
+    fetch_jobs.assert_awaited_once_with(2024, "IT")
+    write_jobs.assert_awaited_once_with(service, 2024, [{"id": 1}], "IT")
+    clear_cache.assert_called_once_with({
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+        "location_code": ["IT"],
+    })
+
+
+def test_refresh_script_build_projector_service_requires_database(monkeypatch):
+    class FakeStore:
+        enabled = False
+
+        def __init__(self, database_url):
+            self.database_url = database_url
+
+    monkeypatch.setattr(refresh_script, "DATABASE_URL", "")
+    monkeypatch.setattr(refresh_script, "SectorSnapshotStore", FakeStore)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        refresh_script.build_projector_service()
+    assert str(exc_info.value) == "DATABASE_URL not configured"
+
+
+def test_refresh_script_build_projector_service_returns_service(monkeypatch):
+    class FakeStore:
+        enabled = True
+
+        def __init__(self, database_url):
+            self.database_url = database_url
+
+    created = {}
+
+    class FakeProjectorService:
+        def __init__(self, *args):
+            created["args"] = args
+
+    monkeypatch.setattr(refresh_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(refresh_script, "SectorSnapshotStore", FakeStore)
+    monkeypatch.setattr(refresh_script, "ProjectorService", FakeProjectorService)
+
+    service_obj = refresh_script.build_projector_service()
+
+    assert isinstance(service_obj, FakeProjectorService)
+    assert created["args"][:-1] == (
+        refresh_script.engine,
+        refresh_script.tracker,
+        refresh_script.occupations,
+        refresh_script.regional,
+        refresh_script.market,
+        refresh_script.trends,
+        refresh_script.sectoral,
+    )
+    assert created["args"][-1].database_url == "postgresql://db"
+
+
+def test_refresh_script_main_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["refresh", "--year", "2024", "--location-code", "IT"])
+    monkeypatch.setattr(refresh_script, "refresh_snapshot", AsyncMock(return_value=(9, 10, 3)))
+
+    refresh_script.main()
+
+    out = capsys.readouterr().out
+    assert "sector snapshot refreshed: run_id=9 year=2024 jobs=10 sectors=3" in out
+
+
+def _validator_snapshot_payload(year=2024):
+    return {
+        "status": "completed",
+        "year": year,
+        "data_source": "postgres",
+        "window": {
+            "label": f"{year} snapshot",
+            "min_date": f"{year}-01-01",
+            "max_date": f"{year}-12-31",
+        },
+        "total_jobs": 2,
+        "sector_filter": [],
+        "sectors": [{
+            "sector": "ICT",
+            "sector_label": "ICT",
+            "job_count": 2,
+            "job_share": 1.0,
+            "total_skill_mentions": 3,
+            "unique_skills": 1,
+            "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 3}],
+            "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 3}],
+            "top_job_titles": [{"name": "Developer", "count": 2}],
+        }],
+    }
+
+
+def _validator_comparison_payload(year=2024):
+    return {
+        "status": "completed",
+        "year": year,
+        "reference_year": year - 1,
+        "data_source": "postgres",
+        "metric": "share",
+        "window": {
+            "label": f"{year} snapshot",
+            "min_date": f"{year}-01-01",
+            "max_date": f"{year}-12-31",
+        },
+        "sectors": ["ICT"],
+        "skills": ["Python"],
+        "matrix": [{
+            "sector": "ICT",
+            "sector_label": "ICT",
+            "skill_id": "skill-python",
+            "label": "Python",
+            "count": 3,
+            "share": 1.0,
+            "rank": 1,
+            "rank_score": 1.0,
+            "value": 1.0,
+            "display_value": "100.0%",
+        }],
+    }
+
+
+def test_validate_script_assert_completed_snapshot():
+    snapshot = _validator_snapshot_payload()
+
+    assert validate_script.location_payload("IT") == ["IT"]
+    assert validate_script.location_payload(None) is None
+    assert validate_script.assert_completed_snapshot(snapshot, 2024, 1) == snapshot["sectors"]
+
+    with pytest.raises(RuntimeError, match="No completed"):
+        validate_script.assert_completed_snapshot({}, 2024, 1)
+    with pytest.raises(RuntimeError, match="not completed"):
+        validate_script.assert_completed_snapshot({**snapshot, "status": "running"}, 2024, 1)
+    with pytest.raises(RuntimeError, match="not DB-backed"):
+        validate_script.assert_completed_snapshot({**snapshot, "data_source": "cache"}, 2024, 1)
+    with pytest.raises(RuntimeError, match="year mismatch"):
+        validate_script.assert_completed_snapshot({**snapshot, "year": 2023}, 2024, 1)
+    with pytest.raises(RuntimeError, match="too few sectors"):
+        validate_script.assert_completed_snapshot({**snapshot, "sectors": []}, 2024, 1)
+
+    bad_row = {k: v for k, v in snapshot["sectors"][0].items() if k != "all_skills"}
+    with pytest.raises(RuntimeError, match="misses fields"):
+        validate_script.assert_completed_snapshot({**snapshot, "sectors": [bad_row]}, 2024, 1)
+
+
+def test_validate_script_assert_comparison_payload():
+    comparison = _validator_comparison_payload()
+
+    validate_script.assert_comparison_payload(comparison, 2024)
+
+    with pytest.raises(RuntimeError, match="not completed"):
+        validate_script.assert_comparison_payload({**comparison, "status": "running"}, 2024)
+    with pytest.raises(RuntimeError, match="not DB-backed"):
+        validate_script.assert_comparison_payload({**comparison, "data_source": "cache"}, 2024)
+    with pytest.raises(RuntimeError, match="year mismatch"):
+        validate_script.assert_comparison_payload({**comparison, "year": 2023}, 2024)
+    with pytest.raises(RuntimeError, match="matrix is empty"):
+        validate_script.assert_comparison_payload({**comparison, "matrix": []}, 2024)
+
+
+@pytest.mark.asyncio
+async def test_validate_script_validate_pipeline(monkeypatch):
+    snapshot = _validator_snapshot_payload()
+    comparison = _validator_comparison_payload()
+
+    class FakeStore:
+        def __init__(self):
+            self.schema_checked = False
+
+        def ensure_schema(self):
+            self.schema_checked = True
+
+        def read_latest(self, year, location_code=None):
+            assert (year, location_code) == (2024, "IT")
+            return snapshot
+
+    class FakeService:
+        def __init__(self):
+            self.sector_snapshot_store = FakeStore()
+            self.snapshot_calls = []
+            self.comparison_calls = []
+
+        async def sectoral_snapshot(self, **kwargs):
+            self.snapshot_calls.append(kwargs)
+            return snapshot
+
+        async def sector_skills_comparison(self, **kwargs):
+            self.comparison_calls.append(kwargs)
+            return comparison
+
+    fake_service = FakeService()
+    refresh = AsyncMock()
+    monkeypatch.setattr(validate_script, "build_projector_service", lambda: fake_service)
+    monkeypatch.setattr(validate_script, "refresh_snapshot", refresh)
+
+    result = await validate_script.validate_pipeline(
+        year=2024,
+        location_code="IT",
+        reference_year=2023,
+        run_refresh=True,
+    )
+
+    refresh.assert_awaited_once_with(2024, "IT")
+    assert fake_service.sector_snapshot_store.schema_checked is True
+    assert fake_service.snapshot_calls == [{"year": 2024, "reference_year": 2023, "locations": ["IT"]}]
+    assert fake_service.comparison_calls == [{
+        "year": 2024,
+        "reference_year": 2023,
+        "locations": ["IT"],
+        "sectors": ["ICT"],
+        "skills": ["Python"],
+        "metric": "share",
+    }]
+    assert result["status"] == "completed"
+    assert result["db_snapshot"] is True
+    assert result["service_comparison"] is True
+
+
+@pytest.mark.asyncio
+async def test_validate_script_validate_pipeline_checks_http(monkeypatch):
+    snapshot = _validator_snapshot_payload()
+    comparison = _validator_comparison_payload()
+
+    class FakeStore:
+        def ensure_schema(self):
+            pass
+
+        def read_latest(self, *_args, **_kwargs):
+            return snapshot
+
+    class FakeService:
+        sector_snapshot_store = FakeStore()
+
+        async def sectoral_snapshot(self, **_kwargs):
+            return snapshot
+
+        async def sector_skills_comparison(self, **_kwargs):
+            return comparison
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    posts = []
+
+    def fake_post(url, data, timeout):
+        posts.append((url, data, timeout))
+        if url.endswith("/sectoral-snapshot"):
+            return FakeResponse(snapshot)
+        return FakeResponse(comparison)
+
+    monkeypatch.setattr(validate_script, "build_projector_service", lambda: FakeService())
+    monkeypatch.setattr(validate_script.requests, "post", fake_post)
+
+    result = await validate_script.validate_pipeline(
+        year=2024,
+        api_base_url="http://127.0.0.1:8000",
+        timeout_seconds=7,
+    )
+
+    assert result["http_snapshot"] is True
+    assert result["http_comparison"] is True
+    assert posts == [
+        ("http://127.0.0.1:8000/projector/sectoral-snapshot", {"year": 2024}, 7),
+        (
+            "http://127.0.0.1:8000/projector/sector-skills-comparison",
+            {"year": 2024, "sectors": "ICT", "metric": "share", "skills": "Python"},
+            7,
+        ),
+    ]
+
+
+def test_validate_script_http_error():
+    class FakeResponse:
+        status_code = 500
+        text = "boom"
+
+    with pytest.raises(RuntimeError, match="HTTP 500"):
+        validate_script.assert_http_response(FakeResponse(), "sectoral-snapshot")
+
+
+def test_validate_script_main_validates_args(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["validate", "--year", "2024", "--min-sectors", "0"])
+    with pytest.raises(ValueError, match="--min-sectors"):
+        validate_script.main()
+
+    monkeypatch.setattr(sys, "argv", ["validate", "--year", "2024", "--timeout-seconds", "0"])
+    with pytest.raises(ValueError, match="--timeout-seconds"):
+        validate_script.main()
+
+
+def test_validate_script_main_runs(monkeypatch, capsys):
+    validate = AsyncMock(return_value={"status": "completed", "year": 2024})
+    monkeypatch.setattr(validate_script, "validate_pipeline", validate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validate",
+            "--year",
+            "2024",
+            "--location-code",
+            "IT",
+            "--reference-year",
+            "2023",
+            "--min-sectors",
+            "2",
+            "--api-base-url",
+            "http://127.0.0.1:8000",
+            "--timeout-seconds",
+            "9",
+            "--refresh",
+        ],
+    )
+
+    validate_script.main()
+
+    validate.assert_awaited_once_with(
+        year=2024,
+        location_code="IT",
+        reference_year=2023,
+        min_sectors=2,
+        api_base_url="http://127.0.0.1:8000",
+        timeout_seconds=9,
+        run_refresh=True,
+    )
+    assert '"status": "completed"' in capsys.readouterr().out
+
+
+def test_backfill_script_helpers(tmp_path, monkeypatch):
+    monkeypatch.setattr(backfill_script, "REPO_ROOT", tmp_path)
+    backfill_script.setup_logging("logs/test.log", True)
+    absolute_log = tmp_path / "absolute.log"
+    backfill_script.setup_logging(str(absolute_log), False)
+
+    assert (tmp_path / "logs" / "test.log").exists()
+    assert absolute_log.exists()
+    assert backfill_script.progress_bar(0, 0) == "[------------------------] 0/0"
+    assert backfill_script.progress_bar(1, 1) == "[########################] 1/1"
+    assert backfill_script.progress_bar(12, 24) == "[############------------] 12/24"
+    assert backfill_script.progress_bar(5, 10, width=10) == "[#####-----] 5/10"
+    assert backfill_script.parse_regions(None) is None
+    assert backfill_script.parse_regions(["IT, DE", "IT"]) == ["DE", "IT"]
+
+
+def test_backfill_script_fetch_progress_message(monkeypatch):
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 12.5)
+
+    message = backfill_script.fetch_progress_message(
+        2024,
+        {"fetched": 5, "total": 10, "page": 2, "page_concurrency": 4, "source": "tracker_parallel"},
+        10.0,
+    )
+
+    assert "year 2024: fetching Tracker jobs" in message
+    assert "page=2" in message
+    assert "concurrency=4" in message
+    assert "elapsed=2.5s" in message
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_jobs_with_progress(monkeypatch):
+    callbacks = []
+    info_messages = []
+
+    class FakeTracker:
+        async def fetch_all_jobs(
+                self,
+                filters,
+                page_size,
+                progress_callback,
+                page_concurrency,
+                max_retries,
+                require_complete_cache,
+        ):
+            assert filters == {"min_upload_date": "2024-01-01", "max_upload_date": "2024-12-31"}
+            assert page_size == 100
+            assert page_concurrency == 4
+            assert max_retries == 2
+            assert require_complete_cache is True
+            progress_callback({"fetched": 1, "total": 2, "page": 1, "done": False})
+            progress_callback({"fetched": 2, "total": 2, "page": 2, "done": True})
+            callbacks.append("called")
+            return [{"id": 1}, {"id": 2}]
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+    monkeypatch.setattr(backfill_script.logger, "info", lambda message, *args: info_messages.append(message % args if args else message))
+    jobs, elapsed = await backfill_script.fetch_jobs_for_year_with_progress(
+        SimpleNamespace(tracker=FakeTracker()),
+        2024,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert jobs == [{"id": 1}, {"id": 2}]
+    assert elapsed == 0.0
+    assert callbacks == ["called"]
+    assert any("year 2024: fetching Tracker jobs" in message for message in info_messages)
+    assert all(message is not None for message in info_messages)
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_records_refresh_status(monkeypatch):
+    class FakeStore:
+        enabled = True
+
+        def __init__(self):
+            self.statuses = []
+
+        def write_refresh_status(self, **kwargs):
+            self.statuses.append(kwargs)
+
+    store = FakeStore()
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **kwargs):
+            progress_callback = kwargs["progress_callback"]
+            progress_callback({
+                "fetched": 100,
+                "total": 250,
+                "page": 5,
+                "source": "tracker",
+            })
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=store),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    assert store.statuses == [{
+        "year": 2024,
+        "location_code": None,
+        "status": "failed",
+        "last_error": "connection failed",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+    }]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_without_store_reraises(monkeypatch):
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=None),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_with_disabled_store_does_not_record(monkeypatch):
+    class FakeStore:
+        enabled = False
+
+        def write_refresh_status(self, **_kwargs):
+            raise AssertionError("disabled store should not be written")
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **_kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=FakeStore()),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_with_store_without_enabled_does_not_record(monkeypatch):
+    class FakeStore:
+        def write_refresh_status(self, **_kwargs):
+            raise AssertionError("store without enabled flag should not be written")
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **_kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=FakeStore()),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_fetch_failure_without_progress_records_zero_counts(monkeypatch):
+    class FakeStore:
+        enabled = True
+
+        def __init__(self):
+            self.statuses = []
+
+        def write_refresh_status(self, **kwargs):
+            self.statuses.append(kwargs)
+
+    store = FakeStore()
+
+    class FakeTracker:
+        async def fetch_all_jobs(self, _filters, **_kwargs):
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await backfill_script.fetch_jobs_for_year_with_progress(
+            SimpleNamespace(tracker=FakeTracker(), sector_snapshot_store=store),
+            2024,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    assert store.statuses[0]["fetched_jobs"] == 0
+    assert store.statuses[0]["expected_jobs"] == 0
+    assert store.statuses[0]["last_checkpoint_page"] is None
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_year_writes_global_and_regions(monkeypatch):
+    service = SimpleNamespace(tracker=MagicMock())
+    jobs = [
+        {"id": 1, "location_code": "IT"},
+        {"id": 2, "location_code": "DE"},
+    ]
+    writes = []
+    fetch_jobs = AsyncMock(return_value=(jobs, 1.5))
+
+    monkeypatch.setattr(backfill_script, "build_projector_service", lambda: service)
+    monkeypatch.setattr(
+        backfill_script,
+        "fetch_jobs_for_year_with_progress",
+        fetch_jobs,
+    )
+
+    async def fake_write_snapshot_from_jobs(service_arg, year, selected_jobs, location_code):
+        writes.append((service_arg, year, [job["id"] for job in selected_jobs], location_code))
+        return len(writes), len(selected_jobs), 1
+
+    monkeypatch.setattr(backfill_script, "write_snapshot_from_jobs", fake_write_snapshot_from_jobs)
+
+    result = await backfill_script.backfill_year(
+        2024,
+        regions=None,
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert result == [
+        (2024, "GLOBAL", 1, 2, 1),
+        (2024, "DE", 2, 1, 1),
+        (2024, "IT", 3, 1, 1),
+    ]
+    fetch_jobs.assert_awaited_once_with(service, 2024, 100, 4, 2)
+    service.tracker.clear_completed_jobs_cache.assert_called_once_with({
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    })
+    assert writes == [
+        (service, 2024, [1, 2], None),
+        (service, 2024, [2], "DE"),
+        (service, 2024, [1], "IT"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_year_cli_regions_without_global(monkeypatch):
+    service = SimpleNamespace(tracker=MagicMock())
+    monkeypatch.setattr(backfill_script, "build_projector_service", lambda: service)
+    monkeypatch.setattr(
+        backfill_script,
+        "fetch_jobs_for_year_with_progress",
+        AsyncMock(return_value=([{"id": 1, "location_code": "IT"}], 1.0)),
+    )
+    monkeypatch.setattr(
+        backfill_script,
+        "write_snapshot_from_jobs",
+        AsyncMock(return_value=(11, 1, 1)),
+    )
+
+    result = await backfill_script.backfill_year(
+        2024,
+        regions=["IT"],
+        include_global=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert result == [(2024, "IT", 11, 1, 1)]
+    service.tracker.clear_completed_jobs_cache.assert_called_once_with({
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    })
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_snapshots_success(monkeypatch):
+    monkeypatch.setattr(backfill_script.logger, "handlers", [backfill_script.logging.NullHandler()])
+    monkeypatch.setattr(backfill_script.time, "perf_counter", lambda: 10.0)
+    monkeypatch.setattr(
+        backfill_script,
+        "backfill_year",
+        AsyncMock(side_effect=[
+            [(2023, "GLOBAL", 1, 2, 3)],
+            [(2024, "GLOBAL", 2, 3, 4)],
+        ]),
+    )
+
+    result = await backfill_script.backfill_snapshots(
+        2023,
+        2024,
+        regions=["IT"],
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+    assert result == [(2023, "GLOBAL", 1, 2, 3), (2024, "GLOBAL", 2, 3, 4)]
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_snapshots_default_fetch_config(monkeypatch):
+    monkeypatch.setattr(backfill_script.logger, "handlers", [backfill_script.logging.NullHandler()])
+    backfill_year = AsyncMock(return_value=[])
+    monkeypatch.setattr(backfill_script, "backfill_year", backfill_year)
+
+    await backfill_script.backfill_snapshots(2024, 2024, regions=None, include_global=True)
+
+    backfill_year.assert_awaited_once_with(2024, None, True, 500, 1, 5)
+
+
+@pytest.mark.asyncio
+async def test_backfill_script_backfill_snapshots_sets_logging_and_reraises(monkeypatch):
+    monkeypatch.setattr(backfill_script.logger, "handlers", [])
+    setup = MagicMock()
+    monkeypatch.setattr(backfill_script, "setup_logging", setup)
+    monkeypatch.setattr(backfill_script, "backfill_year", AsyncMock(side_effect=RuntimeError("boom")))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await backfill_script.backfill_snapshots(2024, 2024, None, True)
+
+    setup.assert_called_once_with("logs/sector_snapshot_backfill.log", False)
+
+
+def test_backfill_script_main_validates_args(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["backfill", "--start-year", "2025", "--end-year", "2024"])
+
+    with pytest.raises(ValueError, match="--end-year"):
+        backfill_script.main()
+
+    for flag, value, message in [
+        ("--page-size", "0", "--page-size"),
+        ("--page-concurrency", "0", "--page-concurrency"),
+        ("--max-retries", "0", "--max-retries"),
+    ]:
+        monkeypatch.setattr(sys, "argv", ["backfill", "--start-year", "2024", flag, value])
+        with pytest.raises(ValueError, match=message):
+            backfill_script.main()
+
+
+def test_backfill_script_main_runs(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "backfill",
+            "--start-year",
+            "2024",
+            "--end-year",
+            "2024",
+            "--regions",
+            "IT,DE",
+            "--skip-global",
+            "--log-file",
+            "custom.log",
+            "--debug",
+            "--page-size",
+            "100",
+            "--page-concurrency",
+            "4",
+            "--max-retries",
+            "2",
+        ],
+    )
+    setup = MagicMock()
+    backfill = AsyncMock(return_value=[])
+    monkeypatch.setattr(backfill_script, "setup_logging", setup)
+    monkeypatch.setattr(backfill_script, "backfill_snapshots", backfill)
+
+    backfill_script.main()
+
+    setup.assert_called_once_with("custom.log", True)
+    backfill.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        regions=["DE", "IT"],
+        include_global=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+
+def test_scheduler_env_helpers(monkeypatch):
+    monkeypatch.delenv("SNAPSHOT_INT", raising=False)
+    monkeypatch.setenv("SNAPSHOT_INT_VALUE", "5")
+    monkeypatch.setenv("SNAPSHOT_BOOL_ONE", "1")
+    monkeypatch.setenv("SNAPSHOT_BOOL_TRUE_WORD", "true")
+    monkeypatch.setenv("SNAPSHOT_BOOL_ON", "on")
+    monkeypatch.setenv("SNAPSHOT_BOOL_TRUE", "yes")
+    monkeypatch.setenv("SNAPSHOT_BOOL_FALSE", "no")
+    monkeypatch.setenv("SNAPSHOT_REGIONS_TEST", "IT, DE")
+
+    assert scheduler_script.env_int("SNAPSHOT_INT", 3) == 3
+    assert scheduler_script.env_int("SNAPSHOT_INT_VALUE", 3) == 5
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_ONE", False) is True
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_TRUE_WORD", False) is True
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_ON", False) is True
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_TRUE", False) is True
+    assert scheduler_script.env_bool("SNAPSHOT_BOOL_FALSE", True) is False
+    assert scheduler_script.env_regions("SNAPSHOT_REGIONS_TEST") == ["DE", "IT"]
+    assert scheduler_script.env_regions("MISSING_REGIONS") is None
+
+
+def test_scheduler_targets_and_time_normalization():
+    naive = datetime(2024, 1, 1, 12, 0, 0)
+    aware = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    plus_two = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone(timedelta(hours=2)))
+
+    assert scheduler_script.normalize_completed_at(None) is None
+    assert scheduler_script.normalize_completed_at(naive).tzinfo == timezone.utc
+    assert scheduler_script.normalize_completed_at(aware) == aware
+    normalized_plus_two = scheduler_script.normalize_completed_at(plus_two)
+    assert normalized_plus_two == datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    assert normalized_plus_two.tzinfo == timezone.utc
+    assert scheduler_script.snapshot_targets(2024, 2025, ["IT"], True) == [
+        (2024, None),
+        (2024, "IT"),
+        (2025, None),
+        (2025, "IT"),
+    ]
+    assert scheduler_script.snapshot_targets(2024, 2024, None, False) == []
+
+
+def test_scheduler_due_targets_without_targets():
+    due = due_targets(_FakeSchedulerSnapshotStore({}), 2024, 2024, None, False, 3)
+    plan = scheduler_script.refresh_plan(_FakeSchedulerSnapshotStore({}), 2024, 2024, None, False, 3)
+
+    assert due == [("unknown", "auto")]
+    assert plan[0]["reason"] == "no explicit targets configured"
+
+
+def test_scheduler_due_targets_uses_current_time_and_interval_boundary():
+    now = datetime.now(timezone.utc)
+    store = _FakeSchedulerSnapshotStore({
+        (2024, None): now,
+    })
+
+    assert due_targets(store, 2024, 2024, None, True, 3) == []
+
+    boundary_now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    boundary_store = _FakeSchedulerSnapshotStore({
+        (2024, None): boundary_now - timedelta(seconds=3 * scheduler_script.SECONDS_PER_MONTH),
+    })
+
+    assert due_targets(boundary_store, 2024, 2024, None, True, 3, boundary_now) == [(2024, "GLOBAL")]
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_due_then_stops(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(scheduler_script, "SectorSnapshotStore", lambda database_url: _FakeSchedulerSnapshotStore({}))
+    monkeypatch.setattr(scheduler_script, "refresh_plan", MagicMock(return_value=[{
+        "year": 2024,
+        "location_code": None,
+        "due": True,
+        "last_completed_at": None,
+        "next_refresh_at": None,
+        "reason": "never refreshed",
+    }]))
+    backfill = AsyncMock(return_value=[])
+    monkeypatch.setattr(scheduler_script, "backfill_snapshots", backfill)
+
+    async def stop_sleep(_seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(scheduler_script.asyncio, "sleep", stop_sleep)
+
+    with pytest.raises(KeyboardInterrupt):
+        await scheduler_script.run_scheduled_refresh(
+            start_year=2024,
+            end_year=2024,
+            interval_months=3,
+            check_interval_days=1,
+            regions=["IT"],
+            include_global=True,
+            run_immediately=True,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    backfill.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        regions=["IT"],
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_skip_and_initial_wait(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(scheduler_script, "SectorSnapshotStore", lambda database_url: _FakeSchedulerSnapshotStore({}))
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    monkeypatch.setattr(scheduler_script, "refresh_plan", MagicMock(return_value=[{
+        "year": 2024,
+        "location_code": None,
+        "due": False,
+        "last_completed_at": now,
+        "next_refresh_at": now + timedelta(seconds=3 * scheduler_script.SECONDS_PER_MONTH),
+        "reason": "interval not elapsed",
+    }]))
+    backfill = AsyncMock(return_value=[])
+    sleep_calls = []
+
+    async def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+        if len(sleep_calls) == 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(scheduler_script.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(scheduler_script, "backfill_snapshots", backfill)
+
+    with pytest.raises(KeyboardInterrupt):
+        await scheduler_script.run_scheduled_refresh(
+            start_year=2024,
+            end_year=2024,
+            interval_months=3,
+            check_interval_days=2,
+            regions=None,
+            include_global=False,
+            run_immediately=False,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+    assert sleep_calls == [2 * scheduler_script.SECONDS_PER_DAY, 2 * scheduler_script.SECONDS_PER_DAY]
+    backfill.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_accepts_one_month_interval(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(scheduler_script, "SectorSnapshotStore", lambda database_url: _FakeSchedulerSnapshotStore({}))
+    now = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    monkeypatch.setattr(scheduler_script, "refresh_plan", MagicMock(return_value=[{
+        "year": 2024,
+        "location_code": None,
+        "due": False,
+        "last_completed_at": now,
+        "next_refresh_at": now + timedelta(seconds=scheduler_script.SECONDS_PER_MONTH),
+        "reason": "interval not elapsed",
+    }]))
+
+    async def stop_sleep(_seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(scheduler_script.asyncio, "sleep", stop_sleep)
+
+    with pytest.raises(KeyboardInterrupt):
+        await scheduler_script.run_scheduled_refresh(
+            start_year=2024,
+            end_year=2024,
+            interval_months=1,
+            check_interval_days=1,
+            regions=None,
+            include_global=False,
+            run_immediately=True,
+            page_size=100,
+            page_concurrency=4,
+            max_retries=2,
+        )
+
+
+@pytest.mark.asyncio
+async def test_scheduler_run_scheduled_refresh_validates(monkeypatch):
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "postgresql://db")
+
+    with pytest.raises(ValueError, match="--interval-months"):
+        await scheduler_script.run_scheduled_refresh(2024, 2024, 0, 1, None, True, True, 100, 4, 2)
+    with pytest.raises(ValueError, match="--check-interval-days"):
+        await scheduler_script.run_scheduled_refresh(2024, 2024, 3, 0, None, True, True, 100, 4, 2)
+
+    monkeypatch.setattr(scheduler_script, "DATABASE_URL", "")
+    with pytest.raises(RuntimeError, match="DATABASE_URL not configured"):
+        await scheduler_script.run_scheduled_refresh(2024, 2024, 3, 1, None, True, True, 100, 4, 2)
+
+
+def test_scheduler_main_validates_args(monkeypatch):
+    for args, message in [
+        (["scheduler", "--start-year", "2025", "--end-year", "2024"], "--end-year"),
+        (["scheduler", "--interval-months", "0"], "--interval-months"),
+        (["scheduler", "--check-interval-days", "0"], "--check-interval-days"),
+        (["scheduler", "--page-size", "0"], "--page-size"),
+        (["scheduler", "--page-concurrency", "0"], "--page-concurrency"),
+        (["scheduler", "--max-retries", "0"], "--max-retries"),
+    ]:
+        monkeypatch.setattr(sys, "argv", args)
+        with pytest.raises(ValueError, match=message):
+            scheduler_script.main()
+
+
+def test_scheduler_main_runs_and_handles_keyboard_interrupt(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "scheduler",
+            "--interval-months",
+            "3",
+            "--check-interval-days",
+            "1",
+            "--start-year",
+            "2024",
+            "--end-year",
+            "2024",
+            "--regions",
+            "IT,DE",
+            "--skip-global",
+            "--no-run-immediately",
+            "--page-size",
+            "100",
+            "--page-concurrency",
+            "4",
+            "--max-retries",
+            "2",
+        ],
+    )
+    run_refresh = AsyncMock(side_effect=KeyboardInterrupt)
+    monkeypatch.setattr(scheduler_script, "run_scheduled_refresh", run_refresh)
+
+    scheduler_script.main()
+
+    run_refresh.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        interval_months=3,
+        check_interval_days=1,
+        regions=["DE", "IT"],
+        include_global=False,
+        run_immediately=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+    assert "scheduled sector snapshot refresh stopped" in capsys.readouterr().out
+
+
+def _make_projector_service(jobs, sector_snapshot_store=None):
     fake_engine = _FakeServiceEngine()
     fake_tracker = _FakeServiceTracker(jobs)
     fake_sectoral = _FakeServiceSectoral()
@@ -99,6 +1828,7 @@ def _make_projector_service(jobs):
         market=_FakeServiceMarket(),
         trends=_FakeServiceTrends(),
         sectoral=fake_sectoral,
+        sector_snapshot_store=sector_snapshot_store,
     )
     return fake_service, fake_engine, fake_tracker, fake_sectoral
 
@@ -179,15 +1909,399 @@ async def test_projector_service_sectoral_uses_tracker_sectors_view():
     assert result["insights"]["sectoral_views"] == {
         "nace": {
             "sector_level": "tracker_sector",
-            "items": [{"sector": "Education", "observed_skills": [{"skill": "Python"}]}],
+            "time_mode": "latest",
+            "window": {
+                "label": "Last six months",
+                "min_date": result["insights"]["sectoral_views"]["nace"]["window"]["min_date"],
+                "max_date": result["insights"]["sectoral_views"]["nace"]["window"]["max_date"],
+            },
+            "items": [{
+                "sector": "Education",
+                "sector_label": "Education",
+                "observed_skills": {
+                    "sector": "Education",
+                    "total_skill_mentions": 1,
+                    "unique_skills": 1,
+                    "top_skills": [{"skill_id": "skill-python", "count": 1, "frequency": 1.0}],
+                },
+            }],
         }
     }
-    assert result["insights"]["sector_view_names"] == {"nace": {"observed": "Observed"}}
+    assert result["insights"]["sector_view_names"]["nace"]["observed"] == "Observed"
+    assert result["insights"]["sector_view_names"]["nace"]["latest"] == "Last six months"
     assert fake_sectoral.kwargs["jobs"] == jobs
     assert fake_sectoral.kwargs["sector_level"] == "nace_section"
     assert fake_sectoral.kwargs["skill_group_level"] == 2
     assert fake_sectoral.kwargs["occupation_level"] == 3
     assert fake_sectoral.kwargs["reset"] is True
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_selected_period_reuses_main_jobs():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, fake_tracker, fake_sectoral = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=True,
+        sectoral_time_mode="selected_period",
+    )
+
+    view = result["insights"]["sectoral_views"]["nace"]
+    assert view["time_mode"] == "selected_period"
+    assert view["window"] == {
+        "label": "Selected period",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+    }
+    assert len(fake_tracker.fetch_payloads) == 1
+    assert fake_sectoral.kwargs["jobs"] == jobs
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_comparison_fetches_independent_periods():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.analyze_skills(
+        keywords=["data"],
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        page=1,
+        page_size=50,
+        include_sectoral=True,
+        sectoral_time_mode="comparison",
+        sectoral_compare_a_min_date="2023-01-01",
+        sectoral_compare_a_max_date="2023-06-30",
+        sectoral_compare_b_min_date="2024-01-01",
+        sectoral_compare_b_max_date="2024-06-30",
+    )
+
+    view = result["insights"]["sectoral_views"]["nace"]
+    assert view["time_mode"] == "comparison"
+    assert view["comparison"]["period_a"]["min_date"] == "2023-01-01"
+    assert view["comparison"]["period_b"]["max_date"] == "2024-06-30"
+    assert "period_a" in view["snapshots"]
+    assert "period_b" in view["snapshots"]
+    assert fake_tracker.fetch_payloads[1]["min_upload_date"] == "2023-01-01"
+    assert fake_tracker.fetch_payloads[2]["max_upload_date"] == "2024-06-30"
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_intelligence_endpoint_contract():
+    jobs = [{"skills": ["skill-python"], "sectors": ["Education"]}]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.sectoral_intelligence(
+        keywords=["data"],
+        mode="selected_period",
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+    )
+
+    assert result["status"] == "completed"
+    assert result["mode"] == "selected_period"
+    assert result["sector_level"] == "tracker_sector"
+    assert result["window"] == {
+        "label": "Selected period",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+    }
+    assert result["items"][0]["sector"] == "Education"
+    assert result["sector_view_names"]["comparison"] == "Period comparison"
+    assert fake_tracker.fetch_payloads == [{
+        "keywords": ["data"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-01-31",
+    }]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_intelligence_filters_by_sector():
+    jobs = [
+        {"skills": ["skill-python"], "sectors": ["Education"]},
+        {"skills": ["skill-sql"], "sectors": ["Manufacturing"]},
+    ]
+    fake_service, _, _, _ = _make_projector_service(jobs)
+
+    result = await fake_service.sectoral_intelligence(
+        data_source="live",
+        mode="selected_period",
+        min_date="2024-01-01",
+        max_date="2024-01-31",
+        sectors=["Education"],
+    )
+
+    assert result["data_source"] == "live"
+    assert result["sector_filter"] == ["Education"]
+    assert [item["sector"] for item in result["items"]] == ["Education"]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_aggregates_year():
+    jobs = [
+        {
+            "title": "Data Scientist",
+            "skills": ["skill-python", "skill-sql"],
+            "sectors": ["Education"],
+        },
+        {
+            "title": "Data Scientist",
+            "skills": ["skill-python"],
+            "sectors": ["Education", "Manufacturing"],
+        },
+    ]
+    fake_service, _, fake_tracker, _ = _make_projector_service(jobs)
+
+    result = await fake_service.sectoral_snapshot(
+        year=2024,
+        data_source="live",
+        sectors=["Education"],
+    )
+
+    assert result["status"] == "completed"
+    assert result["year"] == 2024
+    assert result["reference_year"] == 2023
+    assert result["data_source"] == "live"
+    assert result["window"]["min_date"] == "2024-01-01"
+    assert result["sector_filter"] == ["Education"]
+    assert fake_tracker.fetch_payloads == [{
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    }]
+
+    assert len(result["sectors"]) == 1
+    sector = result["sectors"][0]
+    assert sector["sector"] == "Education"
+    assert sector["job_count"] == 2
+    assert sector["total_skill_mentions"] == 3
+    assert sector["unique_skills"] == 2
+    assert sector["top_skills"][0]["skill_id"] == "skill-python"
+    assert sector["top_skills"][0]["share_in_sector"] == round(2 / 3, 6)
+    assert sector["top_skills"][0]["rank"] == 1
+    assert sector["top_skills"][0]["growth_vs_reference_year"] == "new_entry"
+    assert sector["top_skills"][0]["sector_breadth"] == 1
+    assert sector["all_skills"][0]["skill_id"] == "skill-python"
+    assert len(sector["all_skills"]) == 2
+    assert sector["evolution"]["job_count_current"] == 2
+    assert sector["evolution"]["job_count_reference"] == 0
+    assert sector["evolution"]["job_growth_percentage"] == "new_entry"
+    assert sector["evolution"]["new_skill_count"] == 2
+    assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_prefers_static_store():
+    store_payload = {
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 8,
+                "sector_filter": [],
+                "sectors": [{
+                    "sector": "Education",
+                    "sector_label": "Education",
+                    "job_count": 8,
+                    "job_share": 1.0,
+                    "total_skill_mentions": 12,
+                    "unique_skills": 2,
+                    "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                    "all_skills": [
+                        {"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.1667},
+                        {"skill_id": "skill-legacy", "label": "Legacy systems", "count": 2, "frequency": 0.1667},
+                    ],
+                    "top_job_titles": [],
+                }],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 10,
+                "sector_filter": [],
+                "sectors": [{
+                    "sector": "Education",
+                    "sector_label": "Education",
+                    "job_count": 10,
+                    "job_share": 1.0,
+                    "total_skill_mentions": 20,
+                    "unique_skills": 1,
+                    "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 4, "frequency": 0.2}],
+                    "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 4, "frequency": 0.2}],
+                    "top_job_titles": [],
+                }],
+            },
+        }
+    }
+    store = _FakeSectorSnapshotStore(store_payload)
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sectoral_snapshot(year=2024, reference_year=2023, locations=["IT"])
+
+    assert result["reference_year"] == 2023
+    assert result["sectors"][0]["top_skills"][0]["growth_vs_reference_year"] == 1.0
+    evolution = result["sectors"][0]["evolution"]
+    assert evolution["job_count_current"] == 10
+    assert evolution["job_count_reference"] == 8
+    assert evolution["job_delta"] == 2
+    assert evolution["job_growth_percentage"] == 0.25
+    assert evolution["growing_skill_count"] == 1
+    assert evolution["disappeared_skill_count"] == 1
+    assert evolution["top_growing_skills"][0]["skill_id"] == "skill-python"
+    assert evolution["top_disappeared_skills"][0]["skill_id"] == "skill-legacy"
+    assert store.requests == [(2024, "IT"), (2023, "IT")]
+    assert fake_tracker.fetch_payloads == []
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_returns_not_available_without_static_data():
+    fake_service, _, fake_tracker, _ = _make_projector_service([])
+
+    result = await fake_service.sectoral_snapshot(year=2024)
+
+    assert result["status"] == "not_available"
+    assert result["year"] == 2024
+    assert result["sectors"] == []
+    assert "Run the snapshot refresh job" in result["message"]
+    assert fake_tracker.fetch_payloads == [{
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    }]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sectoral_snapshot_store_miss_does_not_fetch_tracker():
+    refresh_status = {
+        "status": "failed",
+        "last_success_at": "2026-06-05T20:00:00+00:00",
+        "last_failed_at": "2026-06-06T01:00:00+00:00",
+        "last_error": "Tracker jobs fetch failed at page 5",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+    }
+    store = _FakeSectorSnapshotStore(None, refresh_status=refresh_status)
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sectoral_snapshot(year=2024)
+
+    assert result["status"] == "not_available"
+    assert result["data_source"] == "postgres"
+    assert result["refresh_status"] == refresh_status
+    assert store.refresh_status_requests == [(2024, None)]
+    assert fake_tracker.fetch_payloads == []
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sector_skills_comparison_builds_matrix():
+    store = _FakeSectorSnapshotStore({
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 10,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 10,
+                        "job_share": 1.0,
+                        "total_skill_mentions": 10,
+                        "unique_skills": 1,
+                        "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 20,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 12,
+                        "job_share": 0.6,
+                        "total_skill_mentions": 20,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 4, "frequency": 0.2},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 4, "frequency": 0.2},
+                        ],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+        }
+    })
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sector_skills_comparison(
+        year=2024,
+        reference_year=2023,
+        locations=["IT"],
+        sectors=["ICT"],
+        skills=["skill-python"],
+        metric="growth",
+    )
+
+    assert result["status"] == "completed"
+    assert result["reference_year"] == 2023
+    assert result["metric"] == "growth"
+    assert store.requests == [(2024, "IT"), (2023, "IT")]
+    assert fake_tracker.fetch_payloads == []
+    assert result["sectors"] == ["ICT"]
+    assert result["skills"] == ["Python"]
+    cell = result["matrix"][0]
+    assert cell["count"] == 6
+    assert cell["share"] == 0.3
+    assert cell["rank"] == 1
+    assert cell["growth"] == 2.0
+    assert cell["value"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_projector_service_sector_skills_comparison_includes_failed_refresh_status_on_miss():
+    refresh_status = {
+        "status": "failed",
+        "last_success_at": "2026-06-05T20:00:00+00:00",
+        "last_failed_at": "2026-06-06T01:00:00+00:00",
+        "last_error": "Tracker jobs fetch failed at page 5",
+        "last_checkpoint_page": 5,
+        "fetched_jobs": 100,
+        "expected_jobs": 250,
+        "source": "tracker",
+    }
+    store = _FakeSectorSnapshotStore(None, refresh_status=refresh_status)
+    fake_service, _, fake_tracker, _ = _make_projector_service([], sector_snapshot_store=store)
+
+    result = await fake_service.sector_skills_comparison(year=2024, locations=["IT"])
+
+    assert result["status"] == "not_available"
+    assert result["data_source"] == "postgres"
+    assert result["refresh_status"] == refresh_status
+    assert store.refresh_status_requests == [(2024, "IT")]
+    assert fake_tracker.fetch_payloads == []
 
 
 @pytest.mark.asyncio
@@ -373,13 +2487,163 @@ async def test_calculate_smart_trends_logic():
 
 
 @pytest.mark.asyncio
-async def test_fetch_all_jobs_read_timeout_resilience():
+async def test_fetch_all_jobs_read_timeout_resilience(tmp_path, monkeypatch):
     """Testa la gestione del ReadTimeout (Coverage del blocco except)."""
+    monkeypatch.chdir(tmp_path)
     engine.token = "fake"
     with patch.object(engine.client, 'post', side_effect=httpx.ReadTimeout("Timeout")):
-        # Deve catturare l'errore, loggare e restituire i job accumulati finora (vuoti)
-        result = await tracker.fetch_all_jobs({"kw": "test"})
-        assert result == []
+        with pytest.raises(RuntimeError, match="Checkpoint saved"):
+            await tracker.fetch_all_jobs(
+                {"kw": "test"},
+                max_retries=1,
+                retry_backoff_seconds=0,
+            )
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_retries_page_failure(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "count": 1,
+        "items": [{"id": 1, "skills": ["skill-a"], "sectors": ["Education"]}],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [httpx.ReadTimeout("Timeout"), response]
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            max_retries=2,
+            retry_backoff_seconds=0,
+        )
+
+    assert result == [{"id": 1, "skills": ["skill-a"], "sectors": ["Education"]}]
+    assert mock_post.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_checkpoint_resume_after_interruption(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "skills": ["skill-a"], "sectors": ["Education"]},
+            {"id": 2, "skills": ["skill-b"], "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {
+        "count": 3,
+        "items": [{"id": 3, "skills": ["skill-c"], "sectors": ["Manufacturing"]}],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [first, httpx.ReadTimeout("Timeout")]
+        with pytest.raises(RuntimeError, match="page 2"):
+            await tracker.fetch_all_jobs(
+                {"keywords": ["data"]},
+                page_size=2,
+                max_retries=1,
+                retry_backoff_seconds=0,
+            )
+
+    checkpoint_files = list((tmp_path / "cache_data").glob("search_*.partial.json"))
+    assert len(checkpoint_files) == 1
+    checkpoint = json.loads(checkpoint_files[0].read_text())
+    assert checkpoint["next_page"] == 2
+    assert [job["id"] for job in checkpoint["jobs"]] == [1, 2]
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = second
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            page_size=2,
+            retry_backoff_seconds=0,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 1
+    assert mock_post.await_args.kwargs["params"] == {"page": 2, "page_size": 2}
+    assert not checkpoint_files[0].exists()
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_rejects_empty_page_before_total(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"count": 3, "items": []}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = response
+        with pytest.raises(RuntimeError, match="empty page before completion"):
+            await tracker.fetch_all_jobs(
+                {"keywords": ["data"]},
+                page_size=2,
+                retry_backoff_seconds=0,
+            )
+
+    checkpoint_files = list((tmp_path / "cache_data").glob("search_*.partial.json"))
+    assert len(checkpoint_files) == 1
+    checkpoint = json.loads(checkpoint_files[0].read_text())
+    assert checkpoint["jobs"] == []
+    assert checkpoint["total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_parallel_page_batches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 4,
+        "items": [
+            {"id": 1, "skills": ["skill-a"], "sectors": ["Education"]},
+            {"id": 2, "skills": ["skill-b"], "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {
+        "count": 4,
+        "items": [
+            {"id": 3, "skills": ["skill-c"], "sectors": ["Manufacturing"]},
+            {"id": 4, "skills": ["skill-d"], "sectors": ["Technology"]},
+        ],
+    }
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [first, second]
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            page_size=2,
+            page_concurrency=2,
+            retry_backoff_seconds=0,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3, 4]
+    assert mock_post.await_count == 2
+    requested_pages = [
+        call.kwargs["params"]["page"]
+        for call in mock_post.await_args_list
+    ]
+    assert requested_pages == [1, 2]
 
 
 @pytest.mark.asyncio
@@ -471,8 +2735,15 @@ async def test_fetch_all_jobs_paginates_and_writes_sector_cache(tmp_path, monkey
     assert mock_post.await_args_list[0].kwargs["params"] == {"page": 1, "page_size": 2}
     assert mock_post.await_args_list[1].kwargs["params"] == {"page": 2, "page_size": 2}
     cache_files = list((tmp_path / "cache_data").glob("search_*.json"))
-    assert len(cache_files) == 1
-    assert json.loads(cache_files[0].read_text()) == result
+    data_cache_files = [path for path in cache_files if not path.name.endswith(".meta.json")]
+    meta_cache_files = [path for path in cache_files if path.name.endswith(".meta.json")]
+    assert len(data_cache_files) == 1
+    assert len(meta_cache_files) == 1
+    assert json.loads(data_cache_files[0].read_text()) == result
+    metadata = json.loads(meta_cache_files[0].read_text())
+    assert metadata["status"] == "complete"
+    assert metadata["fetched"] == 3
+    assert metadata["total"] == 3
 
 
 @pytest.mark.asyncio
@@ -503,6 +2774,218 @@ async def test_fetch_all_jobs_uses_sector_cache_and_refetches_stale_cache(tmp_pa
 
     assert refreshed == [{"id": 3, "sectors": ["Research"]}]
     assert mock_post.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_requires_complete_cache_for_backfill(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    query_sig = hashlib.md5(json.dumps({"keywords": ["data"]}, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    cache_file.write_text(json.dumps([{"id": 1, "sectors": ["Education"]}]))
+
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.json.return_value = {"count": 3, "items": [{"id": 1, "sectors": ["Education"]}]}
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "sectors": ["Education"]},
+            {"id": 2, "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {"count": 3, "items": [{"id": 3, "sectors": ["Manufacturing"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [probe, first, second]
+        result = await tracker.fetch_all_jobs(
+            {"keywords": ["data"]},
+            page_size=2,
+            retry_backoff_seconds=0,
+            require_complete_cache=True,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 3
+    assert mock_post.await_args_list[0].kwargs["params"] == {"page": 1, "page_size": 1}
+    metadata = json.loads((cache_dir / f"search_{query_sig}.meta.json").read_text())
+    assert metadata["status"] == "complete"
+    assert metadata["fetched"] == 3
+    assert metadata["total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_refreshes_when_complete_cache_count_changed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cache_file.write_text(json.dumps([
+        {"id": 1, "sectors": ["Education"]},
+        {"id": 2, "sectors": ["Research"]},
+    ]))
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 2,
+        "total": 2,
+        "status": "complete",
+    }))
+
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.json.return_value = {"count": 3, "items": [{"id": 1, "sectors": ["Education"]}]}
+    first = MagicMock()
+    first.status_code = 200
+    first.json.return_value = {
+        "count": 3,
+        "items": [
+            {"id": 1, "sectors": ["Education"]},
+            {"id": 2, "sectors": ["Research"]},
+        ],
+    }
+    second = MagicMock()
+    second.status_code = 200
+    second.json.return_value = {"count": 3, "items": [{"id": 3, "sectors": ["Manufacturing"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [probe, first, second]
+        result = await tracker.fetch_all_jobs(
+            filters,
+            page_size=2,
+            retry_backoff_seconds=0,
+            require_complete_cache=True,
+        )
+
+    assert [job["id"] for job in result] == [1, 2, 3]
+    assert mock_post.await_count == 3
+    metadata = json.loads(meta_file.read_text())
+    assert metadata["status"] == "complete"
+    assert metadata["fetched"] == 3
+    assert metadata["total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_uses_complete_cache_when_api_count_matches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cached_jobs = [
+        {"id": 1, "sectors": ["Education"]},
+        {"id": 2, "sectors": ["Research"]},
+    ]
+    cache_file.write_text(json.dumps(cached_jobs))
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 2,
+        "total": 2,
+        "status": "complete",
+    }))
+
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.json.return_value = {"count": 2, "items": [{"id": 1, "sectors": ["Education"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = probe
+        result = await tracker.fetch_all_jobs(
+            filters,
+            page_size=2,
+            retry_backoff_seconds=0,
+            require_complete_cache=True,
+        )
+
+    assert result == cached_jobs
+    assert mock_post.await_count == 1
+    assert mock_post.await_args.kwargs["params"] == {"page": 1, "page_size": 1}
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_repairs_incomplete_cache_when_api_count_matches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cached_jobs = [
+        {"id": 1, "sectors": ["Education"]},
+        {"id": 2, "sectors": ["Research"]},
+    ]
+    cache_file.write_text(json.dumps(cached_jobs))
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 2,
+        "total": 2,
+        "status": "partial",
+    }))
+
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.json.return_value = {"count": 2, "items": [{"id": 1, "sectors": ["Education"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = probe
+        result = await tracker.fetch_all_jobs(
+            filters,
+            page_size=2,
+            retry_backoff_seconds=0,
+            require_complete_cache=True,
+        )
+
+    assert result == cached_jobs
+    assert mock_post.await_count == 1
+    metadata = json.loads(meta_file.read_text())
+    assert metadata["status"] == "complete"
+    assert metadata["fetched"] == 2
+    assert metadata["total"] == 2
+
+
+def test_tracker_clear_completed_jobs_cache_keeps_checkpoint(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    checkpoint_file = cache_dir / f"search_{query_sig}.partial.json"
+    cache_file.write_text("[]")
+    meta_file.write_text("{}")
+    checkpoint_file.write_text("{}")
+
+    tracker.clear_completed_jobs_cache(filters)
+
+    assert not cache_file.exists()
+    assert not meta_file.exists()
+    assert checkpoint_file.exists()
 
 
 @pytest.mark.asyncio
@@ -3113,6 +5596,175 @@ def test_endpoint_analyze_skills_sectoral_tracker_labels_define_sector_keys():
             "Manufacturing",
             "Information and communication",
         }
+
+
+@pytest.mark.integration
+def test_endpoint_sectoral_intelligence_selected_period_contract():
+    form_data = {
+        "keywords": ["developer"],
+        "data_source": "live",
+        "mode": "selected_period",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-10",
+        "skill_group_level": 1,
+        "occupation_level": 1,
+    }
+
+    fake_jobs = [
+        {
+            "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills:
+        m_fetch.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        engine.skill_map = {
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+        engine.skill_hierarchy = {
+            "skill_obs": {"level_1": "S3", "level_2": "S3.1", "level_3": "S3.1.1"},
+        }
+        engine.skill_group_labels = {"S3": "digital content creation"}
+
+        response = client.post("/projector/sectoral-intelligence", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["data_source"] == "live"
+        assert data["mode"] == "selected_period"
+        assert data["sector_filter"] == []
+        assert data["sector_level"] == "tracker_sector"
+        assert data["window"] == {
+            "label": "Selected period",
+            "min_date": "2024-01-01",
+            "max_date": "2024-01-10",
+        }
+        assert data["items"][0]["sector"] == "Information Technology"
+        assert data["items"][0]["observed_skills"]["total_skill_mentions"] == 1
+        assert data["sector_view_names"]["latest"] == "Last six months"
+
+
+@pytest.mark.integration
+def test_endpoint_sectoral_snapshot_contract():
+    form_data = {
+        "year": 2024,
+    }
+
+    fake_jobs = [
+        {
+            "title": "Backend Developer",
+            "skills": ["skill_obs"],
+            "sectors": ["Information Technology"],
+            "upload_date": "2024-01-02",
+        }
+    ]
+
+    with patch.object(service, "sector_snapshot_store", None), \
+         patch.object(tracker, "load_cached_jobs") as m_cache, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skills:
+        m_cache.return_value = fake_jobs
+        m_fetch_skills.return_value = None
+        engine.skill_map = {
+            "skill_obs": {"label": "Docker", "is_green": False, "is_digital": True},
+        }
+
+        response = client.post("/projector/sectoral-snapshot", data=form_data)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["year"] == 2024
+        assert data["reference_year"] == 2023
+        assert data["data_source"] == "cache"
+        assert data["window"] == {
+            "label": "2024 snapshot",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+        }
+        assert data["total_jobs"] == 1
+        assert data["sectors"][0]["sector"] == "Information Technology"
+        assert data["sectors"][0]["job_count"] == 1
+        assert data["sectors"][0]["top_skills"][0]["label"] == "Docker"
+        assert data["sectors"][0]["top_skills"][0]["share_in_sector"] == 1.0
+        assert data["sectors"][0]["top_skills"][0]["rank"] == 1
+        assert data["sectors"][0]["top_skills"][0]["growth_vs_reference_year"] == "new_entry"
+        assert data["sectors"][0]["top_skills"][0]["sector_breadth"] == 1
+        assert data["sectors"][0]["all_skills"][0]["label"] == "Docker"
+        assert data["sectors"][0]["top_job_titles"] == [
+            {"name": "Backend Developer", "count": 1}
+        ]
+
+
+@pytest.mark.integration
+def test_endpoint_sector_skills_comparison_contract():
+    store = _FakeSectorSnapshotStore({
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 10,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 10,
+                        "job_share": 1.0,
+                        "total_skill_mentions": 10,
+                        "unique_skills": 1,
+                        "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 2, "frequency": 0.2}],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 20,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 20,
+                        "job_share": 1.0,
+                        "total_skill_mentions": 20,
+                        "unique_skills": 1,
+                        "top_skills": [{"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3}],
+                        "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.3}],
+                        "top_job_titles": [],
+                    }
+                ],
+            },
+        }
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post(
+            "/projector/sector-skills-comparison",
+            data={"year": 2024, "locations": "IT", "sectors": "ICT", "metric": "share"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed"
+    assert data["reference_year"] == 2023
+    assert data["metric"] == "share"
+    assert data["sectors"] == ["ICT"]
+    assert data["skills"] == ["Python"]
+    assert data["matrix"][0]["sector"] == "ICT"
+    assert data["matrix"][0]["label"] == "Python"
+    assert data["matrix"][0]["share"] == 0.3
 
 
 def test_build_observed_occupation_skill_matrix_accumulates_when_reset_false():

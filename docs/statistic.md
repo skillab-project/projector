@@ -2,6 +2,16 @@
 
 Concise formulas for current API-only metrics.
 
+Related issues: #7, #8, #47, #48, #52.
+
+## Core Source
+
+```text
+jobs = Tracker jobs after filters
+skills = job["skills"]
+sectors = job["sectors"]
+```
+
 ## Jobs
 
 `jobs_analyzed`
@@ -10,17 +20,13 @@ Concise formulas for current API-only metrics.
 count(jobs)
 ```
 
-Number of Tracker jobs processed after filters.
-
-## Skills
+## Skill Analyzer
 
 `frequency`
 
 ```text
-count(skill mentions in all jobs)
+count(skill mentions in jobs)
 ```
-
-One job can contribute multiple skills.
 
 `sector_spread`
 
@@ -28,29 +34,29 @@ One job can contribute multiple skills.
 count(distinct sectors where skill appears)
 ```
 
-Uses Tracker `job["sectors"]`.
-
 `primary_sector`
 
 ```text
 sector with max count for that skill
 ```
 
-## Sectors
+## Sector Counts
 
-Sector counts are relationship counts.
+`job_count`
 
 ```text
-for each job:
-  for each sector in job["sectors"]:
-    sector_count[sector] += 1
+count(jobs where sector in job["sectors"])
 ```
 
 If a job has multiple sectors, each sector gets one count.
 
-## Sector-Skill Matrix
+`job_share`
 
-Core matrix:
+```text
+job_count_sector / sum(job_count_all_sectors)
+```
+
+## Sector-Skill Matrix
 
 ```text
 for each job:
@@ -61,7 +67,7 @@ for each job:
 
 If a job has no sector, sector is `Sector not specified`.
 
-## Observed Skills In Sector
+## Sector Overview / Snapshot
 
 `count`
 
@@ -81,39 +87,19 @@ sum(sector_skill_count[sector].values())
 count(distinct skills in sector)
 ```
 
-`frequency`
+`share_in_sector`
 
 ```text
-skill count in sector / total_skill_mentions in sector
+skill_count_in_sector / total_skill_mentions_in_sector
 ```
 
-## Sector Metrics
-
-`coverage_unique_skills`
+`rank`
 
 ```text
-unique_skills in sector
+position of skill in sector sorted by count desc
 ```
 
-`dominance_top10_share`
-
-```text
-sum(top 10 skill counts in sector) / total_skill_mentions in sector
-```
-
-High value means demand is concentrated in few skills.
-
-## Skill Importance
-
-`importance_in_sector`
-
-```text
-skill count in selected sector / total_skill_mentions in selected sector
-```
-
-It answers: how important is this skill inside the selected sector?
-
-## Skill Transversality
+## Skill Portfolio Bubble Chart
 
 `sector_breadth`
 
@@ -121,21 +107,113 @@ It answers: how important is this skill inside the selected sector?
 count(sectors where skill appears)
 ```
 
-It answers: how many sectors use this skill?
-
-`dominant_sector`
+`importance`
 
 ```text
-sector with highest count for the skill
+skill_count_in_selected_sector / total_skill_mentions_in_selected_sector
 ```
 
-`dominant_share`
+`size`
 
 ```text
-skill count in dominant sector / total skill count across all sectors
+skill_count_in_selected_sector
 ```
 
-It is linked to `dominant_sector_label`.
+`color`
+
+```text
+digital if is_digital
+green if is_green
+other otherwise
+```
+
+## Sector Overview / Evolution
+
+`job_delta`
+
+```text
+job_count_to_year - job_count_from_year
+```
+
+`job_growth_percentage`
+
+```text
+(job_count_to_year - job_count_from_year) / job_count_from_year
+```
+
+If `job_count_from_year = 0` and `job_count_to_year > 0`, value is `new_entry`.
+
+`new_skill_count`
+
+```text
+count(skills_to_year - skills_from_year)
+```
+
+`disappeared_skill_count`
+
+```text
+count(skills_from_year - skills_to_year)
+```
+
+`growing_skill_count`
+
+```text
+count(shared skills where count_to_year > count_from_year)
+```
+
+`declining_skill_count`
+
+```text
+count(shared skills where count_to_year < count_from_year)
+```
+
+`skill_churn`
+
+```text
+count(new skills + disappeared skills) / count(union skills across both years)
+```
+
+`evolution skill delta`
+
+```text
+skill_count_to_year - skill_count_from_year
+```
+
+## Sector Skills Comparison
+
+Heatmap rows are sectors. Columns are skills.
+
+`count`
+
+```text
+sector_skill_count[sector][skill]
+```
+
+`share`
+
+```text
+skill_count_in_sector / total_skill_mentions_in_sector
+```
+
+`rank`
+
+```text
+position of skill in sector sorted by count desc
+```
+
+`rank_score`
+
+```text
+1 / rank
+```
+
+`growth between years`
+
+```text
+(skill_count_to_year - skill_count_from_year) / skill_count_from_year
+```
+
+If `skill_count_from_year = 0` and `skill_count_to_year > 0`, value is `new_entry`.
 
 ## Regional
 
@@ -148,7 +226,7 @@ count(jobs in area)
 `market_share`
 
 ```text
-jobs in area / all jobs * 100
+jobs in area / all jobs
 ```
 
 `specialization`
@@ -166,7 +244,7 @@ The selected date range is split in two halves.
 `growth`
 
 ```text
-(count in second half - count in first half) / count in first half * 100
+(count in second half - count in first half) / count in first half
 ```
 
 If first-half count is `0` and second-half count is positive, growth is `new_entry`.
@@ -182,5 +260,5 @@ growth = 0 -> stable
 `volume_growth_percentage`
 
 ```text
-(jobs in second half - jobs in first half) / jobs in first half * 100
+(jobs in second half - jobs in first half) / jobs in first half
 ```
