@@ -5,6 +5,7 @@ from fastapi import Form
 from app.schemas.responses import (
     EmergingSkillsResponse,
     ProjectorResponse,
+    RegionalSectoralResponse,
     SectoralIntelligenceResponse,
     SectorSkillsComparisonResponse,
     SectoralSnapshotResponse,
@@ -217,6 +218,29 @@ async def sector_skills_comparison(
         sectors=sectors,
         skills=skills,
         metric=metric,
+    )
+
+
+@router.post(
+    "/regional-sectoral",
+    response_model=RegionalSectoralResponse,
+    response_model_exclude_none=True,
+)
+async def regional_sectoral(
+        year: int = Form(...),
+        locations: Optional[List[str]] = Form(None),
+        top_k: int = Form(10),
+):
+    """
+       Returns yearly sector distribution grouped by raw and NUTS-like regions.
+
+       This endpoint reads precomputed PostgreSQL sector snapshots and does not
+       perform live Tracker aggregation.
+    """
+    return await service.regional_sectoral(
+        year=year,
+        locations=locations,
+        top_k=top_k,
     )
 
 

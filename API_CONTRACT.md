@@ -36,6 +36,7 @@ application/x-www-form-urlencoded
 | `POST /projector/analyze-skills` | keyword/job-search skill intelligence |
 | `POST /projector/sectoral-snapshot` | yearly sector snapshot and one-sector evolution |
 | `POST /projector/sector-skills-comparison` | sectors x skills heatmap |
+| `POST /projector/regional-sectoral` | yearly regional sector distribution |
 | `POST /projector/sectoral-intelligence` | legacy/drill-down observed sector detail |
 | `POST /projector/emerging-skills` | trend-only analysis |
 | `GET /projector/health` | service reachability |

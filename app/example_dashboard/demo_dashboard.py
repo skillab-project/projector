@@ -27,6 +27,9 @@ if 'sectoral_snapshot_data' not in st.session_state:
 if 'sector_skills_comparison_data' not in st.session_state:
     st.session_state.sector_skills_comparison_data = None
 
+if 'regional_sectoral_data' not in st.session_state:
+    st.session_state.regional_sectoral_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -43,7 +46,12 @@ if 'sector_focus_choice' not in st.session_state:
 SECTOR_SNAPSHOT_YEARS = [2020, 2021, 2022, 2023, 2024]
 SECTOR_REGION_OPTIONS = {
     "GLOBAL": None,
-    "DEMO": "DEMO",
+    "IT": "IT",
+    "DE": "DE",
+    "FR": "FR",
+}
+REGIONAL_SECTORAL_REGION_OPTIONS = {
+    "ALL REGIONS": None,
     "IT": "IT",
     "DE": "DE",
     "FR": "FR",
@@ -85,6 +93,7 @@ translations = {
             "skill": "Skill Overview",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
+            "regional_sectoral": "Regional Sector Distribution",
         },
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
@@ -108,6 +117,7 @@ translations = {
         'sectoral_year_bar_caption': "Snapshot settoriale {year}",
         'region_filter': "Region",
         'region_filter_help': "Filtra lo snapshot settoriale per location_code. GLOBAL usa lo snapshot aggregato.",
+        'regional_sectoral_region_help': "Filtra la distribuzione regionale. ALL REGIONS mostra tutte le regioni reali disponibili.",
         'sector_focus_help': "Scegli prima il settore da esplorare; anno e region filtrano il contesto storico.",
         'sector_overview_mode': "Vista settore",
         'sector_overview_mode_options': {
@@ -151,6 +161,37 @@ translations = {
         'sectoral_top_titles': "Top titoli settore",
         'comparison_header': "Sector Skills Comparison",
         'comparison_help': "Confronta settori e skill con una heatmap annuale.",
+        'regional_sectoral_header': "Distribuzione settoriale regionale",
+        'regional_sectoral_help': "Mostra i settori più rappresentati per regione usando snapshot annuali PostgreSQL.",
+        'regional_sectoral_level': "Livello regione",
+        'regional_sectoral_area': "Area",
+        'regional_sectoral_top_k': "Settori per area",
+        'regional_sectoral_table': "Aree e settori principali",
+        'regional_sectoral_chart': "Top settori in area",
+        'regional_sectoral_overview': "Mappa distribuzione regionale",
+        'regional_sectoral_visual': "Visualizzazione",
+        'regional_sectoral_visual_options': {
+            "auto": "Auto",
+            "map": "Mappa geografica",
+            "treemap": "Treemap aree",
+        },
+        'regional_sectoral_tabs': {
+            "region_first": "Regions → Sectors",
+            "sector_first": "Sector → Regions",
+        },
+        'sector_footprint_header': "Mappa impronta settore",
+        'sector_footprint_help': "Scegli un settore e visualizza le aree dove quel settore pesa di più.",
+        'sector_footprint_sector': "Settore",
+        'sector_footprint_metric': "Metrica colore",
+        'sector_footprint_metric_options': {
+            "specialization": "Specializzazione",
+            "share_in_region": "Quota nella regione",
+            "count": "Conteggio",
+        },
+        'sector_footprint_note': "La vista usa i settori restituiti in top_sectors per ogni area. Aumenta top_k per copertura più ampia.",
+        'submit_regional_sectoral': "Lancia Regional Sector Distribution",
+        'sector_count': "Conteggio settore",
+        'share_in_region': "Quota nella regione",
         'comparison_metric': "Metrica heatmap",
         'comparison_sectors': "Settori da confrontare",
         'comparison_skills': "Skill da confrontare",
@@ -243,6 +284,7 @@ translations = {
             "skill": "Skill Overview",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
+            "regional_sectoral": "Regional Sector Distribution",
         },
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
@@ -266,6 +308,7 @@ translations = {
         'sectoral_year_bar_caption': "Sector snapshot {year}",
         'region_filter': "Region",
         'region_filter_help': "Filter the sector snapshot by location_code. GLOBAL uses the aggregated snapshot.",
+        'regional_sectoral_region_help': "Filter regional distribution. ALL REGIONS shows all available real regions.",
         'sector_focus_help': "Choose the sector first; year and region filter the historical context.",
         'sector_overview_mode': "Sector view",
         'sector_overview_mode_options': {
@@ -309,6 +352,37 @@ translations = {
         'sectoral_top_titles': "Top sector job titles",
         'comparison_header': "Sector Skills Comparison",
         'comparison_help': "Compare sectors and skills with a yearly heatmap.",
+        'regional_sectoral_header': "Regional sector distribution",
+        'regional_sectoral_help': "Shows the most represented sectors by region using yearly PostgreSQL snapshots.",
+        'regional_sectoral_level': "Region level",
+        'regional_sectoral_area': "Area",
+        'regional_sectoral_top_k': "Sectors per area",
+        'regional_sectoral_table': "Areas and top sectors",
+        'regional_sectoral_chart': "Top sectors in area",
+        'regional_sectoral_overview': "Regional distribution map",
+        'regional_sectoral_visual': "Visualization",
+        'regional_sectoral_visual_options': {
+            "auto": "Auto",
+            "map": "Geographic map",
+            "treemap": "Area treemap",
+        },
+        'regional_sectoral_tabs': {
+            "region_first": "Regions → Sectors",
+            "sector_first": "Sector → Regions",
+        },
+        'sector_footprint_header': "Sector footprint map",
+        'sector_footprint_help': "Choose a sector and see where that sector is strongest.",
+        'sector_footprint_sector': "Sector",
+        'sector_footprint_metric': "Color metric",
+        'sector_footprint_metric_options': {
+            "specialization": "Specialization",
+            "share_in_region": "Share in region",
+            "count": "Count",
+        },
+        'sector_footprint_note': "This view uses sectors returned in top_sectors for each area. Increase top_k for wider coverage.",
+        'submit_regional_sectoral': "Run Regional Sector Distribution",
+        'sector_count': "Sector count",
+        'share_in_region': "Share in region",
         'comparison_metric': "Heatmap metric",
         'comparison_sectors': "Sectors to compare",
         'comparison_skills': "Skills to compare",
@@ -468,6 +542,9 @@ STAT_HELP_BY_LANG = {
         "sector_breadth": "Transversalità della skill. Formula: count(sectors where skill appears).",
         "dominant_share": "Quota della skill nel suo settore dominante. Formula: count_in_dominant_sector / count_in_all_sectors.",
         "categories_found": "Numero di settori Tracker API trovati nella risposta sectoral. Formula: count(items).",
+        "regional_sector_count": "Numero di job del settore nella regione selezionata. Se un job ha più settori, contribuisce a ciascun settore.",
+        "share_in_region": "Quota del settore nella regione. Formula: sector_jobs_region / total_jobs_region * 100.",
+        "regional_sector_specialization": "Concentrazione settore-region rispetto al totale anno. Formula: sector_share_region / sector_share_global.",
     },
     "EN": {
         "jobs_analyzed": "Number of Tracker jobs processed after filters. Formula: count(jobs).",
@@ -501,6 +578,9 @@ STAT_HELP_BY_LANG = {
         "sector_breadth": "Skill transversality. Formula: count(sectors where skill appears).",
         "dominant_share": "Skill share in its dominant sector. Formula: count_in_dominant_sector / count_in_all_sectors.",
         "categories_found": "Number of Tracker API sectors found in sectoral response. Formula: count(items).",
+        "regional_sector_count": "Number of sector jobs in the selected region. If a job has multiple sectors, it contributes to each sector.",
+        "share_in_region": "Sector share inside the region. Formula: sector_jobs_region / total_jobs_region * 100.",
+        "regional_sector_specialization": "Region-sector concentration versus the yearly total. Formula: sector_share_region / sector_share_global.",
     }
 }
 
@@ -588,6 +668,24 @@ def get_sector_skills_comparison_data(api_base_url: str, payload: dict, timeout_
     try:
         res = requests.post(
             f"{normalize_api_base_url(api_base_url)}/sector-skills-comparison",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def get_regional_sectoral_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/regional-sectoral",
             data=payload,
             timeout=timeout_seconds
         )
@@ -712,6 +810,7 @@ ANALYZE_ENDPOINT = "POST /projector/analyze-skills"
 SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
 SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
 SECTOR_SKILLS_COMPARISON_ENDPOINT = "POST /projector/sector-skills-comparison"
+REGIONAL_SECTORAL_ENDPOINT = "POST /projector/regional-sectoral"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
@@ -746,9 +845,13 @@ with st.sidebar:
     submit_button = False
     sectoral_submit_button = False
     comparison_submit_button = False
+    regional_sectoral_submit_button = False
     comparison_metric = "share"
     comparison_sectors = []
     comparison_skills = []
+    regional_sectoral_level = "raw"
+    regional_sectoral_top_k = 10
+    regional_sectoral_visual = "auto"
 
     if dashboard_view == "skill":
         keywords = st.text_input(T['keywords'], "software")
@@ -848,6 +951,12 @@ comparison_payload = {
     "metric": comparison_metric,
 }
 
+regional_sectoral_payload = {
+    "year": int(sectoral_snapshot_year),
+    "locations": [sectoral_location] if sectoral_location else None,
+    "top_k": 10,
+}
+
 if dashboard_view == "sector":
     current_year = int(st.session_state.sectoral_snapshot_year)
     default_reference = current_year - 1 if current_year - 1 in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[0]
@@ -866,8 +975,8 @@ if dashboard_view == "sector":
     with top_region:
         selected_region = st.selectbox(
             T["region_filter"],
-            list(SECTOR_REGION_OPTIONS.keys()),
-            help=T["region_filter_help"],
+            list(REGIONAL_SECTORAL_REGION_OPTIONS.keys()),
+            help=T["regional_sectoral_region_help"],
         )
     with top_mode:
         selected_mode_label = st.radio(
@@ -877,7 +986,7 @@ if dashboard_view == "sector":
         )
     sector_overview_mode = next(key for key, value in mode_options.items() if value == selected_mode_label)
 
-    sectoral_location = SECTOR_REGION_OPTIONS[selected_region]
+    sectoral_location = REGIONAL_SECTORAL_REGION_OPTIONS[selected_region]
     previous_region = st.session_state.get("sectoral_snapshot_region")
     previous_mode = st.session_state.get("sector_overview_mode", "snapshot")
 
@@ -1012,6 +1121,42 @@ elif dashboard_view == "comparison":
     }
     st.caption(T["sectoral_year_bar_caption"].format(year=sectoral_snapshot_year))
     comparison_submit_button = st.button(T["submit_comparison"], use_container_width=True)
+elif dashboard_view == "regional_sectoral":
+    current_year = int(st.session_state.sectoral_snapshot_year)
+    selected_year = st.select_slider(
+        T["sectoral_snapshot_year"],
+        options=SECTOR_SNAPSHOT_YEARS,
+        value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
+        help=T["sectoral_year_bar_help"],
+    )
+    regional_sectoral_level = st.radio(
+        T["regional_sectoral_level"],
+        ["raw", "nuts1", "nuts2", "nuts3"],
+        horizontal=True,
+    )
+    visual_options = T["regional_sectoral_visual_options"]
+    visual_label = st.radio(
+        T["regional_sectoral_visual"],
+        list(visual_options.values()),
+        horizontal=True,
+    )
+    regional_sectoral_visual = next(key for key, value in visual_options.items() if value == visual_label)
+    regional_sectoral_top_k = st.number_input(
+        T["regional_sectoral_top_k"],
+        min_value=1,
+        max_value=25,
+        value=10,
+        step=1,
+    )
+    st.session_state.sectoral_snapshot_year = int(selected_year)
+    sectoral_snapshot_year = int(selected_year)
+    regional_sectoral_payload = {
+        "year": int(sectoral_snapshot_year),
+        "locations": None,
+        "top_k": int(regional_sectoral_top_k),
+    }
+    st.caption(T["sectoral_year_bar_caption"].format(year=sectoral_snapshot_year))
+    regional_sectoral_submit_button = st.button(T["submit_regional_sectoral"], use_container_width=True)
 
 # --- LOGICA DI ACQUISIZIONE DATI ---
 if submit_button:
@@ -1026,6 +1171,7 @@ if submit_button:
             st.session_state.sectoral_snapshot_data = None
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
+            st.session_state.regional_sectoral_data = None
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
             st.error(error_msg)
@@ -1042,6 +1188,7 @@ if sectoral_submit_button:
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
+            st.session_state.regional_sectoral_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1058,13 +1205,31 @@ if comparison_submit_button:
             st.session_state.sectoral_snapshot_data = None
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
+            st.session_state.regional_sectoral_data = None
         else:
             error_msg = comparison_response.get("_error", T['server_error']) if isinstance(comparison_response, dict) else T['server_error']
             st.error(error_msg)
 
+if regional_sectoral_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        regional_sectoral_response = get_regional_sectoral_data(
+            st.session_state.api_base_url,
+            regional_sectoral_payload,
+            st.session_state.backend_timeout
+        )
+        if regional_sectoral_response and "_error" not in regional_sectoral_response:
+            st.session_state.regional_sectoral_data = regional_sectoral_response
+            st.session_state.sector_skills_comparison_data = None
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.all_data = None
+            st.session_state.sectoral_data = None
+        else:
+            error_msg = regional_sectoral_response.get("_error", T['server_error']) if isinstance(regional_sectoral_response, dict) else T['server_error']
+            st.error(error_msg)
+
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
-if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data:
+if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data:
     all_data = st.session_state.all_data or {
         "insights": {
             "ranking": [],
@@ -1082,10 +1247,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     sectoral_response = st.session_state.sectoral_data or {}
     sectoral_snapshot_response = st.session_state.sectoral_snapshot_data or {}
     sector_skills_comparison_response = st.session_state.sector_skills_comparison_data or {}
+    regional_sectoral_response = st.session_state.regional_sectoral_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
-    if dashboard_view in {"sector", "comparison"}:
+    if dashboard_view in {"sector", "comparison", "regional_sectoral"}:
         tab4 = st.container()
     else:
         tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
@@ -1407,6 +1573,335 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 ],
                 payload
             )
+
+        if dashboard_view == "regional_sectoral":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["regional_sectoral_header"], help=T["regional_sectoral_help"])
+            with h_info:
+                dev_info(
+                    "Regional Sector Distribution",
+                    REGIONAL_SECTORAL_ENDPOINT,
+                    {
+                        "status": "completed",
+                        "year": 2024,
+                        "data_source": "postgres",
+                        "window": {
+                            "label": "2024 snapshot",
+                            "min_date": "2024-01-01",
+                            "max_date": "2024-12-31"
+                        },
+                        "regional_sectoral": {
+                            "raw": [
+                                {
+                                    "code": "IT",
+                                    "total_jobs": 120,
+                                    "top_sectors": [
+                                        {
+                                            "sector": "Manufacturing",
+                                            "sector_code": "Manufacturing",
+                                            "count": 34,
+                                            "share_in_region": 28.33,
+                                            "specialization": 1.42
+                                        }
+                                    ]
+                                }
+                            ],
+                            "nuts1": [],
+                            "nuts2": [],
+                            "nuts3": []
+                        }
+                    },
+                    [
+                        "status",
+                        "year",
+                        "data_source",
+                        "window.label",
+                        "regional_sectoral.raw[]",
+                        "regional_sectoral.nuts1[]",
+                        "regional_sectoral.nuts2[]",
+                        "regional_sectoral.nuts3[]",
+                        "area.code",
+                        "area.total_jobs",
+                        "area.top_sectors[].sector",
+                        "area.top_sectors[].sector_code",
+                        "area.top_sectors[].count",
+                        "area.top_sectors[].share_in_region",
+                        "area.top_sectors[].specialization"
+                    ],
+                    regional_sectoral_payload
+                )
+
+            render_refresh_status_notice(regional_sectoral_response)
+            regional_payload = regional_sectoral_response.get("regional_sectoral", {})
+            regions_for_level = regional_payload.get(regional_sectoral_level, [])
+            if regions_for_level:
+                iso_mapping = {"IT": "ITA", "FR": "FRA", "DE": "DEU", "ES": "ESP", "GB": "GBR", "EL": "GRC", "SE": "SWE"}
+                all_sector_options = sorted({
+                    sector.get("sector")
+                    for area in regions_for_level
+                    for sector in area.get("top_sectors", [])
+                    if sector.get("sector")
+                })
+                region_first_tab, sector_first_tab = st.tabs([
+                    T["regional_sectoral_tabs"]["region_first"],
+                    T["regional_sectoral_tabs"]["sector_first"],
+                ])
+
+                with region_first_tab:
+                    selected_region_filter = st.selectbox(
+                        T["region_filter"],
+                        list(REGIONAL_SECTORAL_REGION_OPTIONS.keys()),
+                        help=T["regional_sectoral_region_help"],
+                        key=f"regional_sectoral_region_filter_{regional_sectoral_level}",
+                    )
+                    selected_location = REGIONAL_SECTORAL_REGION_OPTIONS[selected_region_filter]
+                    selected_regions = [
+                        area for area in regions_for_level
+                        if (
+                            not selected_location
+                            or str(area.get("code", "")).upper() == selected_location
+                            or str(area.get("code", "")).upper().startswith(selected_location)
+                        )
+                    ]
+                    summary_rows = []
+                    for area in selected_regions:
+                        top_sectors = area.get("top_sectors", [])
+                        leading = top_sectors[0] if top_sectors else {}
+                        summary_rows.append({
+                            "code": area.get("code"),
+                            "total_jobs": area.get("total_jobs", 0),
+                            "top_sector": leading.get("sector", "-"),
+                            "top_sector_count": leading.get("count", 0),
+                            "top_sector_share": leading.get("share_in_region", 0),
+                            "top_sector_specialization": leading.get("specialization", 0),
+                        })
+
+                    df_region_summary = pd.DataFrame(
+                        summary_rows,
+                        columns=[
+                            "code",
+                            "total_jobs",
+                            "top_sector",
+                            "top_sector_count",
+                            "top_sector_share",
+                            "top_sector_specialization",
+                        ],
+                    )
+                    if df_region_summary.empty:
+                        st.info(T["no_data"])
+
+                    can_map = (
+                        regional_sectoral_level == "raw"
+                        and not df_region_summary.empty
+                        and df_region_summary["code"].astype(str).isin(iso_mapping.keys()).any()
+                    )
+                    visual_mode = regional_sectoral_visual
+                    if visual_mode == "auto":
+                        visual_mode = "map" if can_map else "treemap"
+                    if visual_mode == "map" and not can_map:
+                        st.info(T["regional_no_level"].format(strategy=T["regional_sectoral_visual_options"]["map"]))
+                        visual_mode = "treemap"
+
+                    st.subheader(T["regional_sectoral_overview"])
+                    if visual_mode == "map":
+                        df_map = df_region_summary.copy()
+                        df_map["iso_alpha_3"] = df_map["code"].map(iso_mapping)
+                        df_map = df_map.dropna(subset=["iso_alpha_3"])
+                        fig_regional_map = px.choropleth(
+                            df_map,
+                            locations="iso_alpha_3",
+                            color="top_sector_specialization",
+                            hover_name="code",
+                            hover_data={
+                                "total_jobs": True,
+                                "top_sector": True,
+                                "top_sector_share": True,
+                                "top_sector_specialization": True,
+                                "iso_alpha_3": False,
+                            },
+                            color_continuous_scale="RdYlGn",
+                            projection="natural earth",
+                            title=T["regional_sectoral_overview"],
+                        )
+                        st.plotly_chart(fig_regional_map, width="stretch", key="regional_sectoral_map")
+                    else:
+                        fig_regional_tree = px.treemap(
+                            df_region_summary,
+                            path=["code", "top_sector"],
+                            values="total_jobs",
+                            color="top_sector_specialization",
+                            color_continuous_scale="RdYlGn",
+                            hover_data=["top_sector_count", "top_sector_share", "top_sector_specialization"],
+                            title=T["regional_sectoral_overview"],
+                        )
+                        st.plotly_chart(
+                            fig_regional_tree,
+                            width="stretch",
+                            key=f"regional_sectoral_treemap_{regional_sectoral_level}",
+                        )
+
+                    st.subheader(T["regional_sectoral_table"])
+                    st.dataframe(
+                        df_region_summary,
+                        use_container_width=True,
+                        column_config={
+                            "total_jobs": st.column_config.NumberColumn(T["jobs_analyzed"], help=STAT_HELP["jobs_analyzed"]),
+                            "top_sector_count": st.column_config.NumberColumn(T["sector_count"], help=STAT_HELP["regional_sector_count"]),
+                            "top_sector_share": st.column_config.NumberColumn(T["share_in_region"], help=STAT_HELP["share_in_region"]),
+                            "top_sector_specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["regional_sector_specialization"]),
+                        }
+                    )
+
+                    area_codes = [item.get("code") for item in selected_regions]
+                    if area_codes:
+                        selected_area = st.selectbox(T["regional_sectoral_area"], area_codes)
+                        target_area = next(item for item in selected_regions if item.get("code") == selected_area)
+                        sector_rows = target_area.get("top_sectors", [])
+                        if sector_rows:
+                            df_region_sectors = pd.DataFrame(sector_rows)
+                            fig_region_sector = px.bar(
+                                df_region_sectors,
+                                x="count",
+                                y="sector",
+                                orientation="h",
+                                color="specialization",
+                                color_continuous_scale="RdYlGn",
+                                labels={
+                                    "sector": T["agg_level"],
+                                    "count": T["sector_count"],
+                                    "specialization": T["specialization_label"],
+                                },
+                                title=f"{T['regional_sectoral_chart']}: {selected_area}",
+                            )
+                            fig_region_sector.update_layout(yaxis={"categoryorder": "total ascending"}, height=420)
+                            st.plotly_chart(
+                                fig_region_sector,
+                                width="stretch",
+                                key=f"regional_sectoral_{regional_sectoral_level}_{selected_area}",
+                            )
+                            st.dataframe(
+                                df_region_sectors,
+                                use_container_width=True,
+                                column_config={
+                                    "count": st.column_config.NumberColumn(T["sector_count"], help=STAT_HELP["regional_sector_count"]),
+                                    "share_in_region": st.column_config.NumberColumn(T["share_in_region"], help=STAT_HELP["share_in_region"]),
+                                    "specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["regional_sector_specialization"]),
+                                }
+                            )
+
+                with sector_first_tab:
+                    if all_sector_options:
+                        st.subheader(T["sector_footprint_header"], help=T["sector_footprint_help"])
+                        c_sector, c_metric = st.columns([2, 1])
+                        with c_sector:
+                            selected_footprint_sector = st.selectbox(
+                                T["sector_footprint_sector"],
+                                all_sector_options,
+                                key=f"sector_footprint_sector_{regional_sectoral_level}",
+                            )
+                        with c_metric:
+                            footprint_metric_options = T["sector_footprint_metric_options"]
+                            selected_metric_label = st.radio(
+                                T["sector_footprint_metric"],
+                                list(footprint_metric_options.values()),
+                                horizontal=True,
+                            )
+                            selected_footprint_metric = next(
+                                key for key, value in footprint_metric_options.items()
+                                if value == selected_metric_label
+                            )
+
+                        footprint_rows = []
+                        for area in regions_for_level:
+                            match = next(
+                                (
+                                    sector for sector in area.get("top_sectors", [])
+                                    if sector.get("sector") == selected_footprint_sector
+                                ),
+                                None,
+                            )
+                            if not match:
+                                continue
+                            footprint_rows.append({
+                                "code": area.get("code"),
+                                "total_jobs": area.get("total_jobs", 0),
+                                "sector": match.get("sector"),
+                                "sector_code": match.get("sector_code"),
+                                "count": match.get("count", 0),
+                                "share_in_region": match.get("share_in_region", 0),
+                                "specialization": match.get("specialization", 0),
+                            })
+
+                        if footprint_rows:
+                            df_footprint = pd.DataFrame(footprint_rows)
+                            footprint_can_map = (
+                                regional_sectoral_level == "raw"
+                                and df_footprint["code"].astype(str).isin(iso_mapping.keys()).any()
+                            )
+                            footprint_visual = regional_sectoral_visual
+                            if footprint_visual == "auto":
+                                footprint_visual = "map" if footprint_can_map else "treemap"
+                            if footprint_visual == "map" and not footprint_can_map:
+                                footprint_visual = "treemap"
+
+                            if footprint_visual == "map":
+                                df_footprint_map = df_footprint.copy()
+                                df_footprint_map["iso_alpha_3"] = df_footprint_map["code"].map(iso_mapping)
+                                df_footprint_map = df_footprint_map.dropna(subset=["iso_alpha_3"])
+                                fig_footprint = px.choropleth(
+                                    df_footprint_map,
+                                    locations="iso_alpha_3",
+                                    color=selected_footprint_metric,
+                                    hover_name="code",
+                                    hover_data={
+                                        "total_jobs": True,
+                                        "sector": True,
+                                        "count": True,
+                                        "share_in_region": True,
+                                        "specialization": True,
+                                        "iso_alpha_3": False,
+                                    },
+                                    color_continuous_scale="RdYlGn",
+                                    projection="natural earth",
+                                    title=f"{T['sector_footprint_header']}: {selected_footprint_sector}",
+                                )
+                                st.plotly_chart(
+                                    fig_footprint,
+                                    width="stretch",
+                                    key=f"sector_footprint_map_{regional_sectoral_level}_{selected_footprint_sector}",
+                                )
+                            else:
+                                fig_footprint = px.treemap(
+                                    df_footprint,
+                                    path=["code", "sector"],
+                                    values="count",
+                                    color=selected_footprint_metric,
+                                    color_continuous_scale="RdYlGn",
+                                    hover_data=["total_jobs", "share_in_region", "specialization"],
+                                    title=f"{T['sector_footprint_header']}: {selected_footprint_sector}",
+                                )
+                                st.plotly_chart(
+                                    fig_footprint,
+                                    width="stretch",
+                                    key=f"sector_footprint_treemap_{regional_sectoral_level}_{selected_footprint_sector}",
+                                )
+
+                            st.caption(T["sector_footprint_note"])
+                            st.dataframe(
+                                df_footprint.sort_values(selected_footprint_metric, ascending=False),
+                                use_container_width=True,
+                                column_config={
+                                    "count": st.column_config.NumberColumn(T["sector_count"], help=STAT_HELP["regional_sector_count"]),
+                                    "share_in_region": st.column_config.NumberColumn(T["share_in_region"], help=STAT_HELP["share_in_region"]),
+                                    "specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["regional_sector_specialization"]),
+                                }
+                            )
+            elif regional_sectoral_response.get("message"):
+                st.info(regional_sectoral_response["message"])
+            else:
+                st.info(T["no_data"])
+            st.stop()
 
         if dashboard_view == "comparison":
             h_main, h_info = st.columns([8, 1])

@@ -111,6 +111,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |
+| Regional Sector Distribution | region/sector matrix | year, optional region | `POST /projector/regional-sectoral` |
 
 ## Static Sector Snapshots
 
