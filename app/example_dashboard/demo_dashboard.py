@@ -117,6 +117,7 @@ translations = {
         'sectoral_year_bar_caption': "Snapshot settoriale {year}",
         'region_filter': "Region",
         'region_filter_help': "Filtra lo snapshot settoriale per location_code. GLOBAL usa lo snapshot aggregato.",
+        'regional_sectoral_country_filter': "Filtro paese",
         'regional_sectoral_region_help': "Filtra la distribuzione regionale. ALL REGIONS mostra tutte le regioni reali disponibili.",
         'sector_focus_help': "Scegli prima il settore da esplorare; anno e region filtrano il contesto storico.",
         'sector_overview_mode': "Vista settore",
@@ -164,7 +165,7 @@ translations = {
         'regional_sectoral_header': "Distribuzione settoriale regionale",
         'regional_sectoral_help': "Mostra i settori più rappresentati per regione usando snapshot annuali PostgreSQL.",
         'regional_sectoral_level': "Livello regione",
-        'regional_sectoral_area': "Area",
+        'regional_sectoral_area': "Scegli area specifica",
         'regional_sectoral_top_k': "Settori per area",
         'regional_sectoral_table': "Aree e settori principali",
         'regional_sectoral_chart': "Top settori in area",
@@ -308,6 +309,7 @@ translations = {
         'sectoral_year_bar_caption': "Sector snapshot {year}",
         'region_filter': "Region",
         'region_filter_help': "Filter the sector snapshot by location_code. GLOBAL uses the aggregated snapshot.",
+        'regional_sectoral_country_filter': "Country filter",
         'regional_sectoral_region_help': "Filter regional distribution. ALL REGIONS shows all available real regions.",
         'sector_focus_help': "Choose the sector first; year and region filter the historical context.",
         'sector_overview_mode': "Sector view",
@@ -355,7 +357,7 @@ translations = {
         'regional_sectoral_header': "Regional sector distribution",
         'regional_sectoral_help': "Shows the most represented sectors by region using yearly PostgreSQL snapshots.",
         'regional_sectoral_level': "Region level",
-        'regional_sectoral_area': "Area",
+        'regional_sectoral_area': "Choose specific area",
         'regional_sectoral_top_k': "Sectors per area",
         'regional_sectoral_table': "Areas and top sectors",
         'regional_sectoral_chart': "Top sectors in area",
@@ -1650,7 +1652,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
 
                 with region_first_tab:
                     selected_region_filter = st.selectbox(
-                        T["region_filter"],
+                        T["regional_sectoral_country_filter"],
                         list(REGIONAL_SECTORAL_REGION_OPTIONS.keys()),
                         help=T["regional_sectoral_region_help"],
                         key=f"regional_sectoral_region_filter_{regional_sectoral_level}",
