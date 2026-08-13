@@ -12,6 +12,7 @@ This folder contains the maintained documentation for the current `app/` impleme
 6. [Statistics](statistic.md) explains metric formulas.
 7. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
 8. [Database](database.md) documents PostgreSQL sector snapshot storage.
+9. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
 9. [Data sources](data-sources.md) explains Tracker API data usage.
 10. [Architecture](architecture.md) maps the runtime flow to the current code.
 11. [Examples](examples.md) provides request examples and frontend integration patterns.

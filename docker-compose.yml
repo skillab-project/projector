@@ -39,6 +39,8 @@ services:
       SNAPSHOT_PAGE_SIZE: ${SNAPSHOT_PAGE_SIZE:-500}
       SNAPSHOT_PAGE_CONCURRENCY: ${SNAPSHOT_PAGE_CONCURRENCY:-4}
       SNAPSHOT_MAX_RETRIES: ${SNAPSHOT_MAX_RETRIES:-5}
+      SNAPSHOT_SCHEDULER_LOG_FILE: ${SNAPSHOT_SCHEDULER_LOG_FILE:-logs/sector_snapshot_scheduler.log}
+      SNAPSHOT_DEBUG: ${SNAPSHOT_DEBUG:-false}
     volumes:
       - projector-snapshot-cache:/workspace/cache_data
       - projector-snapshot-logs:/workspace/logs
