@@ -10,3 +10,5 @@ plotly
 python-multipart
 pytest
 pytest-asyncio
+openpyxl
+psycopg[binary]

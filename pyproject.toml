@@ -1,27 +1,40 @@
 [tool.mutmut]
 paths_to_mutate = [
-    "main.py",
-    "schemas.py",
+    "app/services/analytics/occupations.py",
+    "app/services/analytics/sectoral.py",
+    "app/services/esco_loader.py",
 ]
 also_copy = [
-    "test.py",
+    "app/__init__.py",
+    "app/test.py",
+    "app/main.py",
+    "app/api/",
+    "app/client/",
+    "app/core/",
+    "app/schemas/",
+    "app/services/analytics/market.py",
+    "app/services/analytics/regional.py",
+    "app/services/analytics/trends.py",
+    "app/services/projector_service.py",
+    "app/services/sector_snapshot_store.py",
+    "scripts/",
 ]
-tests_dir = ["test.py"]
+tests_dir = ["app/test.py"]
 pytest_add_cli_args_test_selection = [
     "-m",
-    "not integration",
+    "not asyncio",
+    "-k",
+    "not endpoint and not dashboard and not test_fetch_occupation_labels_integration_real",
 ]
 pytest_add_cli_args = ["-q"]
 mutate_only_covered_lines = true
 
 [tool.coverage.run]
 branch = true
-source = [
-    "main",
-    "schemas",
-]
+source = ["app"]
 omit = [
-    "test.py",
+    "app/test.py",
+    "app/example_dashboard/*",
 ]
 
 [tool.coverage.report]
@@ -29,8 +42,9 @@ precision = 1
 show_missing = true
 
 [tool.quality_gates]
-coverage = 70
+coverage = 78
 mutation_advisory = 55
+pylint_advisory = 7
 
 [tool.quality_checks.tests]
 label = "Pytest"
@@ -51,6 +65,6 @@ jenkins_result = "SUCCESS when mutation analysis and reports are generated"
 
 [tool.quality_checks.lint]
 label = "Lint"
-mode = "Report only"
+mode = "Advisory"
 jenkins_result = "SUCCESS when lint reports are generated"
-rule = "Reports are archived; no blocking gate configured"
+rule = "Pylint score has an advisory gate and does not block the build"

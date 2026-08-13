@@ -1,0 +1,264 @@
+from typing import Optional, List, Literal
+from fastapi import APIRouter
+from fastapi import Form
+
+from app.schemas.responses import (
+    EmergingSkillsResponse,
+    ProjectorResponse,
+    RegionalSectoralResponse,
+    SectoralIntelligenceResponse,
+    SectorSkillsComparisonResponse,
+    SectoralSnapshotResponse,
+    StopResponse,
+)
+from app.core.container import service
+
+router = APIRouter(prefix="/projector", tags=["Projector"])
+
+
+@router.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@router.post("/emerging-skills", response_model=EmergingSkillsResponse)
+async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
+                          keywords: Optional[List[str]] = Form(None)):
+    """
+       Computes emerging and declining skill trends over a time period.
+
+       The analysis splits the time window into two segments:
+           - Period A (past)
+           - Period B (recent)
+
+       It then computes growth rates to identify:
+           - Emerging skills (increasing demand)
+           - Declining skills (decreasing demand)
+           - New entries (not present in previous period)
+
+       Args:
+           min_date (str): Start date (YYYY-MM-DD).
+           max_date (str): End date (YYYY-MM-DD).
+
+       Returns:
+           EmergingSkillsResponse:
+               - market_health (global trend)
+               - trends (per-skill analysis)
+
+       Key Metric:
+           Growth % = (B - A) / A * 100
+       """
+    return await service.emerging_skills(min_date, max_date,
+                                 keywords)
+
+
+@router.post("/analyze-skills", response_model=ProjectorResponse, response_model_exclude_none=True)
+async def analyze_skills(
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        min_date: str = Form(...),
+        max_date: str = Form(...),
+        page: int = Form(1),
+        page_size: int = Form(50),
+        demo: bool = Form(False),
+        include_sectoral: bool = Form(False),
+        sector_system: Literal["isco", "nace", "both"] = Form("isco"),
+        sector_level: Literal["isco_group", "nace_section", "nace_division", "nace_group", "nace_class", "nace_code"] = Form("isco_group"),
+        sectoral_time_mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        sectoral_snapshot_year: Optional[int] = Form(None),
+        sectoral_compare_a_min_date: Optional[str] = Form(None),
+        sectoral_compare_a_max_date: Optional[str] = Form(None),
+        sectoral_compare_b_min_date: Optional[str] = Form(None),
+        sectoral_compare_b_max_date: Optional[str] = Form(None),
+        skill_group_level: int = Form(1),
+        occupation_level: int = Form(1),
+):
+    """
+       Executes a full labor market analysis based on user-defined filters.
+
+       This endpoint orchestrates the entire pipeline:
+           1. Fetch job postings from Tracker API
+           2. Enrich skills and sectors
+           3. Compute aggregated statistics
+           4. Generate structured insights
+
+       Args:
+           keywords (List[str], optional): Search keywords for job filtering.
+           min_date (str, optional): Start date (YYYY-MM-DD).
+           max_date (str, optional): End date (YYYY-MM-DD).
+           location_code (str, optional): Geographic filter (ISO/NUTS).
+           occupation_ids (List[str], optional): Sector filter (ESCO).
+           sector_system (str, optional): Compatibility field. Runtime uses Tracker sectors under `nace`.
+           sector_level (str, optional): Compatibility field. Runtime uses Tracker sector labels.
+
+       Returns:
+           ProjectorResponse:
+               - status
+               - dimension_summary
+               - insights (skills, employers, job titles, etc.)
+
+       Notes:
+           - Supports large-scale analysis (tens of thousands of jobs)
+           - Uses caching for performance
+           - Can be interrupted via `/projector/stop`
+       """
+
+    return await service.analyze_skills(keywords,
+                                 locations,
+                                 min_date,
+                                 max_date,
+                                 page,
+                                 page_size,
+                                 demo,
+                                 include_sectoral,
+                                 sector_system,
+                                 sector_level,
+                                 sectoral_time_mode,
+                                 sectoral_snapshot_year,
+                                 sectoral_compare_a_min_date,
+                                 sectoral_compare_a_max_date,
+                                 sectoral_compare_b_min_date,
+                                 sectoral_compare_b_max_date,
+                                 skill_group_level,
+                                 occupation_level)
+
+
+@router.post(
+    "/sectoral-intelligence",
+    response_model=SectoralIntelligenceResponse,
+    response_model_exclude_none=True,
+)
+async def sectoral_intelligence(
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        data_source: Literal["cache", "live"] = Form("cache"),
+        mode: Literal["latest", "selected_period", "year", "comparison"] = Form("latest"),
+        min_date: Optional[str] = Form(None),
+        max_date: Optional[str] = Form(None),
+        snapshot_year: Optional[int] = Form(None),
+        compare_a_min_date: Optional[str] = Form(None),
+        compare_a_max_date: Optional[str] = Form(None),
+        compare_b_min_date: Optional[str] = Form(None),
+        compare_b_max_date: Optional[str] = Form(None),
+        skill_group_level: int = Form(1),
+        occupation_level: int = Form(1),
+):
+    """
+       Computes Tracker API sector intelligence as a dedicated sector dimension.
+
+       The endpoint is independent from `/projector/analyze-skills` and supports
+       latest, selected-period, yearly snapshot, and two-period comparison modes.
+    """
+    return await service.sectoral_intelligence(
+        keywords=keywords,
+        locations=locations,
+        sectors=sectors,
+        data_source=data_source,
+        mode=mode,
+        min_date=min_date,
+        max_date=max_date,
+        snapshot_year=snapshot_year,
+        compare_a_min_date=compare_a_min_date,
+        compare_a_max_date=compare_a_max_date,
+        compare_b_min_date=compare_b_min_date,
+        compare_b_max_date=compare_b_max_date,
+        skill_group_level=skill_group_level,
+        occupation_level=occupation_level,
+    )
+
+
+@router.post(
+    "/sectoral-snapshot",
+    response_model=SectoralSnapshotResponse,
+    response_model_exclude_none=True,
+)
+async def sectoral_snapshot(
+        year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+):
+    """
+       Computes a simple yearly sector overview for the final frontend.
+
+       This endpoint is intentionally aggregated: one row per Tracker sector,
+       with job volume, share, top skills, and top job titles.
+    """
+    return await service.sectoral_snapshot(
+        year=year,
+        reference_year=reference_year,
+        locations=locations,
+        data_source="cache",
+    )
+
+
+@router.post(
+    "/sector-skills-comparison",
+    response_model=SectorSkillsComparisonResponse,
+    response_model_exclude_none=True,
+)
+async def sector_skills_comparison(
+        year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        sectors: Optional[List[str]] = Form(None),
+        skills: Optional[List[str]] = Form(None),
+        metric: Literal["count", "share", "rank", "growth"] = Form("share"),
+):
+    """
+       Compares sectors through a sectors x skills matrix for a yearly snapshot.
+
+       The selected metric controls the heatmap value:
+       count, share in sector, rank score, or growth vs previous year.
+    """
+    return await service.sector_skills_comparison(
+        year=year,
+        reference_year=reference_year,
+        locations=locations,
+        sectors=sectors,
+        skills=skills,
+        metric=metric,
+    )
+
+
+@router.post(
+    "/regional-sectoral",
+    response_model=RegionalSectoralResponse,
+    response_model_exclude_none=True,
+)
+async def regional_sectoral(
+        year: int = Form(...),
+        locations: Optional[List[str]] = Form(None),
+        top_k: int = Form(10),
+):
+    """
+       Returns yearly sector distribution grouped by raw and NUTS-like regions.
+
+       This endpoint reads precomputed PostgreSQL sector snapshots and does not
+       perform live Tracker aggregation.
+    """
+    return await service.regional_sectoral(
+        year=year,
+        locations=locations,
+        top_k=top_k,
+    )
+
+
+@router.post("/stop", response_model=StopResponse)
+async def stop():
+    """
+        Sends a stop signal to interrupt ongoing analysis tasks.
+
+        This endpoint triggers a cooperative stop mechanism in the engine.
+        The running process will terminate at the next safe checkpoint.
+
+        Returns:
+            dict:
+                {"status": "stopping"}
+
+        Notes:
+            - Does not immediately kill execution
+            - Safe for long-running operations
+    """
+
+    return service.stop()

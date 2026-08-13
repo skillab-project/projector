@@ -1,207 +1,159 @@
 # Architecture and Operational Notes
 
-## Index
-- [Runtime stack](#runtime-stack)
-- [External dependency](#external-dependency)
-- [High-level internal flow](#high-level-internal-flow)
-- [Caching behavior](#caching-behavior)
-- [Stop behavior](#stop-behavior)
-- [Trend strategy](#trend-strategy)
-- [Regional strategy](#regional-strategy)
-- [Known implementation caveats](#known-implementation-caveats)
-- [Recommended production hardening](#recommended-production-hardening)
+This document describes the maintained `app/` implementation.
 
----
+## Runtime Stack
 
-## Runtime stack
 - FastAPI for the HTTP API
-- `httpx.AsyncClient` for upstream communication
-- async execution model
-- file-based JSON cache for job batches
+- `httpx.AsyncClient` for Tracker communication
+- Pydantic response models
+- file-based JSON cache for Tracker job batches
+- PostgreSQL for yearly sector snapshots
+- Streamlit dashboard for local exploration
 
----
+## Current Module Flow
 
-## External dependency
+```text
+app.main
+ -> app.api.routes.projector
+ -> app.core.container.service
+ -> app.services.projector_service.ProjectorService
+    -> app.client.tracker_client.TrackerClient
+    -> app.services.analytics.market.MarketAnalytics
+    -> app.services.analytics.trends.TrendAnalytics
+    -> app.services.analytics.regional.RegionalAnalytics
+    -> app.services.analytics.sectoral.SectoralAnalytics
+    -> app.services.analytics.occupations.OccupationAnalytics
+    -> app.services.sector_snapshot_store.SectorSnapshotStore
+```
 
-### Section index
-- [Tracker endpoints used internally](#tracker-endpoints-used-internally)
-- [Operational implications](#operational-implications)
+Shared runtime state lives in `app.core.state.ProjectorEngine`.
 
-The Projector depends on the SKILLAB Tracker for raw data and metadata enrichment.
+Dependency wiring happens in `app.core.container`. Local ESCO loaders are not executed at startup for the current API-only sector workflow.
 
-### Tracker endpoints used internally
-Internally it uses:
+## External Tracker Dependency
+
+The Projector depends on the SKILLAB Tracker for raw job data and metadata enrichment.
+
+Tracker endpoints used internally:
+
 - `POST /login`
 - `POST /jobs`
 - `POST /skills`
-- `POST /occupations`
 
-### Operational implications
-This means Projector latency and failure modes are partly determined by Tracker availability and response times.
+Projector latency and failure modes are determined mostly by Tracker availability and response time.
 
----
+## Main Analysis Flow
 
-## High-level internal flow
+`POST /projector/analyze-skills` follows this flow:
 
-### Section index
-- [Processing steps](#processing-steps)
+1. Reset the cooperative stop flag.
+2. Build a clean Tracker filter payload.
+3. Fetch all matching jobs from Tracker or `cache_data/`.
+4. Return an empty structured payload if no jobs are found.
+5. Extract observed skills and sectors from jobs.
+6. Resolve skill labels from Tracker `/skills`.
+7. Compute market rankings.
+8. Compute trends from the fetched in-memory job batch.
+9. Compute regional projections.
+10. If `include_sectoral=true`, build the observed sector-skill view from `job["sectors"]` and `job["skills"]`.
+11. Return the Pydantic-modeled response.
 
-### Processing steps
-1. Receive request from the client
-2. Build filter payload
-3. Authenticate against Tracker if no token is cached in memory
-4. Fetch matching jobs page by page
-5. Reuse cached results when the same filter payload was seen before
-6. Extract occupation identifiers and resolve them to sector labels
-7. Extract skill URIs and resolve them to readable labels
-8. Apply heuristic green/digital tagging
-9. Aggregate rankings, sectors, employers, titles, geo breakdown, and trends
-10. Return the final JSON payload
+## Caching
 
----
+Tracker job batches are cached in:
 
-## Caching behavior
-
-### Section index
-- [Cache location](#cache-location)
-- [Meaning of the cache](#meaning-of-the-cache)
-- [Operational impact](#operational-impact)
-
-The engine hashes the filter payload using MD5 and stores the raw result in:
-
-### Cache location
 ```text
-cache_data/search_<hash>.json
-````
+cache_data/search_<md5-filter-hash>.json
+```
 
-### Meaning of the cache
+Important behavior:
 
-* same payload => same cache key
-* repeated analyses on identical filters can become much faster
-* no cache expiration currently exists
+- repeated identical filters reuse the cache
+- cache entries do not expire automatically
+- cached job batches without `sectors` are treated as stale and refetched
 
-### Operational impact
+## Stop Behavior
 
-If Tracker data changes, repeated requests with the same filter may still return cached historical results until the cache is removed manually.
+`POST /projector/stop` sets `engine.stop_requested=True`.
 
----
+This is cooperative interruption:
 
-## Stop behavior
+- it does not kill the Python process
+- long-running code checks the flag at safe points
+- final endpoint status can become `stopped` if the running request observes the flag
 
-### Section index
+## Trend Strategy
 
-* [Stop mechanism](#stop-mechanism)
-* [Important implication for clients](#important-implication-for-clients)
+The code supports two trend paths:
 
-The API exposes `POST /projector/stop`.
+- `calculate_trends_from_data`: compares two halves of the already fetched job batch
+- `calculate_smart_trends`: fetches two sub-periods independently
 
-### Stop mechanism
+`/projector/analyze-skills` uses the in-memory path. `/projector/emerging-skills` uses the trend-only path.
 
-Internally this sets a boolean stop flag in the engine.
-Long-running methods periodically check that flag and stop safely.
+## Regional Strategy
 
-### Important implication for clients
+Regional analytics use:
 
-This is not a process kill.
-It is a cooperative interruption.
+- `raw`: original `location_code`
+- `nuts1`, `nuts2`, `nuts3`: string-sliced NUTS-like projections
 
-The client should therefore interpret the endpoint as:
+When `demo=true`, country-level location codes can be expanded into synthetic NUTS-like codes to demonstrate regional drill-down behavior.
 
-> stop as soon as it is safe to stop
+## Sector Strategy
 
----
+Sector analytics use only Tracker job fields:
 
-## Trend strategy
+```text
+job["sectors"] x job["skills"]
+```
 
-### Section index
+One job can contain multiple sectors and multiple skills. Every sector-skill pair in the same job contributes to the observed sector-skill matrix.
 
-* [Trend calculation modes](#trend-calculation-modes)
+## Sector Snapshot Strategy
 
-The code supports two trend modes conceptually:
+Sector Overview and Sector Skills Comparison are static-first.
 
-### Trend calculation modes
+```text
+Tracker API
+ -> scripts/refresh_sectoral_snapshot.py
+ -> SectorSnapshotStore.write_snapshot()
+ -> PostgreSQL
+ -> /projector/sectoral-snapshot
+ -> /projector/sector-skills-comparison
+ -> Streamlit dashboard
+```
 
-* trend calculation from already downloaded in-memory data
-* trend calculation via two independent sub-period fetches
+Tables:
 
-The public endpoints currently use these to compare period A and period B inside a selected date range.
+- `sector_snapshot_runs`: refresh metadata, status, version and year/location.
+- `sector_yearly_snapshots`: one sector row per completed run.
 
----
+Read rule:
 
-## Regional strategy
+```text
+latest completed run for (year, location_code)
+```
 
-### Section index
+This keeps long Tracker aggregation out of normal dashboard requests.
 
-* [Raw geography strategy](#raw-geography-strategy)
-* [NUTS-like geography strategy](#nuts-like-geography-strategy)
+## Current Caveats
 
-The engine provides two levels of geography:
+- There is no standardized error response model.
+- Date ordering is not explicitly validated.
+- Cache invalidation is mostly manual.
+- Green and digital flags are currently false by default in runtime enrichment.
+- Sector counts are relationship-oriented when one job has many sectors.
+- The shared `ProjectorEngine` state is process-local and in-memory.
+- Real Tracker backfills still need operational validation before closing the refresh pipeline.
 
-### Raw geography strategy
+## Production Hardening Priorities
 
-Directly based on the `location_code` value present in source jobs.
-
-### NUTS-like geography strategy
-
-Constructed by string slicing, optionally with synthetic distribution when `demo=true`.
-
-This lets the system demonstrate regional analysis even when only national location codes are available.
-
----
-
-## Known implementation caveats
-
-### Section index
-
-* [Response model mismatch](#response-model-mismatch)
-* [Empty payload inconsistency](#empty-payload-inconsistency)
-* [Missing stop helper in trend branch](#missing-stop-helper-in-trend-branch)
-* [Market health semantics](#market-health-semantics)
-* [Sector counting logic](#sector-counting-logic)
-* [Heuristic twin transition tagging](#heuristic-twin-transition-tagging)
-
-These should remain visible in documentation until fixed.
-
-### Response model mismatch
-
-The declared schema and actual payload are not perfectly aligned.
-
-### Empty payload inconsistency
-
-The no-data response path may omit fields that are present in the declared full schema.
-
-### Missing stop helper in trend branch
-
-A stop-related helper referenced in trend logic is not defined in the current codebase.
-
-### Market health semantics
-
-The current market-health implementation distinguishes only between `expanding` and `shrinking`, with no dedicated `stable` state.
-
-### Sector counting logic
-
-The current implementation contains a nested loop around sector counting that may inflate counts.
-
-### Heuristic twin transition tagging
-
-Green and digital classification is currently heuristic and label-based, not full canonical ESCO taxonomy mapping.
-
----
-
-## Recommended production hardening
-
-### Section index
-
-* [Priority actions](#priority-actions)
-
-### Priority actions
-
-To move from prototype-quality behavior to production-quality behavior, priority actions should be:
-
-1. align code payloads and Pydantic schemas
-2. define a standard error envelope
-3. validate inputs explicitly
-4. fix stop and empty-response edge cases
-5. introduce versioning such as `/api/v1/...`
-6. document status codes and error semantics
-7. define cache invalidation strategy
+1. Add input validation for date ranges and bounded page sizes.
+2. Define a standard error envelope.
+3. Add explicit cache invalidation or TTL.
+4. Add versioning, for example `/api/v1/projector/...`.
+5. Extend `/projector/health` with Tracker readiness.
+6. Expand automated tests for API-only sectoral payloads and no-data responses.
+7. Monitor scheduled snapshot refreshes in production and alert on repeated failures.

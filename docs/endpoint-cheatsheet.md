@@ -1,0 +1,236 @@
+# Endpoint Cheatsheet
+
+This page is the quick integration view for consumers of the Projector API.
+
+For full field details, see [API reference](api-reference.md) and [Data model](data-model.md).
+
+## Quick Map
+
+| Endpoint | Use it when you need | Returns in one sentence |
+| --- | --- | --- |
+| `POST /projector/analyze-skills` | A full dashboard snapshot | Skills, sectors, employers, titles, trends, geography and optional Tracker sector intelligence |
+| `POST /projector/sectoral-snapshot` | One-sector yearly snapshot or evolution | Static yearly sector rows enriched with skills, job titles and evolution metrics |
+| `POST /projector/sector-skills-comparison` | Multi-sector heatmap | Sectors x skills matrix for count, share, rank or growth |
+| `POST /projector/regional-sectoral` | Regional sector distribution | Static yearly sector distribution grouped by raw and NUTS-like regions |
+| `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
+| `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
+| `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
+
+## `POST /projector/analyze-skills`
+
+Main endpoint for dashboards and analytical clients.
+
+### Minimal Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31"
+```
+
+### Optional Sectoral Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "include_sectoral=true" \
+  -d "sector_system=nace"
+```
+
+### What It Returns
+
+```json
+{
+  "status": "completed",
+  "dimension_summary": {
+    "jobs_analyzed": 0,
+    "geo_breakdown": []
+  },
+  "insights": {
+    "ranking": [],
+    "sectors": [],
+    "job_titles": [],
+    "employers": [],
+    "trends": {},
+    "regional": {},
+    "sectoral": null,
+    "sectoral_mode": null,
+    "sectoral_views": null,
+    "sector_view_names": null
+  }
+}
+```
+
+### How To Read It
+
+| Field | Meaning | Typical UI use |
+| --- | --- | --- |
+| `status` | Whether the analysis completed or stopped | Request state badge |
+| `dimension_summary.jobs_analyzed` | Number of Tracker jobs analyzed | KPI card |
+| `dimension_summary.geo_breakdown` | Raw job counts by location code | Small table or map input |
+| `insights.ranking` | Top skills with count and sector context | Top skills chart |
+| `insights.sectors` | Tracker sector counts | Sector bar chart |
+| `insights.job_titles` | Most frequent job titles | Job-title leaderboard |
+| `insights.employers` | Most frequent employers | Employer leaderboard |
+| `insights.trends` | Volume growth and skill trend changes | Trend tab |
+| `insights.regional` | Raw and NUTS-like area breakdowns with specialization | Map and regional detail |
+| `insights.sectoral` | Selected/default sectoral intelligence payload | Backward-compatible sector panel |
+| `insights.sectoral_views` | NACE wrapper with Tracker sector items | Sector detail views |
+| `insights.sector_view_names` | Display labels for observed views | UI labels |
+
+### Sectoral Meaning In One Minute
+
+When `include_sectoral=false`, ignore the `sectoral*` fields.
+
+When `include_sectoral=true`:
+- sectors come from Tracker `job["sectors"]`,
+- skills come from Tracker `job["skills"]`,
+- observed sector-skill counts come from job co-occurrence,
+- no ISCO, canonical, matrix, or ESCO-NACE crosswalk data is used.
+
+Important: sector totals are relationship counts. A job with multiple sectors contributes to each listed sector.
+
+## `POST /projector/regional-sectoral`
+
+Use this for yearly regional x sector views. It reads PostgreSQL snapshots and does not perform live Tracker aggregation.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "locations=IT"
+```
+
+Main response block:
+
+```json
+{
+  "regional_sectoral": {
+    "raw": [],
+    "nuts1": [],
+    "nuts2": [],
+    "nuts3": []
+  }
+}
+```
+
+Each area returns `code`, `total_jobs`, and `top_sectors`. Each sector item returns `sector`, `sector_code`, `count`, `share_in_region`, and `specialization`.
+
+## `POST /projector/sectoral-snapshot`
+
+Use this for Sector Overview.
+
+### Snapshot Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "locations=IT"
+```
+
+### Evolution Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sectoral-snapshot" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "reference_year=2023" \
+  -d "locations=IT"
+```
+
+### Main Fields
+
+| Field | Meaning |
+| --- | --- |
+| `sectors[].job_count` | jobs linked to the sector |
+| `sectors[].job_share` | sector share inside the snapshot |
+| `sectors[].top_skills` | top-10 skills |
+| `sectors[].all_skills` | full skill list |
+| `sectors[].top_job_titles` | most frequent job titles |
+| `sectors[].evolution` | sector change between `reference_year` and `year` |
+
+## `POST /projector/sector-skills-comparison`
+
+Use this for the Sector Skills Comparison heatmap.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/sector-skills-comparison" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "metric=share"
+```
+
+Metrics:
+
+- `count`
+- `share`
+- `rank`
+- `growth`
+
+## `POST /projector/emerging-skills`
+
+Use this when you only need trends.
+
+### Minimal Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31"
+```
+
+### What It Returns
+
+```json
+{
+  "status": "completed",
+  "insights": {
+    "market_health": {
+      "status": "expanding",
+      "volume_growth_percentage": 0.0
+    },
+    "trends": []
+  }
+}
+```
+
+### How To Read It
+
+| Field | Meaning |
+| --- | --- |
+| `market_health.status` | Overall job-volume direction for the selected period |
+| `market_health.volume_growth_percentage` | Percentage change between the first and second half of the period |
+| `trends[].name` | Skill label |
+| `trends[].growth` | Growth percentage, or `new_entry` |
+| `trends[].trend_type` | `emerging`, `declining`, or `stable` |
+| `trends[].primary_sector` | Main Tracker sector associated with the skill |
+
+## `POST /projector/stop`
+
+Use this for a cancel/stop button during long-running analyses.
+
+### Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/stop"
+```
+
+### What It Returns
+
+```json
+{
+  "status": "signal_sent"
+}
+```
+
+### How To Read It
+
+This does not kill the process immediately. It sends a cooperative stop signal. The running analysis stops when it reaches a safe checkpoint.

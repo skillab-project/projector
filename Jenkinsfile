@@ -12,7 +12,9 @@ pipeline {
 
     environment {
         CI_IMAGE = "projector-ci:${env.BUILD_NUMBER}"
-        GITHUB_STATUS_CREDENTIALS_ID = "1efb02bc-566c-433b-9e76-577fcb07cf5b"
+        GITHUB_APP_ID_CREDENTIALS_ID = "github-app-id"
+        GITHUB_APP_INSTALLATION_ID_CREDENTIALS_ID = "github-app-installation-id"
+        GITHUB_APP_PRIVATE_KEY_CREDENTIALS_ID = "github-app-private-key"
     }
 
     stages {
@@ -81,17 +83,13 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c '
-                            COVERAGE_GATE=$(python tools/quality_gates.py coverage)
-
-                            pytest test.py -v \
+                            pytest app/test.py -v \
                                 --tb=short \
                                 --junitxml=test-results.xml \
-                                --cov=main \
-                                --cov=schemas \
+                                --cov=app \
                                 --cov-branch \
                                 --cov-report=xml \
                                 --cov-report=html:coverage-report \
-                                --cov-fail-under="${COVERAGE_GATE}" \
                                 -m "not integration"
                         '
                 '''
@@ -111,11 +109,49 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c "
-                            pytest test.py -v \
+                            pytest app/test.py -v \
                                 -m 'integration' \
                                 --tb=short \
                                 --junitxml=integration-test-results.xml
                         "
+                '''
+            }
+        }
+
+        stage('Coverage Gate') {
+            steps {
+                echo "📈 Checking coverage gate..."
+                sh '''
+                    set -e
+                    docker run --rm \
+                        -u $(id -u):$(id -g) \
+                        -e CI=true \
+                        -v "$WORKSPACE:/workspace" \
+                        -w /workspace \
+                        ${CI_IMAGE} \
+                        sh -c '
+                            python - <<'"'"'PY'"'"'
+import sys
+import xml.etree.ElementTree as ET
+
+from tools.quality_gates import load_gates
+
+coverage_path = "coverage.xml"
+gate = load_gates("pyproject.toml")["coverage"]
+root = ET.parse(coverage_path).getroot()
+lines_valid = int(root.attrib.get("lines-valid", 0))
+lines_covered = int(root.attrib.get("lines-covered", 0))
+branches_valid = int(root.attrib.get("branches-valid", 0))
+branches_covered = int(root.attrib.get("branches-covered", 0))
+total_valid = lines_valid + branches_valid
+total_covered = lines_covered + branches_covered
+coverage = (total_covered / total_valid * 100) if total_valid else 0.0
+
+print(f"Coverage: {coverage:.2f}% / gate {gate:g}%")
+if coverage < gate:
+    sys.exit(f"Required test coverage of {gate:g}% not reached. Total coverage: {coverage:.2f}%")
+PY
+                        '
                 '''
             }
         }
@@ -202,11 +238,47 @@ pipeline {
                             fi
                             echo "--- MUTATION TEST SUMMARY END ---"
 
+                            python - <<PY
+import json
+from pathlib import Path
+
+stats_path = Path("mutants/mutmut-cicd-stats.json")
+status_path = Path("mutants/mutmut-stage-status.json")
+status_path.parent.mkdir(parents=True, exist_ok=True)
+
+exit_code = int("${MUTMUT_EXIT}")
+status = {
+    "mutmut_exit_code": exit_code,
+    "stats_exists": stats_path.exists(),
+    "warning": None,
+}
+
+if stats_path.exists():
+    stats = json.loads(stats_path.read_text(encoding="utf-8"))
+    killed = int(stats.get("killed", 0))
+    survived = int(stats.get("survived", 0))
+    status["effective_mutants"] = killed + survived
+    status["total_mutants"] = int(stats.get("total", 0))
+else:
+    status["effective_mutants"] = 0
+    status["total_mutants"] = 0
+
+if exit_code != 0:
+    status["warning"] = f"mutmut run exited with code {exit_code}"
+elif not status["stats_exists"]:
+    status["warning"] = "mutmut stats file was not generated"
+elif status["effective_mutants"] == 0:
+    status["warning"] = "mutmut produced no effective mutants"
+
+status_path.write_text(json.dumps(status, indent=4) + "\\n", encoding="utf-8")
+print(json.dumps(status, indent=4))
+PY
+
                             # Quality gate futuro, intenzionalmente disabilitato mentre fissiamo la baseline.
                             # Soglie suggerite:
                             # 1. score >= 55 dopo aver coperto i cluster principali di survivor.
                             # 2. score >= 65 quando sectoral/loader avranno test piu forti.
-                            # 3. score >= 70 solo sul profilo mutmut selezionato, non su tutto il progetto.
+                            # 3. score >= 70 solo sul profilo mutmut selezionato, non su tutta l'app.
                             #
                             # python - <<'"'"'PY'"'"'
                             # import json
@@ -250,6 +322,7 @@ pipeline {
                         -e GIT_COMMIT="${GIT_COMMIT}" \
                         -e BRANCH_NAME="${BRANCH_NAME}" \
                         -e CHANGE_ID="${CHANGE_ID}" \
+                        -e CHANGE_URL="${CHANGE_URL}" \
                         -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
                         -e CHANGE_TARGET="${CHANGE_TARGET}" \
                         -e JOB_NAME="${JOB_NAME}" \
@@ -263,11 +336,15 @@ pipeline {
             '''
 
             // QUESTA RIGA È QUELLA CHE TI FA VEDERE I RISULTATI NELLA DASHBOARD
-            archiveArtifacts artifacts: 'quality-dashboard/**, test-report/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'quality-dashboard/**, test-report/**, coverage.xml, coverage-report/**, pylint-report.txt, flake8-report.json, mutation-report/**, mutants/mutmut-cicd-stats.json, mutants/mutmut-stage-status.json', allowEmptyArchive: true
 
             script {
                 try {
-                    withCredentials([usernamePassword(credentialsId: env.GITHUB_STATUS_CREDENTIALS_ID, usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+                    withCredentials([
+                        string(credentialsId: env.GITHUB_APP_ID_CREDENTIALS_ID, variable: 'GITHUB_APP_ID'),
+                        string(credentialsId: env.GITHUB_APP_INSTALLATION_ID_CREDENTIALS_ID, variable: 'GITHUB_APP_INSTALLATION_ID'),
+                        file(credentialsId: env.GITHUB_APP_PRIVATE_KEY_CREDENTIALS_ID, variable: 'GITHUB_APP_PRIVATE_KEY_FILE')
+                    ]) {
                         sh '''
                             set +e
                             if docker image inspect ${CI_IMAGE} >/dev/null 2>&1; then
@@ -277,14 +354,18 @@ pipeline {
                                     -e GIT_COMMIT="${GIT_COMMIT}" \
                                     -e BRANCH_NAME="${BRANCH_NAME}" \
                                     -e CHANGE_ID="${CHANGE_ID}" \
+                                    -e CHANGE_URL="${CHANGE_URL}" \
                                     -e CHANGE_BRANCH="${CHANGE_BRANCH}" \
                                     -e CHANGE_TARGET="${CHANGE_TARGET}" \
                                     -e JOB_NAME="${JOB_NAME}" \
-                                    -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+                                    -e GITHUB_APP_ID="${GITHUB_APP_ID}" \
+                                    -e GITHUB_APP_INSTALLATION_ID="${GITHUB_APP_INSTALLATION_ID}" \
+                                    -e GITHUB_APP_PRIVATE_KEY_FILE="/github-app-private-key.pem" \
+                                    -v "${GITHUB_APP_PRIVATE_KEY_FILE}:/github-app-private-key.pem:ro" \
                                     -v "$WORKSPACE:/workspace" \
                                     -w /workspace \
                                     ${CI_IMAGE} \
-                                    sh -c "python tools/github_statuses.py" || true
+                                    sh -c 'export GITHUB_TOKEN="$(python tools/github_app_token.py)" && python tools/github_statuses.py' || true
                             else
                                 echo "CI image ${CI_IMAGE} not available; skipping GitHub commit statuses."
                             fi
