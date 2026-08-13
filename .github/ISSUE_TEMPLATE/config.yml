@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Issue classification guide
+    url: https://github.com/skillab-project/projector/blob/main/docs/issue-management.md
+    about: Read the label and workflow rules before opening a new issue.

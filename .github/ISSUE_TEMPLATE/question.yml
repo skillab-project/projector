@@ -1,0 +1,49 @@
+name: Question
+description: Ask a focused clarification question before classification.
+title: "[Question] "
+labels: ["type: question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What exactly needs clarification?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why does this question matter now?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: textarea
+    id: decision-needed
+    attributes:
+      label: What decision would answer this?
+  - type: textarea
+    id: next-step
+    attributes:
+      label: Expected next step
+      description: What should happen after the question is answered?

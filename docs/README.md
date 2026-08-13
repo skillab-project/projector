@@ -16,6 +16,7 @@ This folder contains the maintained documentation for the current `app/` impleme
 10. [Architecture](architecture.md) maps the runtime flow to the current code.
 11. [Examples](examples.md) provides request examples and frontend integration patterns.
 12. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+13. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 

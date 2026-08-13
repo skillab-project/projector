@@ -1,0 +1,73 @@
+name: Conceptual Design
+description: Define a new analytical or conceptual model before implementation.
+title: "[Conceptual Design] "
+labels: ["type: conceptual-design"]
+body:
+  - type: textarea
+    id: concept
+    attributes:
+      label: Concept to define
+      description: What analytical concept, interpretation, or model needs definition?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this matters
+      description: What project decisions or implementation work depend on this model?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: scopes
+    attributes:
+      label: Scope labels
+      multiple: true
+      options:
+        - "scope: analytical-model"
+        - "scope: data-mapping"
+        - "scope: metrics"
+        - "scope: api-response"
+        - "scope: validation"
+        - "scope: performance"
+  - type: textarea
+    id: candidate-model
+    attributes:
+      label: Proposed model or interpretation
+      description: Describe the current best proposal. It can still be provisional.
+    validations:
+      required: true
+  - type: textarea
+    id: decision-criteria
+    attributes:
+      label: Decision criteria
+      description: How will we know the model is acceptable?
+    validations:
+      required: true
+  - type: textarea
+    id: downstream
+    attributes:
+      label: Downstream implementation issues
+      description: List or create sub-issues once the decision is accepted.
+      value: |
+        - [ ] 

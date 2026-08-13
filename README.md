@@ -178,6 +178,7 @@ See [Sector intelligence](docs/sector-intelligence.md) and [Statistics](docs/sta
 ## Documentation
 
 Start here:
+- [Contributing and quality workflow](CONTRIBUTING.md)
 - [Documentation index](docs/README.md)
 - [Overview](docs/overview.md)
 - [Endpoint cheatsheet](docs/endpoint-cheatsheet.md)
@@ -188,5 +189,7 @@ Start here:
 - [Examples](docs/examples.md)
 - [Sector intelligence](docs/sector-intelligence.md)
 - [Data sources](docs/data-sources.md)
+
+Swagger is available at `http://127.0.0.1:8000/docs` for interactive endpoint testing.
 
 Historical or sprint-specific notes remain in the repository only when useful for context, and they are marked as historical when they no longer describe the current implementation.

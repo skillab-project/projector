@@ -9,9 +9,12 @@ Use the GitHub Project status to describe where the issue is in the workflow.
 
 Do not use native GitHub Issue Types for this repository. Keep the native issue type empty and use exactly one `type:*` label instead.
 
+New issues should be opened through the YAML issue forms in `.github/ISSUE_TEMPLATE/` where possible.
+Each form applies its matching `type:*` label automatically. The `Sync issue labels` workflow can read selected `area:*` and `scope:*` values from the issue body and apply labels after the issue is opened or edited.
+
 ## Type Labels
 
-Every issue must have exactly one `type:*` label.
+Every issue must have exactly one `type:*` label. For new issues, choose the matching issue form instead of applying the type manually when the form is available.
 
 | Label | Use when |
 | --- | --- |

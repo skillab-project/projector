@@ -1,0 +1,73 @@
+name: Epic
+description: Group related implementation issues or sub-issues.
+title: "[Epic] "
+labels: ["type: epic"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the issue is an operational container. It closes when the linked work is complete.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What larger outcome does this epic coordinate?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why is this group of work needed?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      description: Select every project area touched by this epic.
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: scopes
+    attributes:
+      label: Scope labels
+      multiple: true
+      options:
+        - "scope: analytical-model"
+        - "scope: data-mapping"
+        - "scope: metrics"
+        - "scope: api-response"
+        - "scope: validation"
+        - "scope: performance"
+  - type: textarea
+    id: child-work
+    attributes:
+      label: Expected sub-issues
+      description: List known or expected child issues. Use checkboxes if useful.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: completion
+    attributes:
+      label: Completion rule
+      description: What must be true before this epic can close?
+    validations:
+      required: true

@@ -1,0 +1,76 @@
+name: Feature
+description: Add a new capability or implementable behavior.
+title: "[Feature] "
+labels: ["type: feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the expected behavior is clear enough to implement.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature summary
+      description: What capability should be added?
+    validations:
+      required: true
+  - type: textarea
+    id: user-value
+    attributes:
+      label: User or analytical value
+      description: What question will this help answer, or what workflow will it support?
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area labels
+      multiple: true
+      options:
+        - "area: sectoral"
+        - "area: regional"
+        - "area: temporal"
+        - "area: statistical"
+        - "area: cross-dimension"
+        - "area: architecture"
+        - "area: api"
+        - "area: docs"
+        - "area: dashboard"
+        - "area: demo"
+        - "area: devops"
+        - "area: data-ingestion"
+        - "area: testing"
+    validations:
+      required: true
+  - type: dropdown
+    id: scopes
+    attributes:
+      label: Scope labels
+      multiple: true
+      options:
+        - "scope: analytical-model"
+        - "scope: data-mapping"
+        - "scope: metrics"
+        - "scope: api-response"
+        - "scope: validation"
+        - "scope: performance"
+  - type: textarea
+    id: expected-output
+    attributes:
+      label: Expected behavior or output
+      description: Include API response shape, UI behavior, or analytics output when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What should this issue explicitly not cover?
