@@ -79,6 +79,27 @@ class RegionalProjections(BaseModel):
     nuts3: List[RegionalArea] = Field(..., description="Projected aggregation at NUTS3-like level.")
 
 
+class RegionalSectorItem(BaseModel):
+    sector: str = Field(..., description="Human-readable sector label.")
+    sector_code: str = Field(..., description="Sector code or Tracker sector key used by the sectoral dimension.")
+    count: int = Field(..., description="Number of postings in the geographic area associated with the sector.")
+    share_in_region: float = Field(..., description="Percentage of area postings represented by this sector.")
+    specialization: float = Field(..., description="Location Quotient-like score comparing area sector share with the full analyzed batch.")
+
+
+class RegionalSectoralArea(BaseModel):
+    code: str = Field(..., description="Original or inferred geographic code.")
+    total_jobs: int = Field(..., description="Number of postings associated with the area.")
+    top_sectors: List[RegionalSectorItem] = Field(..., description="Most represented sectors inside the area.")
+
+
+class RegionalSectoralProjections(BaseModel):
+    raw: List[RegionalSectoralArea] = Field(..., description="Sector distribution by original location code.")
+    nuts1: List[RegionalSectoralArea] = Field(..., description="Sector distribution at NUTS1-like level.")
+    nuts2: List[RegionalSectoralArea] = Field(..., description="Sector distribution at NUTS2-like level.")
+    nuts3: List[RegionalSectoralArea] = Field(..., description="Sector distribution at NUTS3-like level.")
+
+
 # -----------------------------
 # Main endpoint response models
 # -----------------------------
@@ -273,6 +294,16 @@ class SectorSkillsComparisonResponse(BaseModel):
     sectors: List[str]
     skills: List[str]
     matrix: List[SectorSkillComparisonCell]
+    message: Optional[str] = None
+
+
+class RegionalSectoralResponse(BaseModel):
+    status: str
+    year: int
+    data_source: Literal["postgres", "cache", "live"]
+    window: dict[str, str]
+    refresh_status: Optional[dict] = None
+    regional_sectoral: RegionalSectoralProjections
     message: Optional[str] = None
 
 

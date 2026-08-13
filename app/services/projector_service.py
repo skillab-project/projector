@@ -354,6 +354,68 @@ class ProjectorService:
             "matrix": matrix,
         }
 
+    async def regional_sectoral(
+            self,
+            year: int,
+            locations: Optional[List[str]] = None,
+            top_k: int = 10,
+    ):
+        location_code = self._single_location(locations)
+        min_date, max_date = self._year_window(year, f"{year}-12-31")
+        try:
+            refresh_status = self._read_sector_refresh_status(year, location_code)
+        except Exception as exc:
+            refresh_status = None
+            return {
+                "status": "not_available",
+                "year": int(year),
+                "data_source": "postgres",
+                "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+                "refresh_status": refresh_status,
+                "regional_sectoral": {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []},
+                "message": f"No static regional-sectoral snapshot available for {year}. Snapshot store is unreachable: {exc}",
+            }
+
+        if not self._sector_snapshot_store_enabled() or not hasattr(self.sector_snapshot_store, "read_regional_sectoral"):
+            return {
+                "status": "not_available",
+                "year": int(year),
+                "data_source": "postgres" if self._sector_snapshot_store_enabled() else "cache",
+                "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+                "refresh_status": refresh_status,
+                "regional_sectoral": {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []},
+                "message": f"No static regional-sectoral snapshot available for {year}. Run the snapshot refresh job first.",
+            }
+
+        try:
+            payload = self.sector_snapshot_store.read_regional_sectoral(
+                year=int(year),
+                location_code=location_code,
+                top_k=top_k,
+            )
+        except Exception as exc:
+            return {
+                "status": "not_available",
+                "year": int(year),
+                "data_source": "postgres",
+                "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+                "refresh_status": refresh_status,
+                "regional_sectoral": {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []},
+                "message": f"No static regional-sectoral snapshot available for {year}. Snapshot store is unreachable: {exc}",
+            }
+        if not payload:
+            return {
+                "status": "not_available",
+                "year": int(year),
+                "data_source": "postgres",
+                "window": self._sectoral_window_meta(f"{year} snapshot", min_date, max_date),
+                "refresh_status": refresh_status,
+                "regional_sectoral": {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []},
+                "message": f"No static regional-sectoral snapshot available for {year}. Run the snapshot refresh job first.",
+            }
+
+        return payload
+
     def _single_location(self, locations: Optional[List[str]]):
         for location in locations or []:
             value = str(location or "").strip()

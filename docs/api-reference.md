@@ -295,6 +295,64 @@ If no static snapshot exists:
 }
 ```
 
+## POST `/projector/regional-sectoral`
+
+Builds a region x sector view from yearly PostgreSQL snapshots.
+
+Use it for yearly regional sector distribution. It does not perform live Tracker aggregation.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `year` | integer | yes | none | Target snapshot year |
+| `locations` | list of strings | no | `null` | Optional Tracker location code |
+| `top_k` | integer | no | `10` | Max sectors per region |
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "locations=IT"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "year": 2024,
+  "data_source": "postgres",
+  "window": {
+    "label": "2024 snapshot",
+    "min_date": "2024-01-01",
+    "max_date": "2024-12-31"
+  },
+  "regional_sectoral": {
+    "raw": [
+      {
+        "code": "IT",
+        "total_jobs": 120,
+        "top_sectors": [
+          {
+            "sector": "Manufacturing",
+            "sector_code": "Manufacturing",
+            "count": 34,
+            "share_in_region": 28.33,
+            "specialization": 1.42
+          }
+        ]
+      }
+    ],
+    "nuts1": [],
+    "nuts2": [],
+    "nuts3": []
+  }
+}
+```
+
 ## POST `/projector/sectoral-intelligence`
 
 Computes detailed sector intelligence.

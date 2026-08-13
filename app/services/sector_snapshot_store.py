@@ -1,5 +1,6 @@
 import json
 from contextlib import contextmanager
+from collections import Counter
 from typing import Optional, List
 
 
@@ -139,6 +140,142 @@ class SectorSnapshotStore:
                 }
                 for row in rows
             ],
+        }
+
+    def read_regional_sectoral(self, year: int, location_code: Optional[str] = None, top_k: int = 10):
+        if not self.enabled:
+            return None
+
+        top_k = max(int(top_k or 10), 1)
+        location_filter = str(location_code or "").strip()
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                WITH latest_runs AS (
+                    SELECT DISTINCT ON (COALESCE(location_code, ''))
+                        id, year, location_code, total_jobs, period_start, period_end, completed_at
+                    FROM sector_snapshot_runs
+                    WHERE year = %s
+                      AND status = 'completed'
+                      AND location_code IS NOT NULL
+                      AND (%s = '' OR location_code = %s)
+                      AND (%s <> '' OR UPPER(location_code) <> 'DEMO')
+                    ORDER BY COALESCE(location_code, ''), completed_at DESC NULLS LAST, id DESC
+                )
+                SELECT
+                    latest_runs.id AS run_id,
+                    latest_runs.location_code,
+                    latest_runs.total_jobs,
+                    latest_runs.period_start,
+                    latest_runs.period_end,
+                    snapshots.sector,
+                    snapshots.sector_label,
+                    snapshots.job_count
+                FROM latest_runs
+                JOIN sector_yearly_snapshots snapshots
+                    ON snapshots.run_id = latest_runs.id
+                ORDER BY latest_runs.location_code, snapshots.job_count DESC, snapshots.sector_label ASC
+                """,
+                (year, location_filter, location_filter, location_filter),
+            ).fetchall()
+
+            global_rows = conn.execute(
+                """
+                WITH latest_global AS (
+                    SELECT id, total_jobs
+                    FROM sector_snapshot_runs
+                    WHERE year = %s
+                      AND status = 'completed'
+                      AND location_code IS NULL
+                    ORDER BY completed_at DESC NULLS LAST, id DESC
+                    LIMIT 1
+                )
+                SELECT latest_global.total_jobs, snapshots.sector, snapshots.job_count
+                FROM latest_global
+                JOIN sector_yearly_snapshots snapshots
+                    ON snapshots.run_id = latest_global.id
+                """,
+                (year,),
+            ).fetchall()
+
+        if not rows:
+            return None
+
+        window = {
+            "label": f"{int(year)} snapshot",
+            "min_date": str(rows[0]["period_start"]),
+            "max_date": str(rows[0]["period_end"]),
+        }
+        global_total_jobs = sum({row["run_id"]: int(row["total_jobs"] or 0) for row in rows}.values())
+        global_sector_counts = Counter()
+        if global_rows:
+            global_total_jobs = int(global_rows[0]["total_jobs"] or global_total_jobs or 0)
+            for row in global_rows:
+                global_sector_counts[row["sector"]] += int(row["job_count"] or 0)
+        else:
+            for row in rows:
+                global_sector_counts[row["sector"]] += int(row["job_count"] or 0)
+
+        levels = {"raw": {}, "nuts1": {}, "nuts2": {}, "nuts3": {}}
+        seen_run_by_level = {level: set() for level in levels}
+        for row in rows:
+            raw_code = str(row["location_code"] or "").strip()
+            codes = {
+                "raw": raw_code,
+                "nuts1": raw_code[:3],
+                "nuts2": raw_code[:4] if len(raw_code) >= 4 else None,
+                "nuts3": raw_code if len(raw_code) >= 5 else None,
+            }
+            for level, code in codes.items():
+                if not code:
+                    continue
+                bucket = levels[level].setdefault(
+                    code,
+                    {"total_jobs": 0, "sectors": Counter(), "labels": {}},
+                )
+                run_key = (level, code, row["run_id"])
+                if run_key not in seen_run_by_level[level]:
+                    bucket["total_jobs"] += int(row["total_jobs"] or 0)
+                    seen_run_by_level[level].add(run_key)
+                bucket["sectors"][row["sector"]] += int(row["job_count"] or 0)
+                bucket["labels"][row["sector"]] = row["sector_label"] or row["sector"]
+
+        def format_level(source):
+            output = []
+            for code, data in source.items():
+                sector_items = []
+                total_jobs = int(data["total_jobs"] or 0)
+                for sector_code, count in data["sectors"].most_common(top_k):
+                    region_share = count / total_jobs if total_jobs else 0
+                    global_count = global_sector_counts.get(sector_code, 0)
+                    global_share = global_count / global_total_jobs if global_total_jobs else 0
+                    specialization = region_share / global_share if global_share else 0
+                    sector_items.append({
+                        "sector": data["labels"].get(sector_code, sector_code),
+                        "sector_code": sector_code,
+                        "count": count,
+                        "share_in_region": round(region_share * 100, 2),
+                        "specialization": round(specialization, 2),
+                    })
+                output.append({
+                    "code": code,
+                    "total_jobs": total_jobs,
+                    "top_sectors": sector_items,
+                })
+            return sorted(output, key=lambda item: item["total_jobs"], reverse=True)
+
+        return {
+            "status": "completed",
+            "year": int(year),
+            "data_source": "postgres",
+            "window": window,
+            "refresh_status": self.read_refresh_status(year, location_code),
+            "regional_sectoral": {
+                "raw": format_level(levels["raw"]),
+                "nuts1": format_level(levels["nuts1"]),
+                "nuts2": format_level(levels["nuts2"]),
+                "nuts3": format_level(levels["nuts3"]),
+            },
         }
 
     def latest_completed_at(self, year: int, location_code: Optional[str] = None):

@@ -116,6 +116,7 @@ The current public endpoints are:
 - `POST /projector/analyze-skills`
 - `POST /projector/sectoral-snapshot`
 - `POST /projector/sector-skills-comparison`
+- `POST /projector/regional-sectoral`
 - `POST /projector/sectoral-intelligence`
 - `POST /projector/emerging-skills`
 - `POST /projector/stop`

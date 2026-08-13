@@ -71,8 +71,38 @@ Sector Skills Comparison
 | Sector Overview / Snapshot | `POST /projector/sectoral-snapshot` |
 | Sector Overview / Evolution | `POST /projector/sectoral-snapshot` with `reference_year` |
 | Sector Skills Comparison | `POST /projector/sector-skills-comparison` |
+| Regional Sector Distribution | `POST /projector/regional-sectoral` |
 | Legacy/drill-down sectoral detail | `POST /projector/sectoral-intelligence` |
 | Keyword-driven skill overview with sector distribution | `POST /projector/analyze-skills` |
+
+## Regional Sector Distribution
+
+`POST /projector/regional-sectoral` returns `regional_sectoral` from static yearly sector snapshots.
+
+The block groups precomputed yearly snapshot rows by:
+
+- raw `location_code`
+- NUTS1-like prefix
+- NUTS2-like prefix
+- NUTS3-like code
+
+Each area exposes `total_jobs` and `top_sectors`. Each sector item contains:
+
+- `sector_code`
+- `sector`
+- `count`
+- `share_in_region`
+- `specialization`
+
+`specialization` is a Location Quotient-style score:
+
+```text
+sector share in region / sector share in full analyzed batch
+```
+
+Values above `1` mean the sector is more concentrated in that region than in the full analyzed dataset.
+
+Counts follow the Tracker sector relationship model stored in `sector_yearly_snapshots`. If one job has multiple sectors, it contributes once to each sector inside its region. This can make summed sector counts higher than `total_jobs`.
 
 ## Yearly Static Dataset
 

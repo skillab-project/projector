@@ -5,6 +5,25 @@ class RegionalAnalytics:
     def __init__(self, engine):
         self.engine = engine
 
+    def _resolve_region_codes(self, job: dict, idx: int, demo: bool = False):
+        loc_original = str(job.get("location_code", "EU")).strip()
+
+        if demo and len(loc_original) <= 2:
+            country_prefix = loc_original[:2].upper() if len(loc_original) >= 2 else "EU"
+            l1 = (idx % 3) + 1
+            l2 = (idx % 4) + 1
+            l3 = (idx % 5)
+            loc_projected = f"{country_prefix}{l1}{l2}{l3}"
+        else:
+            loc_projected = loc_original
+
+        return {
+            "raw": loc_original,
+            "nuts1": loc_projected[:3],
+            "nuts2": loc_projected[:4] if len(loc_projected) >= 4 else None,
+            "nuts3": loc_projected if len(loc_projected) >= 5 else None,
+        }
+
     def get_regional_projections(self, jobs: List[dict], demo: bool = False):
         """
            Computes geographical projections of job data across NUTS hierarchy levels.
@@ -47,31 +66,12 @@ class RegionalAnalytics:
         global_counts = {}
         total_jobs = len(jobs) if jobs else 1
         for idx, job in enumerate(jobs):
-            # Prendiamo il location_code originale (es. "IT", "SE", "FR")
-            loc_original = str(job.get("location_code", "EU")).strip()
-
-            # Estraiamo il prefisso nazione (primi 2 caratteri)
-
-            # Se il codice è solo nazionale (lungo 2), generiamo un NUTS3 dinamico
-            if demo and len(loc_original) <= 2:
-                country_prefix = loc_original[:2].upper() if len(loc_original) >= 2 else "EU"
-
-                # Creiamo una scomposizione "pseudo-reale" usando l'indice
-                # NUTS structure: [CC][Level1][Level2][Level3] -> ES: IT 1 2 1
-                l1 = (idx % 3) + 1  # Varia tra 1 e 3
-                l2 = (idx % 4) + 1  # Varia tra 1 e 4
-                l3 = (idx % 5)  # Varia tra 0 e 4
-                loc_projected = f"{country_prefix}{l1}{l2}{l3}"
-            else:
-                loc_projected = loc_original
-
-            # -----------------------
-
+            region_codes = self._resolve_region_codes(job, idx, demo=demo)
+            loc_original = region_codes["raw"]
             nuts_levels = {
-                "NUTS1": loc_projected[:3],  # Es: ITC
-                "NUTS2": loc_projected[:4] if len(loc_projected) >= 4 else None,  # Es: ITC4
-                "NUTS3": loc_projected if len(loc_projected) >= 5 else None  # Es: ITC4C
-
+                "NUTS1": region_codes["nuts1"],
+                "NUTS2": region_codes["nuts2"],
+                "NUTS3": region_codes["nuts3"],
             }
 
             # 2. INCREMENTO JOB COUNT (Una sola volta per job!)

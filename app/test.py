@@ -126,9 +126,25 @@ class _FakeSectorSnapshotStore:
             return self.payload["by_year"].get(year)
         return self.payload
 
+    def read_regional_sectoral(self, year, location_code=None, top_k=10):
+        self.requests.append((year, location_code, top_k))
+        if isinstance(self.payload, dict) and "regional_sectoral_payload" in self.payload:
+            return self.payload["regional_sectoral_payload"]
+        return self.payload
+
     def read_refresh_status(self, year, location_code=None):
         self.refresh_status_requests.append((year, location_code))
         return self.refresh_status
+
+
+class _FailingRegionalSectoralStore:
+    enabled = True
+
+    def read_refresh_status(self, year, location_code=None):
+        raise RuntimeError("database down")
+
+    def read_regional_sectoral(self, year, location_code=None, top_k=10):
+        raise RuntimeError("database down")
 
 
 class _FakeSchedulerSnapshotStore:
@@ -468,6 +484,89 @@ def test_sector_snapshot_store_read_latest_returns_none_on_miss(monkeypatch):
     monkeypatch.setattr(store, "_connect", fake_connect)
 
     assert store.read_latest(2024) is None
+
+
+def test_sector_snapshot_store_read_regional_sectoral_groups_regions(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    rows = [
+        {
+            "run_id": 1,
+            "location_code": "ITC4C",
+            "total_jobs": 2,
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "sector": "Manufacturing",
+            "sector_label": "Manufacturing",
+            "job_count": 1,
+        },
+        {
+            "run_id": 1,
+            "location_code": "ITC4C",
+            "total_jobs": 2,
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "sector": "Information and communication",
+            "sector_label": "Information and communication",
+            "job_count": 1,
+        },
+        {
+            "run_id": 2,
+            "location_code": "ITC4D",
+            "total_jobs": 1,
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "sector": "Manufacturing",
+            "sector_label": "Manufacturing",
+            "job_count": 1,
+        },
+        {
+            "run_id": 3,
+            "location_code": "DED21",
+            "total_jobs": 1,
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "sector": "Information and communication",
+            "sector_label": "Information and communication",
+            "job_count": 1,
+        },
+    ]
+    global_rows = [
+        {"total_jobs": 4, "sector": "Manufacturing", "job_count": 2},
+        {"total_jobs": 4, "sector": "Information and communication", "job_count": 2},
+    ]
+    conn = _FakeStoreConnection([
+        _FakeStoreResult(many=rows),
+        _FakeStoreResult(many=global_rows),
+    ])
+    refresh_status = {"status": "completed"}
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+    monkeypatch.setattr(store, "read_refresh_status", MagicMock(return_value=refresh_status))
+
+    result = store.read_regional_sectoral(2024, top_k=5)
+
+    assert result["status"] == "completed"
+    assert result["window"]["min_date"] == "2024-01-01"
+    raw_itc4d = next(area for area in result["regional_sectoral"]["raw"] if area["code"] == "ITC4D")
+    assert raw_itc4d["top_sectors"] == [{
+        "sector": "Manufacturing",
+        "sector_code": "Manufacturing",
+        "count": 1,
+        "share_in_region": 100.0,
+        "specialization": 2.0,
+    }]
+
+    nuts1_itc = next(area for area in result["regional_sectoral"]["nuts1"] if area["code"] == "ITC")
+    manufacturing = next(item for item in nuts1_itc["top_sectors"] if item["sector_code"] == "Manufacturing")
+    assert nuts1_itc["total_jobs"] == 3
+    assert manufacturing["count"] == 2
+    assert manufacturing["share_in_region"] == 66.67
+    assert manufacturing["specialization"] == 1.33
+    assert conn.calls[0][1] == (2024, "", "", "")
 
 
 def test_sector_snapshot_store_read_latest_keeps_all_skills(monkeypatch):
@@ -2174,6 +2273,21 @@ async def test_projector_service_sectoral_snapshot_returns_not_available_without
         "min_upload_date": "2024-01-01",
         "max_upload_date": "2024-12-31",
     }]
+
+
+@pytest.mark.asyncio
+async def test_projector_service_regional_sectoral_handles_unreachable_store():
+    fake_service, _, fake_tracker, _ = _make_projector_service(
+        [],
+        sector_snapshot_store=_FailingRegionalSectoralStore(),
+    )
+
+    result = await fake_service.regional_sectoral(year=2024)
+
+    assert result["status"] == "not_available"
+    assert result["regional_sectoral"] == {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []}
+    assert "Snapshot store is unreachable" in result["message"]
+    assert fake_tracker.fetch_payloads == []
 
 
 @pytest.mark.asyncio
@@ -5596,6 +5710,60 @@ def test_endpoint_analyze_skills_sectoral_tracker_labels_define_sector_keys():
             "Manufacturing",
             "Information and communication",
         }
+
+
+@pytest.mark.integration
+def test_endpoint_regional_sectoral_returns_static_distribution():
+    payload = {
+        "status": "completed",
+        "year": 2024,
+        "data_source": "postgres",
+        "window": {
+            "label": "2024 snapshot",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+        },
+        "regional_sectoral": {
+            "raw": [{
+                "code": "ITC4D",
+                "total_jobs": 1,
+                "top_sectors": [{
+                    "sector": "Manufacturing",
+                    "sector_code": "Manufacturing",
+                    "count": 1,
+                    "share_in_region": 100.0,
+                    "specialization": 2.0,
+                }],
+            }],
+            "nuts1": [{
+                "code": "ITC",
+                "total_jobs": 3,
+                "top_sectors": [{
+                    "sector": "Manufacturing",
+                    "sector_code": "Manufacturing",
+                    "count": 2,
+                    "share_in_region": 66.67,
+                    "specialization": 1.33,
+                }],
+            }],
+            "nuts2": [],
+            "nuts3": [],
+        },
+    }
+    fake_store = _FakeSectorSnapshotStore(payload)
+
+    with patch.object(service, "sector_snapshot_store", fake_store):
+        response = client.post(
+            "/projector/regional-sectoral",
+            data={"year": 2024, "locations": "IT", "top_k": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data_source"] == "postgres"
+    assert data["regional_sectoral"]["raw"][0]["code"] == "ITC4D"
+    assert data["regional_sectoral"]["nuts1"][0]["top_sectors"][0]["specialization"] == 1.33
+    assert fake_store.requests == [(2024, "IT", 5)]
 
 
 @pytest.mark.integration

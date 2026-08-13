@@ -11,6 +11,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | `POST /projector/analyze-skills` | A full dashboard snapshot | Skills, sectors, employers, titles, trends, geography and optional Tracker sector intelligence |
 | `POST /projector/sectoral-snapshot` | One-sector yearly snapshot or evolution | Static yearly sector rows enriched with skills, job titles and evolution metrics |
 | `POST /projector/sector-skills-comparison` | Multi-sector heatmap | Sectors x skills matrix for count, share, rank or growth |
+| `POST /projector/regional-sectoral` | Regional sector distribution | Static yearly sector distribution grouped by raw and NUTS-like regions |
 | `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
@@ -93,6 +94,32 @@ When `include_sectoral=true`:
 - no ISCO, canonical, matrix, or ESCO-NACE crosswalk data is used.
 
 Important: sector totals are relationship counts. A job with multiple sectors contributes to each listed sector.
+
+## `POST /projector/regional-sectoral`
+
+Use this for yearly regional x sector views. It reads PostgreSQL snapshots and does not perform live Tracker aggregation.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "locations=IT"
+```
+
+Main response block:
+
+```json
+{
+  "regional_sectoral": {
+    "raw": [],
+    "nuts1": [],
+    "nuts2": [],
+    "nuts3": []
+  }
+}
+```
+
+Each area returns `code`, `total_jobs`, and `top_sectors`. Each sector item returns `sector`, `sector_code`, `count`, `share_in_region`, and `specialization`.
 
 ## `POST /projector/sectoral-snapshot`
 
