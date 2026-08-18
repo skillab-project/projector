@@ -2546,6 +2546,90 @@ def test_endpoint_analyze_skills_consistency():
         assert "geo_breakdown" in data["dimension_summary"]
 
 
+def test_endpoint_health_and_readiness():
+    class FakeStore:
+        enabled = True
+
+        def __init__(self):
+            self.schema_checked = False
+
+        def ensure_schema(self):
+            self.schema_checked = True
+
+    fake_tracker = SimpleNamespace(api_url="https://tracker.example", username="user", password="secret")
+    fake_store = FakeStore()
+
+    with patch.object(service, "tracker", fake_tracker), \
+         patch.object(service, "sector_snapshot_store", fake_store):
+        health_response = client.get("/projector/health")
+        readiness_response = client.get("/projector/readiness")
+
+    assert health_response.status_code == 200
+    assert health_response.json() == {"status": "ok"}
+    assert readiness_response.status_code == 200
+    assert readiness_response.json() == {
+        "status": "ready",
+        "dependencies": {
+            "tracker": {"configured": True},
+            "sector_snapshot_db": {"configured": True, "available": True},
+        },
+    }
+    assert fake_store.schema_checked is True
+
+
+def test_endpoint_readiness_reports_degraded_dependencies():
+    class FailingStore:
+        enabled = True
+
+        def ensure_schema(self):
+            raise RuntimeError("database unavailable")
+
+    fake_tracker = SimpleNamespace(api_url=None, username="user", password="secret")
+
+    with patch.object(service, "tracker", fake_tracker), \
+         patch.object(service, "sector_snapshot_store", FailingStore()):
+        response = client.get("/projector/readiness")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "degraded"
+    assert data["dependencies"]["tracker"]["configured"] is False
+    assert data["dependencies"]["sector_snapshot_db"]["available"] is False
+    assert "database unavailable" in data["dependencies"]["sector_snapshot_db"]["error"]
+
+
+def test_endpoint_date_validation_rejects_invalid_ranges_before_fetch():
+    form_data = {"keywords": ["test"], "min_date": "2024-02-01", "max_date": "2024-01-01"}
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch:
+        response = client.post("/projector/analyze-skills", data=form_data)
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_date_range"
+    m_fetch.assert_not_awaited()
+
+
+def test_endpoint_date_validation_rejects_invalid_format():
+    response = client.post(
+        "/projector/emerging-skills",
+        data={"keywords": "test", "min_date": "2024/01/01", "max_date": "2024-01-02"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"] == {
+        "code": "invalid_date",
+        "message": "min_date must use YYYY-MM-DD format",
+        "field": "min_date",
+    }
+
+
+def test_endpoint_year_validation_rejects_out_of_range_snapshot_year():
+    response = client.post("/projector/sectoral-snapshot", data={"year": 1800})
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_year"
+
+
 # ==========================================
 # 3. RESILIENZA & UTILITY
 # ==========================================

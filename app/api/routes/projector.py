@@ -1,5 +1,7 @@
+from datetime import date
 from typing import Optional, List, Literal
-from fastapi import APIRouter
+
+from fastapi import APIRouter, HTTPException
 from fastapi import Form
 
 from app.schemas.responses import (
@@ -16,9 +18,100 @@ from app.core.container import service
 router = APIRouter(prefix="/projector", tags=["Projector"])
 
 
+def error_detail(code: str, message: str, field: Optional[str] = None):
+    return {
+        "error": {
+            "code": code,
+            "message": message,
+            "field": field,
+        }
+    }
+
+
+def parse_iso_date(value: Optional[str], field: str):
+    if value in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_date",
+                f"{field} must use YYYY-MM-DD format",
+                field,
+            ),
+        ) from exc
+
+
+def validate_date_range(min_value: Optional[str], max_value: Optional[str], min_field: str, max_field: str):
+    min_parsed = parse_iso_date(min_value, min_field)
+    max_parsed = parse_iso_date(max_value, max_field)
+    if min_parsed and max_parsed and min_parsed > max_parsed:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_date_range",
+                f"{min_field} must be less than or equal to {max_field}",
+                min_field,
+            ),
+        )
+
+
+def validate_year(value: int, field: str):
+    if value < 2000 or value > 2100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_year",
+                f"{field} must be between 2000 and 2100",
+                field,
+            ),
+        )
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@router.get("/readiness")
+async def readiness():
+    tracker = getattr(service, "tracker", None)
+    snapshot_store = getattr(service, "sector_snapshot_store", None)
+    tracker_configured = bool(
+        getattr(tracker, "api_url", None)
+        and getattr(tracker, "username", None)
+        and getattr(tracker, "password", None)
+    )
+    database_configured = bool(getattr(snapshot_store, "enabled", False))
+    database_available = None
+    database_error = None
+    if database_configured:
+        try:
+            snapshot_store.ensure_schema()
+            database_available = True
+        except Exception as exc:
+            database_available = False
+            database_error = str(exc)
+
+    dependencies = {
+        "tracker": {
+            "configured": tracker_configured,
+        },
+        "sector_snapshot_db": {
+            "configured": database_configured,
+            "available": database_available,
+        },
+    }
+    if database_error:
+        dependencies["sector_snapshot_db"]["error"] = database_error
+
+    ready = tracker_configured and (not database_configured or database_available is True)
+    return {
+        "status": "ready" if ready else "degraded",
+        "dependencies": dependencies,
+    }
 
 
 @router.post("/emerging-skills", response_model=EmergingSkillsResponse)
@@ -48,6 +141,7 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
        Key Metric:
            Growth % = (B - A) / A * 100
        """
+    validate_date_range(min_date, max_date, "min_date", "max_date")
     return await service.emerging_skills(min_date, max_date,
                                  keywords)
 
@@ -103,6 +197,21 @@ async def analyze_skills(
            - Can be interrupted via `/projector/stop`
        """
 
+    validate_date_range(min_date, max_date, "min_date", "max_date")
+    validate_date_range(
+        sectoral_compare_a_min_date,
+        sectoral_compare_a_max_date,
+        "sectoral_compare_a_min_date",
+        "sectoral_compare_a_max_date",
+    )
+    validate_date_range(
+        sectoral_compare_b_min_date,
+        sectoral_compare_b_max_date,
+        "sectoral_compare_b_min_date",
+        "sectoral_compare_b_max_date",
+    )
+    if sectoral_snapshot_year is not None:
+        validate_year(sectoral_snapshot_year, "sectoral_snapshot_year")
     return await service.analyze_skills(keywords,
                                  locations,
                                  min_date,
@@ -150,6 +259,11 @@ async def sectoral_intelligence(
        The endpoint is independent from `/projector/analyze-skills` and supports
        latest, selected-period, yearly snapshot, and two-period comparison modes.
     """
+    validate_date_range(min_date, max_date, "min_date", "max_date")
+    validate_date_range(compare_a_min_date, compare_a_max_date, "compare_a_min_date", "compare_a_max_date")
+    validate_date_range(compare_b_min_date, compare_b_max_date, "compare_b_min_date", "compare_b_max_date")
+    if snapshot_year is not None:
+        validate_year(snapshot_year, "snapshot_year")
     return await service.sectoral_intelligence(
         keywords=keywords,
         locations=locations,
@@ -184,6 +298,9 @@ async def sectoral_snapshot(
        This endpoint is intentionally aggregated: one row per Tracker sector,
        with job volume, share, top skills, and top job titles.
     """
+    validate_year(year, "year")
+    if reference_year is not None:
+        validate_year(reference_year, "reference_year")
     return await service.sectoral_snapshot(
         year=year,
         reference_year=reference_year,
@@ -211,6 +328,9 @@ async def sector_skills_comparison(
        The selected metric controls the heatmap value:
        count, share in sector, rank score, or growth vs previous year.
     """
+    validate_year(year, "year")
+    if reference_year is not None:
+        validate_year(reference_year, "reference_year")
     return await service.sector_skills_comparison(
         year=year,
         reference_year=reference_year,
@@ -237,6 +357,7 @@ async def regional_sectoral(
        This endpoint reads precomputed PostgreSQL sector snapshots and does not
        perform live Tracker aggregation.
     """
+    validate_year(year, "year")
     return await service.regional_sectoral(
         year=year,
         locations=locations,
