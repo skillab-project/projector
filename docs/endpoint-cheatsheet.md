@@ -14,6 +14,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | `POST /projector/regional-sectoral` | Regional sector distribution | Static yearly sector distribution grouped by raw and NUTS-like regions |
 | `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
+| `POST /projector/temporal-projections` | Time-granular skill movement | Monthly, quarterly or yearly skill series plus short-term baseline projections |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
 ## `POST /projector/analyze-skills`
@@ -212,6 +213,46 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
 | `trends[].growth` | Growth percentage, or `new_entry` |
 | `trends[].trend_type` | `emerging`, `declining`, or `stable` |
 | `trends[].primary_sector` | Main Tracker sector associated with the skill |
+
+## `POST /projector/temporal-projections`
+
+Use this when you need monthly, quarterly or yearly skill-demand movement.
+
+### Minimal Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/temporal-projections" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=quarterly"
+```
+
+### What It Returns
+
+```json
+{
+  "status": "completed",
+  "total_jobs": 120,
+  "insights": {
+    "granularity": "quarterly",
+    "forecast_method": "last_delta_baseline",
+    "periods": [],
+    "skills": []
+  }
+}
+```
+
+### How To Read It
+
+| Field | Meaning |
+| --- | --- |
+| `periods[].job_count` | Jobs uploaded in the period |
+| `periods[].growth_vs_previous` | Job-count growth versus the previous period |
+| `skills[].series[].count` | Skill mentions in the period |
+| `skills[].growth_rate` | Latest period growth versus previous period |
+| `skills[].forecast[].projected_count` | Short-term baseline projection from recent count deltas |
 
 ## `POST /projector/stop`
 

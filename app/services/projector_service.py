@@ -148,6 +148,47 @@ class ProjectorService:
         res = await self.trends.calculate_smart_trends({"keywords": keywords} if keywords else {}, min_date, max_date)
         return {"status": "completed" if not self.engine.stop_requested else "stopped", "insights": res}
 
+    async def temporal_projections(
+            self,
+            min_date: str,
+            max_date: str,
+            keywords: Optional[List[str]] = None,
+            locations: Optional[List[str]] = None,
+            granularity: Literal["monthly", "quarterly", "yearly"] = "monthly",
+            forecast_periods: int = 1,
+            top_k: int = 10,
+    ):
+        self.engine.stop_requested = False
+        payload = {
+            "keywords": keywords,
+            "location_code": locations,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+        }
+        clean_payload = {key: value for key, value in payload.items() if value is not None}
+        jobs = await self.tracker.fetch_all_jobs(clean_payload)
+        skill_ids = {
+            str(skill_id).strip()
+            for job in jobs
+            for skill_id in job.get("skills", [])
+            if str(skill_id).strip()
+        }
+        if skill_ids:
+            await self.tracker.fetch_skill_names(list(skill_ids))
+        insights = await self.trends.calculate_temporal_projections_from_data(
+            jobs,
+            min_date,
+            max_date,
+            granularity=granularity,
+            forecast_periods=forecast_periods,
+            top_k=top_k,
+        )
+        return {
+            "status": "completed" if not self.engine.stop_requested else "stopped",
+            "total_jobs": len(jobs),
+            "insights": insights,
+        }
+
     async def sectoral_intelligence(
             self,
             keywords: Optional[List[str]] = None,

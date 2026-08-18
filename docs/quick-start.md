@@ -2,7 +2,7 @@
 
 Concise guide for developers working on the Projector API, dashboard, sector snapshots and documentation.
 
-Related issues: #1, #7, #8, #44, #47, #48, #49, #52, #54.
+Related issues: #1, #3, #7, #8, #44, #47, #48, #49, #52, #54.
 
 ## Intelligence Design
 
@@ -19,6 +19,18 @@ Skill Intelligence
 │   - trends
 │   - regional distribution
 │   - sector distribution
+│
+├── Temporal Projections
+│   [Keyword] [Date range] [Region] [Granularity]
+│
+│   question:
+│   how does skill demand move month-by-month, quarter-by-quarter, or year-by-year?
+│
+│   outputs:
+│   - period job counts
+│   - skill time series
+│   - growth rates
+│   - short-term baseline projection
 
 Sector Intelligence
 ├── Sector Overview
@@ -77,6 +89,10 @@ Skill Analyzer
 = start from a job/search keyword
 = already implemented
 
+Temporal Projections
+= start from a job/search keyword
+= inspect monthly, quarterly or yearly skill-demand movement
+
 Sector Overview
 = start from one sector
 = inspect snapshot or evolution
@@ -123,6 +139,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | View | Start from | Main controls | Main endpoint |
 | --- | --- | --- | --- |
 | Skill Analyzer | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` |
+| Temporal Projections | keyword/job search | keyword, date range, region, granularity | `POST /projector/temporal-projections` |
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |
@@ -190,6 +207,16 @@ curl -X POST http://127.0.0.1:8000/projector/sector-skills-comparison \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "year=2024" \
   -d "metric=share"
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/projector/temporal-projections \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=monthly" \
+  -d "forecast_periods=2"
 ```
 
 ## Data Sources

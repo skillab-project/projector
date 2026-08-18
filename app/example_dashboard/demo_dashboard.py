@@ -30,6 +30,9 @@ if 'sector_skills_comparison_data' not in st.session_state:
 if 'regional_sectoral_data' not in st.session_state:
     st.session_state.regional_sectoral_data = None
 
+if 'temporal_projection_data' not in st.session_state:
+    st.session_state.temporal_projection_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -91,6 +94,7 @@ translations = {
         'dashboard_view': "Vista dashboard",
         'dashboard_view_options': {
             "skill": "Skill Overview",
+            "temporal": "Temporal Projections",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
@@ -99,6 +103,20 @@ translations = {
         'location': "Location Code (es. ITC4C)",
         'date_range': "Intervallo Temporale",
         'submit_general': "Lancia Skill Overview",
+        'submit_temporal': "Lancia Temporal Projections",
+        'temporal_header': "Temporal Projections",
+        'temporal_help': "Aggrega le offerte per upload_date e mostra movimento skill per mese, trimestre o anno.",
+        'temporal_granularity': "Granularità temporale",
+        'temporal_granularity_options': {
+            "monthly": "Mensile",
+            "quarterly": "Trimestrale",
+            "yearly": "Annuale",
+        },
+        'forecast_periods': "Periodi forecast",
+        'top_k_skills': "Numero skill",
+        'period_job_volume': "Volume job per periodo",
+        'skill_time_series': "Serie temporale skill",
+        'baseline_forecast': "Baseline forecast",
         'submit_sectoral': "Lancia Sector Overview",
         'sectoral_time_mode': "Finestra settoriale",
         'sector_filter': "Filtro settori (virgola)",
@@ -283,6 +301,7 @@ translations = {
         'dashboard_view': "Dashboard view",
         'dashboard_view_options': {
             "skill": "Skill Overview",
+            "temporal": "Temporal Projections",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
@@ -291,6 +310,20 @@ translations = {
         'location': "Location Code (e.g. ITC4C)",
         'date_range': "Time Range",
         'submit_general': "Run Skill Overview",
+        'submit_temporal': "Run Temporal Projections",
+        'temporal_header': "Temporal Projections",
+        'temporal_help': "Aggregates postings by upload_date and shows skill movement by month, quarter or year.",
+        'temporal_granularity': "Temporal granularity",
+        'temporal_granularity_options': {
+            "monthly": "Monthly",
+            "quarterly": "Quarterly",
+            "yearly": "Yearly",
+        },
+        'forecast_periods': "Forecast periods",
+        'top_k_skills': "Number of skills",
+        'period_job_volume': "Job volume by period",
+        'skill_time_series': "Skill time series",
+        'baseline_forecast': "Baseline forecast",
         'submit_sectoral': "Run Sector Overview",
         'sectoral_time_mode': "Sectoral window",
         'sector_filter': "Sector filter (comma-separated)",
@@ -547,6 +580,7 @@ STAT_HELP_BY_LANG = {
         "regional_sector_count": "Numero di job del settore nella regione selezionata. Se un job ha più settori, contribuisce a ciascun settore.",
         "share_in_region": "Quota del settore nella regione. Formula: sector_jobs_region / total_jobs_region * 100.",
         "regional_sector_specialization": "Concentrazione settore-region rispetto al totale anno. Formula: sector_share_region / sector_share_global.",
+        "temporal_forecast": "Proiezione baseline a breve termine. Formula: latest_count + media degli ultimi delta * step.",
     },
     "EN": {
         "jobs_analyzed": "Number of Tracker jobs processed after filters. Formula: count(jobs).",
@@ -583,6 +617,7 @@ STAT_HELP_BY_LANG = {
         "regional_sector_count": "Number of sector jobs in the selected region. If a job has multiple sectors, it contributes to each sector.",
         "share_in_region": "Sector share inside the region. Formula: sector_jobs_region / total_jobs_region * 100.",
         "regional_sector_specialization": "Region-sector concentration versus the yearly total. Formula: sector_share_region / sector_share_global.",
+        "temporal_forecast": "Short-term baseline projection. Formula: latest_count + average recent deltas * step.",
     }
 }
 
@@ -688,6 +723,24 @@ def get_regional_sectoral_data(api_base_url: str, payload: dict, timeout_seconds
     try:
         res = requests.post(
             f"{normalize_api_base_url(api_base_url)}/regional-sectoral",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def get_temporal_projection_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/temporal-projections",
             data=payload,
             timeout=timeout_seconds
         )
@@ -814,6 +867,7 @@ SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
 SECTOR_SKILLS_COMPARISON_ENDPOINT = "POST /projector/sector-skills-comparison"
 REGIONAL_SECTORAL_ENDPOINT = "POST /projector/regional-sectoral"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
+TEMPORAL_PROJECTIONS_ENDPOINT = "POST /projector/temporal-projections"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
 
@@ -854,12 +908,44 @@ with st.sidebar:
     regional_sectoral_level = "raw"
     regional_sectoral_top_k = 10
     regional_sectoral_visual = "auto"
+    temporal_submit_button = False
+    temporal_granularity = "monthly"
+    temporal_forecast_periods = 1
+    temporal_top_k = 10
 
     if dashboard_view == "skill":
         keywords = st.text_input(T['keywords'], "software")
         location = st.text_input(T['location'], "")
         date_range = st.date_input(T['date_range'], date_range)
         submit_button = st.button(T["submit_general"], use_container_width=True)
+    elif dashboard_view == "temporal":
+        keywords = st.text_input(T['keywords'], "software")
+        location = st.text_input(T['location'], "")
+        date_range = st.date_input(T['date_range'], date_range, key="temporal_date_range")
+        temporal_label = st.radio(
+            T["temporal_granularity"],
+            list(T["temporal_granularity_options"].values()),
+            horizontal=True,
+        )
+        temporal_granularity = next(
+            key for key, value in T["temporal_granularity_options"].items()
+            if value == temporal_label
+        )
+        temporal_forecast_periods = st.number_input(
+            T["forecast_periods"],
+            min_value=0,
+            max_value=12,
+            value=1,
+            step=1,
+        )
+        temporal_top_k = st.number_input(
+            T["top_k_skills"],
+            min_value=1,
+            max_value=100,
+            value=10,
+            step=1,
+        )
+        temporal_submit_button = st.button(T["submit_temporal"], use_container_width=True)
 
     st.markdown("---")
     st.text_input(T["backend_url"], key="api_base_url")
@@ -957,6 +1043,16 @@ regional_sectoral_payload = {
     "year": int(sectoral_snapshot_year),
     "locations": [sectoral_location] if sectoral_location else None,
     "top_k": 10,
+}
+
+temporal_payload = {
+    "keywords": [keywords] if keywords else None,
+    "locations": [location] if location else None,
+    "min_date": date_range[0].strftime("%Y-%m-%d"),
+    "max_date": date_range[1].strftime("%Y-%m-%d"),
+    "granularity": temporal_granularity,
+    "forecast_periods": int(temporal_forecast_periods),
+    "top_k": int(temporal_top_k),
 }
 
 if dashboard_view == "sector":
@@ -1174,8 +1270,27 @@ if submit_button:
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
+            st.error(error_msg)
+
+if temporal_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        temporal_response = get_temporal_projection_data(
+            st.session_state.api_base_url,
+            temporal_payload,
+            st.session_state.backend_timeout
+        )
+        if temporal_response and "_error" not in temporal_response:
+            st.session_state.temporal_projection_data = temporal_response
+            st.session_state.all_data = None
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.sectoral_data = None
+            st.session_state.sector_skills_comparison_data = None
+            st.session_state.regional_sectoral_data = None
+        else:
+            error_msg = temporal_response.get("_error", T['server_error']) if isinstance(temporal_response, dict) else T['server_error']
             st.error(error_msg)
 
 if sectoral_submit_button:
@@ -1191,6 +1306,7 @@ if sectoral_submit_button:
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1208,6 +1324,7 @@ if comparison_submit_button:
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = comparison_response.get("_error", T['server_error']) if isinstance(comparison_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1225,13 +1342,14 @@ if regional_sectoral_submit_button:
             st.session_state.sectoral_snapshot_data = None
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = regional_sectoral_response.get("_error", T['server_error']) if isinstance(regional_sectoral_response, dict) else T['server_error']
             st.error(error_msg)
 
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
-if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data:
+if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data or st.session_state.temporal_projection_data:
     all_data = st.session_state.all_data or {
         "insights": {
             "ranking": [],
@@ -1250,10 +1368,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     sectoral_snapshot_response = st.session_state.sectoral_snapshot_data or {}
     sector_skills_comparison_response = st.session_state.sector_skills_comparison_data or {}
     regional_sectoral_response = st.session_state.regional_sectoral_data or {}
+    temporal_projection_response = st.session_state.temporal_projection_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
-    if dashboard_view in {"sector", "comparison", "regional_sectoral"}:
+    if dashboard_view in {"sector", "comparison", "regional_sectoral", "temporal"}:
         tab4 = st.container()
     else:
         tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
@@ -1901,6 +2020,117 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                             )
             elif regional_sectoral_response.get("message"):
                 st.info(regional_sectoral_response["message"])
+            else:
+                st.info(T["no_data"])
+            st.stop()
+
+        if dashboard_view == "temporal":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["temporal_header"], help=T["temporal_help"])
+            with h_info:
+                dev_info(
+                    "Temporal projections",
+                    TEMPORAL_PROJECTIONS_ENDPOINT,
+                    {
+                        "status": "completed",
+                        "total_jobs": 120,
+                        "insights": {
+                            "granularity": "quarterly",
+                            "forecast_method": "last_delta_baseline",
+                            "periods": [
+                                {
+                                    "period": "2024-Q1",
+                                    "job_count": 30,
+                                    "growth_vs_previous": None,
+                                }
+                            ],
+                            "skills": [
+                                {
+                                    "name": "Python",
+                                    "growth_rate": 20.0,
+                                    "series": [{"period": "2024-Q1", "count": 8}],
+                                    "forecast": [{"period": "2025-Q1", "projected_count": 14.0}],
+                                }
+                            ],
+                        },
+                    },
+                    [
+                        "total_jobs",
+                        "insights.granularity",
+                        "insights.periods[].period",
+                        "insights.periods[].job_count",
+                        "insights.periods[].growth_vs_previous",
+                        "insights.skills[].name",
+                        "insights.skills[].growth_rate",
+                        "insights.skills[].series[].count",
+                        "insights.skills[].forecast[].projected_count",
+                    ],
+                    temporal_payload,
+                )
+
+            temporal_insights = temporal_projection_response.get("insights", {})
+            periods = temporal_insights.get("periods", [])
+            skills = temporal_insights.get("skills", [])
+            if periods:
+                df_periods = pd.DataFrame(periods)
+                metric_with_info(
+                    T["jobs_analyzed"],
+                    temporal_projection_response.get("total_jobs", 0),
+                    STAT_HELP["jobs_analyzed"],
+                )
+                fig_periods = px.line(
+                    df_periods,
+                    x="period",
+                    y="job_count",
+                    markers=True,
+                    title=T["period_job_volume"],
+                )
+                st.plotly_chart(fig_periods, width="stretch", key="temporal_period_job_volume")
+
+            if skills:
+                series_rows = []
+                forecast_rows = []
+                for skill in skills:
+                    for row in skill.get("series", []):
+                        series_rows.append({
+                            "skill": skill.get("name"),
+                            "period": row.get("period"),
+                            "count": row.get("count"),
+                            "growth_vs_previous": row.get("growth_vs_previous"),
+                        })
+                    for row in skill.get("forecast", []):
+                        forecast_rows.append({
+                            "skill": skill.get("name"),
+                            "period": row.get("period"),
+                            "projected_count": row.get("projected_count"),
+                            "method": row.get("method"),
+                        })
+
+                df_series = pd.DataFrame(series_rows)
+                if not df_series.empty:
+                    fig_skills = px.line(
+                        df_series,
+                        x="period",
+                        y="count",
+                        color="skill",
+                        markers=True,
+                        title=T["skill_time_series"],
+                    )
+                    st.plotly_chart(fig_skills, width="stretch", key="temporal_skill_time_series")
+                    st.dataframe(
+                        df_series,
+                        width="stretch",
+                        column_config={
+                            "count": st.column_config.NumberColumn("count (i)", help=STAT_HELP["skill_frequency"]),
+                            "growth_vs_previous": st.column_config.TextColumn("growth (i)", help=STAT_HELP["skill_growth"]),
+                        },
+                    )
+
+                df_forecast = pd.DataFrame(forecast_rows)
+                if not df_forecast.empty:
+                    st.subheader(T["baseline_forecast"], help=STAT_HELP["temporal_forecast"])
+                    st.dataframe(df_forecast, width="stretch")
             else:
                 st.info(T["no_data"])
             st.stop()

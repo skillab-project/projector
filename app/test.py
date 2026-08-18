@@ -3220,6 +3220,82 @@ def test_endpoint_emerging_skills_structure():
         assert "market_health" in response.json()["insights"]
 
 
+@pytest.mark.asyncio
+async def test_temporal_projections_monthly_growth_and_forecast():
+    engine.skill_map = {
+        "s1": {"label": "Python", "is_green": False, "is_digital": True},
+        "s2": {"label": "SQL", "is_green": False, "is_digital": True},
+    }
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": ["s1"]},
+        {"upload_date": "2024-02-10", "skills": ["s1", "s2"]},
+        {"upload_date": "2024-02-20", "skills": ["s1"]},
+        {"upload_date": "2024-03-05", "skills": ["s1"]},
+        {"upload_date": "2024-03-12", "skills": ["s1"]},
+        {"upload_date": "2024-03-20", "skills": ["s1"]},
+    ]
+
+    result = await trends.calculate_temporal_projections_from_data(
+        jobs,
+        "2024-01-01",
+        "2024-03-31",
+        granularity="monthly",
+        forecast_periods=2,
+        top_k=1,
+    )
+
+    assert [period["period"] for period in result["periods"]] == ["2024-01", "2024-02", "2024-03"]
+    assert [period["job_count"] for period in result["periods"]] == [1, 2, 3]
+    assert result["periods"][1]["growth_vs_previous"] == 100.0
+    python = result["skills"][0]
+    assert python["name"] == "Python"
+    assert python["growth_rate"] == 50.0
+    assert python["trend_type"] == "emerging"
+    assert python["forecast"] == [
+        {"period": "2024-04", "projected_count": 4.0, "method": "last_delta_baseline"},
+        {"period": "2024-05", "projected_count": 5.0, "method": "last_delta_baseline"},
+    ]
+
+
+@pytest.mark.integration
+def test_endpoint_temporal_projections_contract():
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": ["s1"], "location_code": "IT"},
+        {"upload_date": "2024-04-10", "skills": ["s1"], "location_code": "IT"},
+    ]
+    engine.skill_map = {"s1": {"label": "Python", "is_green": False, "is_digital": True}}
+
+    with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, 'fetch_skill_names', new_callable=AsyncMock) as m_skill_names:
+        m_fetch.return_value = jobs
+        response = client.post("/projector/temporal-projections", data={
+            "keywords": "data",
+            "locations": "IT",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+            "granularity": "quarterly",
+            "forecast_periods": "1",
+            "top_k": "5",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["total_jobs"] == 2
+    assert payload["insights"]["granularity"] == "quarterly"
+    assert payload["insights"]["forecast_method"] == "last_delta_baseline"
+    assert payload["insights"]["periods"][0]["period"] == "2024-Q1"
+    assert payload["insights"]["skills"][0]["series"][1]["period"] == "2024-Q2"
+    assert payload["insights"]["skills"][0]["forecast"][0]["period"] == "2025-Q1"
+    m_fetch.assert_awaited_once_with({
+        "keywords": ["data"],
+        "location_code": ["IT"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    })
+    m_skill_names.assert_awaited_once_with(["s1"])
+
+
 import csv
 from pathlib import Path
 

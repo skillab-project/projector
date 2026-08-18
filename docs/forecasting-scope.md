@@ -25,6 +25,13 @@ Predictive forecasting is deferred until the data, validation and model requirem
 - compares two internal periods in the requested date range
 - reports market volume growth and skill growth
 
+`Temporal Projections`
+
+- aggregates jobs by `upload_date`
+- supports monthly, quarterly and yearly granularity
+- reports period-level job growth and skill-level growth
+- returns a short-term baseline projection using recent count deltas
+
 `Sector Evolution`
 
 - compares one sector between two selected years
@@ -53,6 +60,7 @@ Use:
 - `period comparison`
 - `year-over-year evolution`
 - `growth between selected periods`
+- `short-term baseline projection`
 
 Avoid for current implementation:
 

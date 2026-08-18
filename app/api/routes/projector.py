@@ -12,6 +12,7 @@ from app.schemas.responses import (
     SectorSkillsComparisonResponse,
     SectoralSnapshotResponse,
     StopResponse,
+    TemporalProjectionsResponse,
 )
 from app.core.container import service
 
@@ -144,6 +145,52 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
     validate_date_range(min_date, max_date, "min_date", "max_date")
     return await service.emerging_skills(min_date, max_date,
                                  keywords)
+
+
+@router.post("/temporal-projections", response_model=TemporalProjectionsResponse)
+async def temporal_projections(
+        min_date: str = Form(...),
+        max_date: str = Form(...),
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        granularity: Literal["monthly", "quarterly", "yearly"] = Form("monthly"),
+        forecast_periods: int = Form(1),
+        top_k: int = Form(10),
+):
+    """
+       Aggregates observed skill demand by upload date and returns short-term baseline projections.
+
+       Granularity can be monthly, quarterly, or yearly. Forecast values use a simple
+       last-delta baseline over observed counts; they are not predictive ML outputs.
+    """
+    validate_date_range(min_date, max_date, "min_date", "max_date")
+    if forecast_periods < 0 or forecast_periods > 12:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_forecast_periods",
+                "forecast_periods must be between 0 and 12",
+                "forecast_periods",
+            ),
+        )
+    if top_k < 1 or top_k > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_top_k",
+                "top_k must be between 1 and 100",
+                "top_k",
+            ),
+        )
+    return await service.temporal_projections(
+        min_date=min_date,
+        max_date=max_date,
+        keywords=keywords,
+        locations=locations,
+        granularity=granularity,
+        forecast_periods=forecast_periods,
+        top_k=top_k,
+    )
 
 
 @router.post("/analyze-skills", response_model=ProjectorResponse, response_model_exclude_none=True)
