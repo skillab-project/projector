@@ -431,7 +431,7 @@ For `mode=comparison`, the response also includes:
 
 ## GET `/projector/health`
 
-Checks whether the Projector app is reachable.
+Liveness check. Use it to verify that the Projector app process is reachable.
 
 ### Response Shape
 
@@ -440,6 +440,51 @@ Checks whether the Projector app is reachable.
   "status": "ok"
 }
 ```
+
+## GET `/projector/readiness`
+
+Readiness check. Use it to verify whether required external dependencies are configured and whether the snapshot DB is reachable when configured.
+
+### Response Shape
+
+```json
+{
+  "status": "ready",
+  "dependencies": {
+    "tracker": {
+      "configured": true
+    },
+    "sector_snapshot_db": {
+      "configured": true,
+      "available": true
+    }
+  }
+}
+```
+
+If a configured dependency is unavailable, `status` is `degraded` and the dependency block includes the failure reason.
+
+## Error Shape
+
+Endpoint-level validation errors use:
+
+```json
+{
+  "detail": {
+    "error": {
+      "code": "invalid_date_range",
+      "message": "min_date must be less than or equal to max_date",
+      "field": "min_date"
+    }
+  }
+}
+```
+
+Current validation covers:
+
+- date format: `YYYY-MM-DD`
+- date ordering for all explicit date ranges
+- snapshot/reference years in the supported range `2000..2100`
 
 ## POST `/projector/emerging-skills`
 
@@ -508,6 +553,6 @@ This endpoint does not kill a process immediately. Long-running operations check
 ## Current Caveats
 
 - There is no versioned `/api/v1` prefix yet.
-- There is no standardized error envelope yet.
-- Date ordering is not explicitly validated before analysis.
-- Tracker and ESCO file availability influence response completeness.
+- API versioning is documented as deferred.
+- FastAPI request parsing errors still use the default FastAPI validation shape.
+- Tracker availability and snapshot DB availability are exposed by `/projector/readiness`.
