@@ -11,14 +11,15 @@ This folder contains the maintained documentation for the current `app/` impleme
 5. [Data model](data-model.md) explains response fields.
 6. [Statistics](statistic.md) explains metric formulas.
 7. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
-8. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
-9. [Database](database.md) documents PostgreSQL sector snapshot storage.
-10. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
-11. [Data sources](data-sources.md) explains Tracker API data usage.
-12. [Architecture](architecture.md) maps the runtime flow to the current code.
-13. [Examples](examples.md) provides request examples and frontend integration patterns.
-14. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-15. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+8. [D3.3 deliverable gap analysis](d33-deliverable-gap-analysis.md) maps deliverable wording to implemented scope.
+9. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
+10. [Database](database.md) documents PostgreSQL sector snapshot storage.
+11. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
+12. [Data sources](data-sources.md) explains Tracker API data usage.
+13. [Architecture](architecture.md) maps the runtime flow to the current code.
+14. [Examples](examples.md) provides request examples and frontend integration patterns.
+15. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+16. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 
@@ -26,6 +27,7 @@ This folder contains the maintained documentation for the current `app/` impleme
 - #7: architecture, data flow and maintainability notes.
 - #8: endpoint cheatsheet and API reference.
 - #59: forecasting scope and predictive forecasting deferral.
+- #62: D3.3 deliverable wording and section-level scope alignment.
 - #44, #54: PostgreSQL sector snapshot storage and refresh pipeline.
 - #47, #48, #49, #52: sector-first yearly views, detailed skills, redesign and comparison heatmap.
 
