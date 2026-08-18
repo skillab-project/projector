@@ -11,7 +11,7 @@ pipeline {
     }
 
     environment {
-        CI_IMAGE = "projector-ci:${env.BUILD_NUMBER}"
+        CI_IMAGE_REPOSITORY = "projector-ci"
         GITHUB_APP_ID_CREDENTIALS_ID = "github-app-id"
         GITHUB_APP_INSTALLATION_ID_CREDENTIALS_ID = "github-app-installation-id"
         GITHUB_APP_PRIVATE_KEY_CREDENTIALS_ID = "github-app-private-key"
@@ -22,6 +22,11 @@ pipeline {
             steps {
                 echo "🔄 Checking out code from branch: ${env.BRANCH_NAME}"
                 checkout scm
+                script {
+                    def safeJobName = env.JOB_NAME.replaceAll(/[^A-Za-z0-9_.-]/, '-')
+                    env.CI_IMAGE = "${env.CI_IMAGE_REPOSITORY}:${safeJobName}-${env.BUILD_NUMBER}"
+                    echo "🐳 CI Docker image tag: ${env.CI_IMAGE}"
+                }
             }
         }
 
