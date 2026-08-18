@@ -17,6 +17,50 @@ services:
       timeout: 5s
       retries: 10
 
+  projector-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: skillab-projector-api
+    depends_on:
+      projector-db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://skillab:skillab@projector-db:5432/skillab_projector
+    ports:
+      - "8000:8000"
+    volumes:
+      - projector-api-cache:/workspace/cache_data
+      - projector-api-logs:/workspace/logs
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/projector/health', timeout=5).read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  projector-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: skillab-projector-dashboard
+    depends_on:
+      projector-api:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PROJECTOR_API_BASE_URL: http://projector-api:8000/projector
+    command:
+      - streamlit
+      - run
+      - app/example_dashboard/demo_dashboard.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+    ports:
+      - "8501:8501"
+
   projector-snapshot-refresh:
     build:
       context: .
@@ -48,5 +92,7 @@ services:
 
 volumes:
   projector-db-data:
+  projector-api-cache:
+  projector-api-logs:
   projector-snapshot-cache:
   projector-snapshot-logs:
