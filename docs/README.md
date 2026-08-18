@@ -16,14 +16,15 @@ This folder contains the maintained documentation for the current `app/` impleme
 10. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
 11. [Data sources](data-sources.md) explains Tracker API data usage.
 12. [Architecture](architecture.md) maps the runtime flow to the current code.
-13. [Examples](examples.md) provides request examples and frontend integration patterns.
-14. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-15. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+13. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
+14. [Examples](examples.md) provides request examples and frontend integration patterns.
+15. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+16. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 
 - #1: quick start and demo launch instructions.
-- #7: architecture, data flow and maintainability notes.
+- #7: architecture, data flow, internal method map and maintainability notes.
 - #8: endpoint cheatsheet and API reference.
 - #59: forecasting scope and predictive forecasting deferral.
 - #44, #54: PostgreSQL sector snapshot storage and refresh pipeline.
