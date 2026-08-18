@@ -90,6 +90,21 @@ Skill Explorer
 
 ## Run Locally
 
+Full Docker stack:
+
+```bash
+docker compose up -d projector-db projector-api projector-dashboard
+```
+
+Open:
+
+```text
+API: http://127.0.0.1:8000/projector/health
+Dashboard: http://127.0.0.1:8501
+```
+
+Python local stack:
+
 ```bash
 docker compose up -d projector-db
 ```

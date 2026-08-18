@@ -119,6 +119,25 @@ docker compose logs -f projector-snapshot-refresh
 
 Both scripts use rotating logs and emit `INFO`, `DEBUG`, and `ERROR` entries.
 
+## Full Docker Stack
+
+Run API, dashboard, DB and scheduler:
+
+```bash
+docker compose up -d \
+  projector-db \
+  projector-api \
+  projector-dashboard \
+  projector-snapshot-refresh
+```
+
+Open:
+
+```text
+API: http://127.0.0.1:8000/projector/health
+Dashboard: http://127.0.0.1:8501
+```
+
 ## Recovery
 
 If Tracker fetch fails, rerun the same command. Partial page fetches are checkpointed in:

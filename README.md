@@ -28,6 +28,12 @@ Start the dashboard in a second terminal:
 streamlit run app/example_dashboard/demo_dashboard.py
 ```
 
+Run API, dashboard and PostgreSQL with Docker:
+
+```bash
+docker compose up -d projector-db projector-api projector-dashboard
+```
+
 The API is available at:
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
@@ -61,7 +67,7 @@ DATABASE_URL=postgresql://skillab:skillab@localhost:5433/skillab_projector
 
 ## Local Database
 
-Only PostgreSQL is dockerized for now:
+Start only PostgreSQL:
 
 ```bash
 docker compose up -d projector-db
