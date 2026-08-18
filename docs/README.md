@@ -10,20 +10,22 @@ This folder contains the maintained documentation for the current `app/` impleme
 4. [API reference](api-reference.md) documents current public endpoints and form fields.
 5. [Data model](data-model.md) explains response fields.
 6. [Statistics](statistic.md) explains metric formulas.
-7. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
-8. [Database](database.md) documents PostgreSQL sector snapshot storage.
-9. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
-9. [Data sources](data-sources.md) explains Tracker API data usage.
-10. [Architecture](architecture.md) maps the runtime flow to the current code.
-11. [Examples](examples.md) provides request examples and frontend integration patterns.
-12. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-13. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+7. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
+8. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
+9. [Database](database.md) documents PostgreSQL sector snapshot storage.
+10. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
+11. [Data sources](data-sources.md) explains Tracker API data usage.
+12. [Architecture](architecture.md) maps the runtime flow to the current code.
+13. [Examples](examples.md) provides request examples and frontend integration patterns.
+14. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+15. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 
 - #1: quick start and demo launch instructions.
 - #7: architecture, data flow and maintainability notes.
 - #8: endpoint cheatsheet and API reference.
+- #59: forecasting scope and predictive forecasting deferral.
 - #44, #54: PostgreSQL sector snapshot storage and refresh pipeline.
 - #47, #48, #49, #52: sector-first yearly views, detailed skills, redesign and comparison heatmap.
 
