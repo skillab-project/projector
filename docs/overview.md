@@ -21,6 +21,13 @@ Dashboard authors need ready-to-visualize structures for rankings, trends, maps,
 
 Analysts need interpretable indicators without reading source code.
 
+## Forecasting Scope
+
+Current forecasting-like behavior is trend monitoring and period comparison over observed Tracker jobs.
+
+Predictive forecasting, ML models and XAI forecast explanations are not implemented yet. See
+[Forecasting scope](forecasting-scope.md).
+
 ## Public Endpoints
 
 - `GET /projector/health`

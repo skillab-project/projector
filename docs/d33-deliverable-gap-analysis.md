@@ -28,7 +28,7 @@ The main gap is not descriptive analytics. The main gap is wording and scope ali
 | Sector skills comparison | Implemented through `POST /projector/sector-skills-comparison`. | Keep wording. |
 | Regional-sectoral distribution | Implemented through `POST /projector/regional-sectoral`. | Keep wording after PR #57 / main merge. |
 | Multidimensional interpretation | Implemented across skill, region, sector and time views. | Keep wording, but avoid implying a single predictive model. |
-| Forecasting | Implemented only as trend-based monitoring and period comparison. | Decide future forecasting scope. See #59. |
+| Forecasting | Implemented only as trend-based monitoring and period comparison. | Predictive forecasting is deferred. See [Forecasting scope](forecasting-scope.md) and #59. |
 | Predictive ML / XAI | Not implemented in Projector runtime. | Remove from implemented claims or mark as future work. |
 | Supply-side analytics | Not implemented in current Projector runtime. | Remove from implemented claims unless covered by another component. |
 | Empirical case studies | Features exist, but real case-study outputs/figures are not in the repo. | Add real outputs or frame as validation/demo scenarios. |
