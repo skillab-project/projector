@@ -1,8 +1,10 @@
 import argparse
 import asyncio
+import logging
 import os
 import sys
 from datetime import date, datetime, timezone
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +18,8 @@ from scripts.backfill_sectoral_snapshots import backfill_snapshots, parse_region
 
 SECONDS_PER_MONTH = 30 * 24 * 60 * 60
 SECONDS_PER_DAY = 24 * 60 * 60
+LOGGER_NAME = "sector_snapshot_scheduler"
+logger = logging.getLogger(LOGGER_NAME)
 
 
 def env_int(name: str, default: int):
@@ -37,6 +41,39 @@ def env_regions(name: str):
     if not value:
         return None
     return parse_regions([value])
+
+
+def setup_logging(log_file: str, debug: bool):
+    log_path = Path(log_file)
+    if not log_path.is_absolute():
+        log_path = REPO_ROOT / log_path
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    logger.handlers.clear()
+
+    formatter = logging.Formatter(
+        fmt="[%(asctime)s] %(levelname)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
+    console = logging.StreamHandler()
+    console.setLevel(logging.DEBUG if debug else logging.INFO)
+    console.setFormatter(formatter)
+
+    file_handler = RotatingFileHandler(
+        log_path,
+        maxBytes=2_000_000,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(console)
+    logger.addHandler(file_handler)
+    logger.info("logging initialized: file=%s debug=%s", log_path, debug)
 
 
 def normalize_completed_at(value):
@@ -158,6 +195,8 @@ async def run_scheduled_refresh(
         raise ValueError("--check-interval-days must be greater than 0")
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL not configured")
+    if not logger.handlers:
+        setup_logging("logs/sector_snapshot_scheduler.log", False)
 
     store = SectorSnapshotStore(DATABASE_URL)
     check_interval_seconds = check_interval_days * SECONDS_PER_DAY
@@ -181,25 +220,32 @@ async def run_scheduled_refresh(
             if item["due"]
         ]
         if due:
-            print(
+            logger.info(
                 "scheduled sector snapshot refresh due: "
                 f"at={started_at} years={start_year}-{end_year} "
                 f"interval_months={interval_months} due={due} "
                 f"plan={[format_plan_item(item) for item in plan]}"
             )
-            await backfill_snapshots(
-                start_year=start_year,
-                end_year=end_year,
-                regions=regions,
-                include_global=include_global,
-                page_size=page_size,
-                page_concurrency=page_concurrency,
-                max_retries=max_retries,
-            )
+            try:
+                await backfill_snapshots(
+                    start_year=start_year,
+                    end_year=end_year,
+                    regions=regions,
+                    include_global=include_global,
+                    page_size=page_size,
+                    page_concurrency=page_concurrency,
+                    max_retries=max_retries,
+                )
+            except Exception:
+                logger.exception(
+                    "scheduled sector snapshot refresh failed: "
+                    f"at={datetime.now().isoformat(timespec='seconds')} due={due}"
+                )
+                raise
             finished_at = datetime.now().isoformat(timespec="seconds")
-            print(f"scheduled sector snapshot refresh completed: at={finished_at}")
+            logger.info("scheduled sector snapshot refresh completed: at=%s", finished_at)
         else:
-            print(
+            logger.info(
                 "scheduled sector snapshot refresh skipped: "
                 f"at={started_at} years={start_year}-{end_year} "
                 f"interval_months={interval_months} next_check_days={check_interval_days} "
@@ -238,6 +284,17 @@ def main():
     parser.add_argument("--page-size", type=int, default=env_int("SNAPSHOT_PAGE_SIZE", 500))
     parser.add_argument("--page-concurrency", type=int, default=env_int("SNAPSHOT_PAGE_CONCURRENCY", 4))
     parser.add_argument("--max-retries", type=int, default=env_int("SNAPSHOT_MAX_RETRIES", 5))
+    parser.add_argument(
+        "--log-file",
+        default=os.getenv("SNAPSHOT_SCHEDULER_LOG_FILE", "logs/sector_snapshot_scheduler.log"),
+        help="Rotating scheduler log file path.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=env_bool("SNAPSHOT_DEBUG", False),
+        help="Enable DEBUG logs on console and file.",
+    )
     args = parser.parse_args()
 
     if args.end_year < args.start_year:
@@ -253,6 +310,7 @@ def main():
     if args.max_retries < 1:
         raise ValueError("--max-retries must be greater than 0")
 
+    setup_logging(args.log_file, args.debug)
     try:
         asyncio.run(
             run_scheduled_refresh(

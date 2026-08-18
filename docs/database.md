@@ -4,6 +4,9 @@ PostgreSQL stores yearly sector snapshots used by Sector Overview and Sector Ski
 
 Related issues: #44, #54.
 
+Production bootstrap and scheduler operations are summarized in
+[Production snapshots](production-snapshots.md).
+
 ## Local DB
 
 ```bash
@@ -210,6 +213,8 @@ Configure with environment variables:
 | `SNAPSHOT_PAGE_SIZE` | `500` | Tracker page size |
 | `SNAPSHOT_PAGE_CONCURRENCY` | `4` | parallel Tracker pages |
 | `SNAPSHOT_MAX_RETRIES` | `5` | retries per page |
+| `SNAPSHOT_SCHEDULER_LOG_FILE` | `logs/sector_snapshot_scheduler.log` | rotating scheduler log |
+| `SNAPSHOT_DEBUG` | `false` | verbose scheduler console logs |
 
 Example:
 
