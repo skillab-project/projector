@@ -861,6 +861,14 @@ def metric_with_info(label: str, value, info: str, **kwargs):
     st.metric(label, value, help=info, **kwargs)
 
 
+def normalize_date_range(value, fallback):
+    if isinstance(value, tuple) and len(value) == 2:
+        return [pd.to_datetime(value[0]), pd.to_datetime(value[1])]
+    if isinstance(value, list) and len(value) == 2:
+        return [pd.to_datetime(value[0]), pd.to_datetime(value[1])]
+    return fallback
+
+
 ANALYZE_ENDPOINT = "POST /projector/analyze-skills"
 SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
 SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
@@ -916,12 +924,12 @@ with st.sidebar:
     if dashboard_view == "skill":
         keywords = st.text_input(T['keywords'], "software")
         location = st.text_input(T['location'], "")
-        date_range = st.date_input(T['date_range'], date_range)
+        date_range = normalize_date_range(st.date_input(T['date_range'], date_range), date_range)
         submit_button = st.button(T["submit_general"], use_container_width=True)
     elif dashboard_view == "temporal":
         keywords = st.text_input(T['keywords'], "software")
         location = st.text_input(T['location'], "")
-        date_range = st.date_input(T['date_range'], date_range, key="temporal_date_range")
+        date_range = normalize_date_range(st.date_input(T['date_range'], date_range, key="temporal_date_range"), date_range)
         temporal_label = st.radio(
             T["temporal_granularity"],
             list(T["temporal_granularity_options"].values()),
