@@ -20,7 +20,7 @@ sectors = job["sectors"]
 count(jobs)
 ```
 
-## Skill Analyzer
+## Job Demand Overview
 
 `frequency`
 
@@ -40,7 +40,7 @@ count(distinct sectors where skill appears)
 sector with max count for that skill
 ```
 
-## Temporal Projections
+## Temporal Analysis
 
 `period`
 

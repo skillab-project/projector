@@ -27,7 +27,7 @@ Related issues: #3, #7, #8, #44, #47, #48, #52, #54.
 }
 ```
 
-## Skill Ranking
+## Job Demand Overview / Skill Ranking
 
 ```json
 {
@@ -43,7 +43,7 @@ Related issues: #3, #7, #8, #44, #47, #48, #52, #54.
 
 `sector_spread` and `primary_sector` use Tracker `job["sectors"]`.
 
-## Temporal Projections Response
+## Temporal Analysis Response
 
 `POST /projector/temporal-projections`
 

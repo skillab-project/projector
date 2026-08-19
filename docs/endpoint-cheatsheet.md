@@ -8,18 +8,18 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 
 | Endpoint | Use it when you need | Returns in one sentence |
 | --- | --- | --- |
-| `POST /projector/analyze-skills` | A full dashboard snapshot | Skills, sectors, employers, titles, trends, geography and optional Tracker sector intelligence |
+| `POST /projector/analyze-skills` | Job Demand Overview | Composition of a selected job-market slice: skills, sectors, employers, titles, trends and geography |
 | `POST /projector/sectoral-snapshot` | One-sector yearly snapshot or evolution | Static yearly sector rows enriched with skills, job titles and evolution metrics |
 | `POST /projector/sector-skills-comparison` | Multi-sector heatmap | Sectors x skills matrix for count, share, rank or growth |
 | `POST /projector/regional-sectoral` | Regional sector distribution | Static yearly sector distribution grouped by raw and NUTS-like regions |
 | `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
-| `POST /projector/temporal-projections` | Time-granular skill movement | Monthly, quarterly or yearly skill series plus short-term baseline projections |
+| `POST /projector/temporal-projections` | Temporal Analysis | Monthly, quarterly or yearly evolution of the selected job-market slice |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
 ## `POST /projector/analyze-skills`
 
-Main endpoint for dashboards and analytical clients.
+Main endpoint for Job Demand Overview. It describes the composition of the selected job-market slice.
 
 ### Minimal Request
 
@@ -216,7 +216,7 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
 
 ## `POST /projector/temporal-projections`
 
-Use this when you need monthly, quarterly or yearly skill-demand movement.
+Use this for Temporal Analysis: monthly, quarterly or yearly evolution of the same keyword/date/region job-market slice.
 
 ### Minimal Request
 

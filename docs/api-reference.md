@@ -18,7 +18,7 @@ Content-Type: application/x-www-form-urlencoded
 
 ## POST `/projector/analyze-skills`
 
-Runs the main labor-market analysis.
+Runs Job Demand Overview: a composition analysis of the selected job-market slice.
 
 ### Request Fields
 
@@ -534,7 +534,7 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
 
 ## POST `/projector/temporal-projections`
 
-Aggregates Tracker jobs by `upload_date` and returns skill demand across monthly, quarterly or yearly periods.
+Runs Temporal Analysis: aggregates Tracker jobs by `upload_date` and returns evolution across monthly, quarterly or yearly periods.
 
 This endpoint also returns a short-term baseline projection. The projection is not an ML forecast: it extends the recent average count delta for each skill.
 
