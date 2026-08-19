@@ -117,6 +117,12 @@ translations = {
         'period_job_volume': "Volume job per periodo",
         'skill_time_series': "Serie temporale skill",
         'baseline_forecast': "Baseline forecast",
+        'statistical_evidence': "Evidenza statistica",
+        'statistical_evidence_help': "Test chi-square 2x2 sui conteggi osservati. Indica evidenza statistica per una differenza, non prova causalità o shortage.",
+        'p_value': "p-value",
+        'effect_size': "Effect size",
+        'significant': "Significativo",
+        'not_significant': "Non significativo",
         'submit_sectoral': "Lancia Sector Overview",
         'sectoral_time_mode': "Finestra settoriale",
         'sector_filter': "Filtro settori (virgola)",
@@ -324,6 +330,12 @@ translations = {
         'period_job_volume': "Job volume by period",
         'skill_time_series': "Skill time series",
         'baseline_forecast': "Baseline forecast",
+        'statistical_evidence': "Statistical evidence",
+        'statistical_evidence_help': "2x2 chi-square test on observed counts. It indicates statistical evidence for a difference, not causality or shortage proof.",
+        'p_value': "p-value",
+        'effect_size': "Effect size",
+        'significant': "Significant",
+        'not_significant': "Not significant",
         'submit_sectoral': "Run Sector Overview",
         'sectoral_time_mode': "Sectoral window",
         'sector_filter': "Sector filter (comma-separated)",
@@ -540,6 +552,7 @@ DEV_LABELS = {
         "Skill transversality": "Transversalità skill",
         "Sector skills comparison": "Confronto settori-skill",
         "Selected sector focus": "Focus settore selezionato",
+        "Statistical evidence": "Evidenza statistica",
     },
     "EN": {}
 }
@@ -755,6 +768,68 @@ def get_temporal_projection_data(api_base_url: str, payload: dict, timeout_secon
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
 
 
+def get_statistical_comparison_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/statistical-comparison",
+            data=payload,
+            timeout=min(int(timeout_seconds), 60)
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def render_statistical_evidence(payload: dict):
+    if not payload:
+        return
+    evidence = get_statistical_comparison_data(
+        st.session_state.api_base_url,
+        payload,
+        st.session_state.backend_timeout,
+    )
+    with st.expander(T["statistical_evidence"], expanded=False):
+        if not evidence or "_error" in evidence:
+            st.info(evidence.get("_error", T["no_data"]) if isinstance(evidence, dict) else T["no_data"])
+            return
+        status_label = T["significant"] if evidence.get("significant") else T["not_significant"]
+        c1, c2, c3 = st.columns(3)
+        c1.metric(T["p_value"], evidence.get("p_value"))
+        c2.metric(T["effect_size"], evidence.get("effect_size_label"))
+        c3.metric(T["statistical_evidence"], status_label)
+        st.caption(evidence.get("interpretation", ""))
+        warnings = evidence.get("warnings") or []
+        for warning in warnings:
+            st.warning(warning)
+        dev_info(
+            "Statistical evidence",
+            STATISTICAL_COMPARISON_ENDPOINT,
+            {
+                "method": "chi_square_2x2",
+                "p_value": 0.013,
+                "effect_size": 0.22,
+                "effect_size_label": "small",
+                "significant": True,
+            },
+            [
+                "p_value",
+                "statistic",
+                "effect_size",
+                "effect_size_label",
+                "significant",
+                "interpretation",
+                "warnings[]",
+            ],
+            payload,
+        )
+
+
 def render_refresh_status_notice(response: dict):
     refresh_status = (response or {}).get("refresh_status") or {}
     if (response or {}).get("data_source") != "postgres":
@@ -876,6 +951,7 @@ SECTOR_SKILLS_COMPARISON_ENDPOINT = "POST /projector/sector-skills-comparison"
 REGIONAL_SECTORAL_ENDPOINT = "POST /projector/regional-sectoral"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
 TEMPORAL_PROJECTIONS_ENDPOINT = "POST /projector/temporal-projections"
+STATISTICAL_COMPARISON_ENDPOINT = "POST /projector/statistical-comparison"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
 
@@ -2038,7 +2114,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 st.header(T["temporal_header"], help=T["temporal_help"])
             with h_info:
                 dev_info(
-                    "Temporal projections",
+                    "Temporal analysis",
                     TEMPORAL_PROJECTIONS_ENDPOINT,
                     {
                         "status": "completed",
@@ -2134,6 +2210,32 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                             "growth_vs_previous": st.column_config.TextColumn("growth (i)", help=STAT_HELP["skill_growth"]),
                         },
                     )
+                    period_totals = {row.get("period"): row.get("job_count", 0) for row in periods}
+                    evidence_skill = next(
+                        (
+                            skill for skill in skills
+                            if len(skill.get("series", [])) >= 2
+                        ),
+                        None,
+                    )
+                    if evidence_skill:
+                        evidence_series = evidence_skill.get("series", [])
+                        previous_row = evidence_series[-2]
+                        current_row = evidence_series[-1]
+                        current_period = current_row.get("period")
+                        previous_period = previous_row.get("period")
+                        statistical_payload = {
+                            "comparison_type": "temporal",
+                            "group_a_label": f"{evidence_skill.get('name')} in {current_period}",
+                            "group_a_count": int(current_row.get("count", 0)),
+                            "group_a_total": int(period_totals.get(current_period, 0)),
+                            "group_b_label": f"{evidence_skill.get('name')} in {previous_period}",
+                            "group_b_count": int(previous_row.get("count", 0)),
+                            "group_b_total": int(period_totals.get(previous_period, 0)),
+                            "alpha": 0.05,
+                        }
+                        if statistical_payload["group_a_total"] and statistical_payload["group_b_total"]:
+                            render_statistical_evidence(statistical_payload)
 
                 df_forecast = pd.DataFrame(forecast_rows)
                 if not df_forecast.empty:
@@ -2252,6 +2354,40 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         "growth_value": st.column_config.NumberColumn("growth", help=STAT_HELP["skill_growth"]),
                     }
                 )
+                df_comparison = pd.DataFrame(comparison_rows)
+                if {"sector_label", "label", "count", "share"}.issubset(df_comparison.columns):
+                    sectors_for_test = [s for s in df_comparison["sector_label"].dropna().unique().tolist()]
+                    skills_for_test = [s for s in df_comparison["label"].dropna().unique().tolist()]
+                    if len(sectors_for_test) >= 2 and skills_for_test:
+                        selected_skill_for_test = skills_for_test[0]
+                        row_a = df_comparison[
+                            (df_comparison["sector_label"] == sectors_for_test[0])
+                            & (df_comparison["label"] == selected_skill_for_test)
+                        ]
+                        row_b = df_comparison[
+                            (df_comparison["sector_label"] == sectors_for_test[1])
+                            & (df_comparison["label"] == selected_skill_for_test)
+                        ]
+                        if not row_a.empty and not row_b.empty:
+                            row_a = row_a.iloc[0]
+                            row_b = row_b.iloc[0]
+                            share_a = float(row_a.get("share") or 0)
+                            share_b = float(row_b.get("share") or 0)
+                            total_a = int(round(float(row_a.get("count", 0)) / share_a)) if share_a > 0 else 0
+                            total_b = int(round(float(row_b.get("count", 0)) / share_b)) if share_b > 0 else 0
+                            if total_a and total_b:
+                                render_statistical_evidence(
+                                    {
+                                        "comparison_type": "sector_skill",
+                                        "group_a_label": f"{selected_skill_for_test} in {sectors_for_test[0]}",
+                                        "group_a_count": int(row_a.get("count", 0)),
+                                        "group_a_total": total_a,
+                                        "group_b_label": f"{selected_skill_for_test} in {sectors_for_test[1]}",
+                                        "group_b_count": int(row_b.get("count", 0)),
+                                        "group_b_total": total_b,
+                                        "alpha": 0.05,
+                                    }
+                                )
             elif sector_skills_comparison_response.get("message"):
                 st.info(sector_skills_comparison_response["message"])
             else:

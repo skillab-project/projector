@@ -2,7 +2,7 @@
 
 Current response fields. Metric formulas live in [Statistics](statistic.md).
 
-Related issues: #3, #7, #8, #44, #47, #48, #52, #54.
+Related issues: #3, #4, #7, #8, #44, #47, #48, #52, #54, #74.
 
 ## Root Response
 
@@ -90,6 +90,31 @@ Skill row:
   "is_digital": true,
   "series": [],
   "forecast": []
+}
+```
+
+## Statistical Comparison Response
+
+`POST /projector/statistical-comparison`
+
+```json
+{
+  "status": "completed",
+  "comparison_type": "sector_skill",
+  "method": "chi_square_2x2",
+  "alpha": 0.05,
+  "significant": true,
+  "statistic": 6.06,
+  "p_value": 0.0138,
+  "effect_size": 0.1741,
+  "effect_size_label": "small",
+  "interpretation": "Observed difference is statistically significant...",
+  "groups": [
+    { "label": "ICT", "count": 40, "total": 100, "share": 0.4 },
+    { "label": "Education", "count": 20, "total": 100, "share": 0.2 }
+  ],
+  "expected_counts": [[30.0, 70.0], [30.0, 70.0]],
+  "warnings": []
 }
 ```
 

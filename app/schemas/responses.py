@@ -109,6 +109,29 @@ class TemporalProjectionsResponse(BaseModel):
     insights: TemporalProjectionsInsights
 
 
+class StatisticalComparisonGroup(BaseModel):
+    label: str
+    count: int
+    total: int
+    share: float
+
+
+class StatisticalComparisonResponse(BaseModel):
+    status: str
+    comparison_type: Literal["temporal", "sector_skill", "regional_sector", "sector_evolution", "generic"]
+    method: Literal["chi_square_2x2"]
+    alpha: float
+    significant: bool
+    statistic: float
+    p_value: float
+    effect_size: float
+    effect_size_label: str
+    interpretation: str
+    groups: List[StatisticalComparisonGroup]
+    expected_counts: List[List[float]]
+    warnings: List[str] = Field(default_factory=list)
+
+
 # -----------------------------
 # Regional projection models
 # -----------------------------
