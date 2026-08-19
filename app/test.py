@@ -3355,6 +3355,245 @@ def test_endpoint_statistical_comparison_rejects_invalid_counts():
     assert response.json()["detail"]["error"]["code"] == "invalid_group_a"
 
 
+def _e2e_sector_snapshot_store_payload():
+    return {
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 100,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 40,
+                        "job_share": 0.4,
+                        "total_skill_mentions": 80,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 12, "frequency": 0.15},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 8, "frequency": 0.1},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 12, "frequency": 0.15},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 8, "frequency": 0.1},
+                        ],
+                        "top_job_titles": [{"name": "Developer", "count": 10}],
+                    },
+                    {
+                        "sector": "Education",
+                        "sector_label": "Education",
+                        "job_count": 60,
+                        "job_share": 0.6,
+                        "total_skill_mentions": 120,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 24, "frequency": 0.2},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 24, "frequency": 0.2},
+                        ],
+                        "top_job_titles": [{"name": "Teacher", "count": 20}],
+                    },
+                ],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 140,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 70,
+                        "job_share": 0.5,
+                        "total_skill_mentions": 140,
+                        "unique_skills": 3,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 28, "frequency": 0.2},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 14, "frequency": 0.1},
+                            {"skill_id": "skill-cloud", "label": "Cloud", "count": 21, "frequency": 0.15},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 28, "frequency": 0.2},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 14, "frequency": 0.1},
+                            {"skill_id": "skill-cloud", "label": "Cloud", "count": 21, "frequency": 0.15},
+                        ],
+                        "top_job_titles": [{"name": "Developer", "count": 25}],
+                    },
+                    {
+                        "sector": "Education",
+                        "sector_label": "Education",
+                        "job_count": 70,
+                        "job_share": 0.5,
+                        "total_skill_mentions": 140,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 7, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 28, "frequency": 0.2},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 7, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 28, "frequency": 0.2},
+                        ],
+                        "top_job_titles": [{"name": "Teacher", "count": 30}],
+                    },
+                ],
+            },
+        },
+        "regional_sectoral_payload": {
+            "status": "completed",
+            "year": 2024,
+            "data_source": "postgres",
+            "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+            "regional_sectoral": {
+                "raw": [
+                    {
+                        "code": "IT",
+                        "total_jobs": 140,
+                        "top_sectors": [
+                            {
+                                "sector": "ICT",
+                                "sector_code": "ICT",
+                                "count": 70,
+                                "share_in_region": 50.0,
+                                "specialization": 1.0,
+                            }
+                        ],
+                    }
+                ],
+                "nuts1": [],
+                "nuts2": [],
+                "nuts3": [],
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+@pytest.mark.e2e
+def test_e2e_intelligence_api_flow_uses_snapshot_temporal_and_statistical_algorithms():
+    store = _FakeSectorSnapshotStore(_e2e_sector_snapshot_store_payload())
+    temporal_jobs = [
+        {"upload_date": "2024-01-10", "skills": ["skill-python"], "location_code": "IT"},
+        {"upload_date": "2024-04-10", "skills": ["skill-python"], "location_code": "IT"},
+        {"upload_date": "2024-04-20", "skills": ["skill-python", "skill-sql"], "location_code": "IT"},
+    ]
+    engine.skill_map = {
+        "skill-python": {"label": "Python", "is_green": False, "is_digital": True},
+        "skill-sql": {"label": "SQL", "is_green": False, "is_digital": True},
+    }
+
+    with patch.object(service, "sector_snapshot_store", store), \
+         patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skill_names:
+        m_fetch.return_value = temporal_jobs
+        m_fetch_skill_names.return_value = None
+
+        snapshot_response = client.post("/projector/sectoral-snapshot", data={
+            "year": "2024",
+            "reference_year": "2023",
+            "locations": "IT",
+        })
+        comparison_response = client.post("/projector/sector-skills-comparison", data={
+            "year": "2024",
+            "reference_year": "2023",
+            "locations": "IT",
+            "metric": "growth",
+        })
+        regional_response = client.post("/projector/regional-sectoral", data={
+            "year": "2024",
+            "locations": "IT",
+            "top_k": "5",
+        })
+        temporal_response = client.post("/projector/temporal-projections", data={
+            "keywords": "developer",
+            "locations": "IT",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+            "granularity": "quarterly",
+            "forecast_periods": "1",
+            "top_k": "2",
+        })
+
+    assert snapshot_response.status_code == 200
+    snapshot = snapshot_response.json()
+    ict = next(sector for sector in snapshot["sectors"] if sector["sector"] == "ICT")
+    assert ict["job_count"] == 70
+    assert ict["evolution"]["job_delta"] == 30
+    assert ict["evolution"]["job_growth_percentage"] == 0.75
+    assert ict["evolution"]["new_skill_count"] == 1
+    assert ict["top_skills"][0]["label"] == "Python"
+    assert ict["top_skills"][0]["share_in_sector"] == 0.2
+    assert ict["top_skills"][0]["growth_vs_reference_year"] == round((28 - 12) / 12, 6)
+    assert ict["top_skills"][0]["sector_breadth"] == 2
+
+    assert comparison_response.status_code == 200
+    comparison = comparison_response.json()
+    python_ict = next(
+        row for row in comparison["matrix"]
+        if row["sector"] == "ICT" and row["skill_id"] == "skill-python"
+    )
+    assert comparison["metric"] == "growth"
+    assert python_ict["count"] == 28
+    assert python_ict["share"] == 0.2
+    assert python_ict["rank"] == 1
+    assert python_ict["growth"] == round((28 - 12) / 12, 6)
+    assert python_ict["value"] == python_ict["growth_value"]
+
+    assert regional_response.status_code == 200
+    regional = regional_response.json()
+    assert regional["regional_sectoral"]["raw"][0]["code"] == "IT"
+    assert regional["regional_sectoral"]["raw"][0]["top_sectors"][0]["sector"] == "ICT"
+
+    assert temporal_response.status_code == 200
+    temporal = temporal_response.json()
+    assert temporal["total_jobs"] == 3
+    assert [period["period"] for period in temporal["insights"]["periods"]] == [
+        "2024-Q1",
+        "2024-Q2",
+        "2024-Q3",
+        "2024-Q4",
+    ]
+    assert [period["job_count"] for period in temporal["insights"]["periods"]] == [1, 2, 0, 0]
+    assert temporal["insights"]["periods"][1]["growth_vs_previous"] == 100.0
+    python_temporal = next(skill for skill in temporal["insights"]["skills"] if skill["name"] == "Python")
+    assert python_temporal["series"][1]["growth_vs_previous"] == 100.0
+    assert python_temporal["growth_rate"] == 0.0
+    assert python_temporal["forecast"][0]["method"] == "last_delta_baseline"
+
+    evidence_response = client.post("/projector/statistical-comparison", data={
+        "comparison_type": "sector_skill",
+        "group_a_label": "Python in ICT",
+        "group_a_count": str(python_ict["count"]),
+        "group_a_total": str(ict["total_skill_mentions"]),
+        "group_b_label": "Python in Education",
+        "group_b_count": "7",
+        "group_b_total": "140",
+        "alpha": "0.05",
+    })
+
+    assert evidence_response.status_code == 200
+    evidence = evidence_response.json()
+    assert evidence["method"] == "chi_square_2x2"
+    assert evidence["groups"][0]["share"] == 0.2
+    assert evidence["groups"][1]["share"] == 0.05
+    assert evidence["p_value"] < 0.05
+    assert evidence["significant"] is True
+    assert evidence["effect_size_label"] in {"small", "medium"}
+    m_fetch.assert_awaited_once()
+    m_fetch_skill_names.assert_awaited_once()
+    assert set(m_fetch_skill_names.await_args.args[0]) == {"skill-python", "skill-sql"}
+
+
 import csv
 from pathlib import Path
 
