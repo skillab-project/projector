@@ -9,9 +9,9 @@ Related issue: #62.
 | Find / claim | Replace with |
 | --- | --- |
 | `D3.2` when referring to this deliverable | `D3.3` |
-| predictive forecasting implemented | trend-based monitoring implemented now; predictive forecasting planned |
-| AI/ML forecasting model implemented | baseline projection / observed trend analysis now; model design planned |
-| XAI forecasting explanations implemented | planned after predictive model design |
+| predictive forecasting implemented | trend-based monitoring and period comparison implemented |
+| AI/ML forecasting model implemented | baseline projection / observed trend analysis implemented |
+| XAI forecasting explanations implemented | not part of the current Projector runtime |
 | official NUTS mapping | NUTS-like projection, source-dependent |
 | NACE/ISCO sector mapping | Tracker API `job["sectors"]` |
 | shortage proof | observed statistical evidence |
@@ -35,7 +35,7 @@ The Projector implements predictive ML forecasting and XAI explanations.
 Use:
 
 ```text
-The implemented forecasting-related functionality is currently limited to trend-based monitoring and short-term baseline projection from observed counts. Predictive ML forecasting (#80), confidence intervals (#81), XAI explanations (#82) and scenario simulation (#83) are planned follow-up work and are not part of the current runtime.
+The implemented forecasting-related functionality is currently limited to trend-based monitoring and short-term baseline projection from observed counts. Predictive ML forecasting, confidence intervals, XAI explanations and scenario simulation are not part of the current Projector runtime described by D3.3.
 ```
 
 ## Sectoral Wording
