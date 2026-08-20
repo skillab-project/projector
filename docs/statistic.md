@@ -2,7 +2,7 @@
 
 Concise formulas for current API-only metrics.
 
-Related issues: #7, #8, #47, #48, #52.
+Related issues: #3, #7, #8, #47, #48, #52.
 
 ## Core Source
 
@@ -20,7 +20,7 @@ sectors = job["sectors"]
 count(jobs)
 ```
 
-## Skill Analyzer
+## Job Demand Overview
 
 `frequency`
 
@@ -39,6 +39,44 @@ count(distinct sectors where skill appears)
 ```text
 sector with max count for that skill
 ```
+
+## Temporal Analysis
+
+`period`
+
+```text
+bucket(upload_date, granularity)
+```
+
+Granularity can be monthly, quarterly or yearly.
+
+`period_job_count`
+
+```text
+count(jobs where upload_date in period)
+```
+
+`skill_period_count`
+
+```text
+count(skill mentions where upload_date in period)
+```
+
+`growth_vs_previous`
+
+```text
+(count_current_period - count_previous_period) / count_previous_period * 100
+```
+
+If previous count is `0` and current count is greater than `0`, growth is `new_entry`.
+
+`forecast.projected_count`
+
+```text
+latest_count + average(last up to 3 period deltas) * forecast_step
+```
+
+This is a short-term baseline projection, not an ML forecast.
 
 ## Sector Counts
 

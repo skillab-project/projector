@@ -2,7 +2,7 @@
 
 Current response fields. Metric formulas live in [Statistics](statistic.md).
 
-Related issues: #7, #8, #44, #47, #48, #52, #54.
+Related issues: #3, #7, #8, #44, #47, #48, #52, #54.
 
 ## Root Response
 
@@ -27,7 +27,7 @@ Related issues: #7, #8, #44, #47, #48, #52, #54.
 }
 ```
 
-## Skill Ranking
+## Job Demand Overview / Skill Ranking
 
 ```json
 {
@@ -42,6 +42,56 @@ Related issues: #7, #8, #44, #47, #48, #52, #54.
 ```
 
 `sector_spread` and `primary_sector` use Tracker `job["sectors"]`.
+
+## Temporal Analysis Response
+
+`POST /projector/temporal-projections`
+
+```json
+{
+  "status": "completed",
+  "total_jobs": 120,
+  "insights": {
+    "window": {
+      "min_date": "2024-01-01",
+      "max_date": "2024-12-31"
+    },
+    "granularity": "monthly",
+    "forecast_method": "last_delta_baseline",
+    "periods": [],
+    "skills": []
+  }
+}
+```
+
+Period row:
+
+```json
+{
+  "period": "2024-01",
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "job_count": 30,
+  "growth_vs_previous": null
+}
+```
+
+Skill row:
+
+```json
+{
+  "skill_id": "skill-python",
+  "name": "Python",
+  "total_count": 42,
+  "latest_count": 12,
+  "growth_rate": 20.0,
+  "trend_type": "emerging",
+  "is_green": false,
+  "is_digital": true,
+  "series": [],
+  "forecast": []
+}
+```
 
 ## Count Lists
 

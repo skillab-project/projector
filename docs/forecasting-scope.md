@@ -14,7 +14,7 @@ Predictive forecasting is deferred until the data, validation and model requirem
 
 ## Implemented Now
 
-`Skill Analyzer`
+`Job Demand Overview`
 
 - compares skills inside the selected job/date slice
 - returns emerging, declining, stable and new-entry skill signals
@@ -24,6 +24,13 @@ Predictive forecasting is deferred until the data, validation and model requirem
 
 - compares two internal periods in the requested date range
 - reports market volume growth and skill growth
+
+`Temporal Analysis`
+
+- aggregates jobs by `upload_date`
+- supports monthly, quarterly and yearly granularity
+- reports period-level job growth and skill-level growth
+- returns a short-term baseline projection using recent count deltas
 
 `Sector Evolution`
 
@@ -53,6 +60,7 @@ Use:
 - `period comparison`
 - `year-over-year evolution`
 - `growth between selected periods`
+- `short-term baseline projection`
 
 Avoid for current implementation:
 

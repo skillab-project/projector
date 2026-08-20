@@ -23,6 +23,7 @@ This folder contains the maintained documentation for the current `app/` impleme
 ## Issue Coverage
 
 - #1: quick start and demo launch instructions.
+- #3: temporal projections by upload date, growth rates and short-term baseline projection.
 - #7: architecture, data flow and maintainability notes.
 - #8: endpoint cheatsheet and API reference.
 - #59: forecasting scope and predictive forecasting deferral.

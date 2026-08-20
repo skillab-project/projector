@@ -56,6 +56,59 @@ class TrendsContainer(BaseModel):
     trends: List[TrendItem] = Field(..., description="Skill-level trend items sorted by descending growth.")
 
 
+class TemporalPeriodItem(BaseModel):
+    period: str = Field(..., description="Period label in the selected granularity.")
+    start_date: str = Field(..., description="First date included in the period.")
+    end_date: str = Field(..., description="Last date included in the period.")
+    job_count: int = Field(..., description="Number of postings uploaded in the period.")
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = Field(
+        None,
+        description="Job-count growth versus the previous period."
+    )
+
+
+class TemporalSkillSeriesItem(BaseModel):
+    period: str
+    start_date: str
+    end_date: str
+    count: int = Field(..., description="Skill mentions in the period.")
+    share: float = Field(..., description="Skill mentions divided by period job count.")
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = None
+
+
+class TemporalSkillForecastItem(BaseModel):
+    period: str
+    projected_count: float
+    method: Literal["last_delta_baseline"]
+
+
+class TemporalSkillProjectionItem(BaseModel):
+    skill_id: str
+    name: str
+    total_count: int
+    latest_count: int
+    growth_rate: Optional[Union[float, Literal["new_entry"]]]
+    trend_type: Literal["emerging", "declining", "stable"]
+    is_green: bool
+    is_digital: bool
+    series: List[TemporalSkillSeriesItem]
+    forecast: List[TemporalSkillForecastItem]
+
+
+class TemporalProjectionsInsights(BaseModel):
+    window: dict[str, str]
+    granularity: Literal["monthly", "quarterly", "yearly"]
+    forecast_method: Literal["last_delta_baseline"]
+    periods: List[TemporalPeriodItem]
+    skills: List[TemporalSkillProjectionItem]
+
+
+class TemporalProjectionsResponse(BaseModel):
+    status: str
+    total_jobs: int
+    insights: TemporalProjectionsInsights
+
+
 # -----------------------------
 # Regional projection models
 # -----------------------------
