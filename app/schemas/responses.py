@@ -118,7 +118,14 @@ class StatisticalComparisonGroup(BaseModel):
 
 class StatisticalComparisonResponse(BaseModel):
     status: str
-    comparison_type: Literal["temporal", "sector_skill", "regional_sector", "sector_evolution", "generic"]
+    comparison_type: Literal[
+        "temporal",
+        "sector_skill",
+        "regional_skill",
+        "regional_sector",
+        "sector_evolution",
+        "generic",
+    ]
     method: Literal["chi_square_2x2"]
     alpha: float
     significant: bool
@@ -304,6 +311,8 @@ class SectorEvolution(BaseModel):
     reference_year: int
     job_count_current: int
     job_count_reference: int
+    total_jobs_current: int
+    total_jobs_reference: int
     job_delta: int
     job_growth_percentage: Union[float, Literal["new_entry"]]
     job_growth_value: float

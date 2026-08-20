@@ -93,7 +93,7 @@ Skill row:
 }
 ```
 
-## Statistical Comparison Response
+## Inferential Layer Response
 
 `POST /projector/statistical-comparison`
 

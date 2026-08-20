@@ -2187,6 +2187,8 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert len(sector["all_skills"]) == 2
     assert sector["evolution"]["job_count_current"] == 2
     assert sector["evolution"]["job_count_reference"] == 0
+    assert sector["evolution"]["total_jobs_current"] == 2
+    assert sector["evolution"]["total_jobs_reference"] == 0
     assert sector["evolution"]["job_growth_percentage"] == "new_entry"
     assert sector["evolution"]["new_skill_count"] == 2
     assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
@@ -2249,6 +2251,8 @@ async def test_projector_service_sectoral_snapshot_prefers_static_store():
     evolution = result["sectors"][0]["evolution"]
     assert evolution["job_count_current"] == 10
     assert evolution["job_count_reference"] == 8
+    assert evolution["total_jobs_current"] == 10
+    assert evolution["total_jobs_reference"] == 8
     assert evolution["job_delta"] == 2
     assert evolution["job_growth_percentage"] == 0.25
     assert evolution["growing_skill_count"] == 1
@@ -3456,6 +3460,18 @@ def test_statistical_comparison_handles_empty_and_large_effect_cases():
     assert large["effect_size_label"] == "large"
     assert large["significant"] is True
 
+    regional_skill = service.statistical_comparison(
+        comparison_type="regional_skill",
+        group_a_label="Python in ITC",
+        group_a_count=18,
+        group_a_total=50,
+        group_b_label="Python in other regions",
+        group_b_count=12,
+        group_b_total=120,
+    )
+    assert regional_skill["comparison_type"] == "regional_skill"
+    assert regional_skill["groups"][0]["share"] == 0.36
+
 
 @pytest.mark.integration
 def test_endpoint_statistical_comparison_contract():
@@ -3669,6 +3685,8 @@ def test_e2e_intelligence_api_flow_uses_snapshot_temporal_and_statistical_algori
     ict = next(sector for sector in snapshot["sectors"] if sector["sector"] == "ICT")
     assert ict["job_count"] == 70
     assert ict["evolution"]["job_delta"] == 30
+    assert ict["evolution"]["total_jobs_current"] == 140
+    assert ict["evolution"]["total_jobs_reference"] == 100
     assert ict["evolution"]["job_growth_percentage"] == 0.75
     assert ict["evolution"]["new_skill_count"] == 1
     assert ict["top_skills"][0]["label"] == "Python"

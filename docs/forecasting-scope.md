@@ -42,7 +42,7 @@ Predictive forecasting is deferred until the data, validation and model requirem
 - compares sectors x skills for one year
 - optionally compares skill counts between two selected years
 
-`Statistical Evidence`
+`Inferential Layer`
 
 - reports a baseline 2x2 chi-square p-value and effect size
 - works as an evidence layer inside temporal, sectoral and regional comparisons

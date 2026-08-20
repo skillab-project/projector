@@ -78,7 +78,7 @@ latest_count + average(last up to 3 period deltas) * forecast_step
 
 This is a short-term baseline projection, not an ML forecast.
 
-## Statistical Evidence
+## Inferential Layer
 
 `chi_square_2x2`
 
