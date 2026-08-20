@@ -78,6 +78,43 @@ latest_count + average(last up to 3 period deltas) * forecast_step
 
 This is a short-term baseline projection, not an ML forecast.
 
+## Statistical Evidence
+
+`chi_square_2x2`
+
+```text
+observed = [
+  [group_a_count, group_a_total - group_a_count],
+  [group_b_count, group_b_total - group_b_count]
+]
+```
+
+Expected counts:
+
+```text
+expected_cell = row_total * column_total / grand_total
+```
+
+Statistic:
+
+```text
+sum((observed_cell - expected_cell)^2 / expected_cell)
+```
+
+`p_value`
+
+```text
+chi-square survival probability with df = 1
+```
+
+`effect_size`
+
+```text
+sqrt(chi_square / grand_total)
+```
+
+This is an inferential evidence layer for observed differences. It does not prove shortage, causality, or future demand.
+
 ## Sector Counts
 
 `job_count`

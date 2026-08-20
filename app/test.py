@@ -3296,6 +3296,65 @@ def test_endpoint_temporal_projections_contract():
     m_skill_names.assert_awaited_once_with(["s1"])
 
 
+def test_statistical_comparison_chi_square_baseline():
+    result = service.statistical_comparison(
+        comparison_type="temporal",
+        group_a_label="Current period",
+        group_a_count=30,
+        group_a_total=100,
+        group_b_label="Previous period",
+        group_b_count=10,
+        group_b_total=100,
+        alpha=0.05,
+    )
+
+    assert result["status"] == "completed"
+    assert result["method"] == "chi_square_2x2"
+    assert result["significant"] is True
+    assert result["p_value"] < 0.05
+    assert result["effect_size_label"] in {"small", "medium"}
+    assert result["groups"][0]["share"] == 0.3
+    assert result["groups"][1]["share"] == 0.1
+
+
+@pytest.mark.integration
+def test_endpoint_statistical_comparison_contract():
+    response = client.post("/projector/statistical-comparison", data={
+        "comparison_type": "sector_skill",
+        "group_a_label": "ICT",
+        "group_a_count": "40",
+        "group_a_total": "100",
+        "group_b_label": "Education",
+        "group_b_count": "20",
+        "group_b_total": "100",
+        "alpha": "0.05",
+    })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["comparison_type"] == "sector_skill"
+    assert payload["method"] == "chi_square_2x2"
+    assert "p_value" in payload
+    assert "effect_size" in payload
+    assert len(payload["expected_counts"]) == 2
+    assert payload["groups"][0]["label"] == "ICT"
+
+
+@pytest.mark.integration
+def test_endpoint_statistical_comparison_rejects_invalid_counts():
+    response = client.post("/projector/statistical-comparison", data={
+        "group_a_label": "A",
+        "group_a_count": "11",
+        "group_a_total": "10",
+        "group_b_label": "B",
+        "group_b_count": "1",
+        "group_b_total": "10",
+    })
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_group_a"
+
+
 import csv
 from pathlib import Path
 

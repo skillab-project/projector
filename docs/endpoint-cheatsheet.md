@@ -15,6 +15,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/temporal-projections` | Temporal Analysis | Monthly, quarterly or yearly evolution of the selected job-market slice |
+| `POST /projector/statistical-comparison` | Inferential evidence layer | 2x2 chi-square p-value, effect size, warnings and interpretation |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
 ## `POST /projector/analyze-skills`
@@ -253,6 +254,34 @@ curl -X POST "http://127.0.0.1:8000/projector/temporal-projections" \
 | `skills[].series[].count` | Skill mentions in the period |
 | `skills[].growth_rate` | Latest period growth versus previous period |
 | `skills[].forecast[].projected_count` | Short-term baseline projection from recent count deltas |
+
+## `POST /projector/statistical-comparison`
+
+Use this as an inferential layer for existing comparison views.
+
+### Minimal Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/statistical-comparison" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "comparison_type=sector_skill" \
+  -d "group_a_label=ICT" \
+  -d "group_a_count=40" \
+  -d "group_a_total=100" \
+  -d "group_b_label=Education" \
+  -d "group_b_count=20" \
+  -d "group_b_total=100"
+```
+
+### How To Read It
+
+| Field | Meaning |
+| --- | --- |
+| `p_value` | Chi-square p-value for the observed 2x2 count difference |
+| `significant` | Whether `p_value < alpha` |
+| `effect_size` | Phi/Cramer's V for the 2x2 table |
+| `effect_size_label` | `negligible`, `small`, `medium`, or `large` |
+| `warnings[]` | Sample-size cautions, especially low expected counts |
 
 ## `POST /projector/stop`
 

@@ -11,6 +11,7 @@ from app.schemas.responses import (
     SectoralIntelligenceResponse,
     SectorSkillsComparisonResponse,
     SectoralSnapshotResponse,
+    StatisticalComparisonResponse,
     StopResponse,
     TemporalProjectionsResponse,
 )
@@ -190,6 +191,55 @@ async def temporal_projections(
         granularity=granularity,
         forecast_periods=forecast_periods,
         top_k=top_k,
+    )
+
+
+@router.post("/statistical-comparison", response_model=StatisticalComparisonResponse)
+async def statistical_comparison(
+        comparison_type: Literal["temporal", "sector_skill", "regional_sector", "sector_evolution", "generic"] = Form("generic"),
+        group_a_label: str = Form(...),
+        group_a_count: int = Form(...),
+        group_a_total: int = Form(...),
+        group_b_label: str = Form(...),
+        group_b_count: int = Form(...),
+        group_b_total: int = Form(...),
+        alpha: float = Form(0.05),
+):
+    """
+       Runs a baseline 2x2 chi-square comparison over observed count distributions.
+
+       This is an inferential evidence layer for comparison views. It does not prove
+       shortages or causality; it reports statistical evidence for an observed difference.
+    """
+    if group_a_count < 0 or group_b_count < 0 or group_a_total < 0 or group_b_total < 0:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_counts", "counts and totals must be non-negative"),
+        )
+    if group_a_count > group_a_total:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_group_a", "group_a_count cannot exceed group_a_total", "group_a_count"),
+        )
+    if group_b_count > group_b_total:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_group_b", "group_b_count cannot exceed group_b_total", "group_b_count"),
+        )
+    if alpha <= 0 or alpha >= 1:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_alpha", "alpha must be greater than 0 and lower than 1", "alpha"),
+        )
+    return service.statistical_comparison(
+        comparison_type=comparison_type,
+        group_a_label=group_a_label,
+        group_a_count=group_a_count,
+        group_a_total=group_a_total,
+        group_b_label=group_b_label,
+        group_b_count=group_b_count,
+        group_b_total=group_b_total,
+        alpha=alpha,
     )
 
 

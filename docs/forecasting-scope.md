@@ -42,6 +42,12 @@ Predictive forecasting is deferred until the data, validation and model requirem
 - compares sectors x skills for one year
 - optionally compares skill counts between two selected years
 
+`Statistical Evidence`
+
+- reports a baseline 2x2 chi-square p-value and effect size
+- works as an evidence layer inside temporal, sectoral and regional comparisons
+- does not prove shortage, causality or future demand
+
 ## Not Implemented Yet
 
 - predictive time-series forecasting
@@ -49,7 +55,7 @@ Predictive forecasting is deferred until the data, validation and model requirem
 - XAI forecasting explanations
 - scenario simulation
 - confidence intervals for future demand
-- statistical hypothesis testing with p-values
+- advanced statistical testing such as multiple-test correction or model-based inference
 
 ## Language To Use
 
@@ -61,6 +67,7 @@ Use:
 - `year-over-year evolution`
 - `growth between selected periods`
 - `short-term baseline projection`
+- `statistical evidence for observed differences`
 
 Avoid for current implementation:
 

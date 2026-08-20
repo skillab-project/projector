@@ -2,7 +2,7 @@
 
 Concise guide for developers working on the Projector API, dashboard, sector snapshots and documentation.
 
-Related issues: #1, #3, #7, #8, #44, #47, #48, #49, #50, #52, #54, #73.
+Related issues: #1, #3, #4, #7, #8, #44, #47, #48, #49, #50, #52, #54, #73, #74.
 
 ## Intelligence Design
 
@@ -86,6 +86,8 @@ Sector Intelligence
 Cross-Dimension Analysis
 ├── Sector Skills Comparison
 ├── Regional Sector Distribution
+├── Statistical Evidence
+│   inferential layer on existing comparisons
 └── future skill/region/time combinations
 ```
 
@@ -106,6 +108,10 @@ Sector Overview
 
 Sector Skills Comparison
 = compare many sectors against many skills
+
+Statistical Evidence
+= p-value and effect size for selected count comparisons
+= maps to D3.3 Dimension 4
 
 Skill Explorer
 = start from one skill
@@ -147,6 +153,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | --- | --- | --- | --- |
 | Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` |
 | Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` |
+| Statistical Evidence | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` |
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |

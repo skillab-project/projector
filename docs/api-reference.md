@@ -619,6 +619,45 @@ curl -X POST "http://127.0.0.1:8000/projector/temporal-projections" \
 }
 ```
 
+## POST `/projector/statistical-comparison`
+
+Runs a baseline 2x2 chi-square comparison over observed counts.
+
+Use it as an inferential evidence layer inside comparison views. It does not prove shortage or causality.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `comparison_type` | enum | no | `generic` | `temporal`, `sector_skill`, `regional_sector`, `sector_evolution`, or `generic` |
+| `group_a_label` | string | yes | none | Display label for group A |
+| `group_a_count` | integer | yes | none | Selected count in group A |
+| `group_a_total` | integer | yes | none | Total observations in group A |
+| `group_b_label` | string | yes | none | Display label for group B |
+| `group_b_count` | integer | yes | none | Selected count in group B |
+| `group_b_total` | integer | yes | none | Total observations in group B |
+| `alpha` | float | no | `0.05` | Significance threshold |
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "comparison_type": "sector_skill",
+  "method": "chi_square_2x2",
+  "alpha": 0.05,
+  "significant": true,
+  "statistic": 6.06,
+  "p_value": 0.0138,
+  "effect_size": 0.1741,
+  "effect_size_label": "small",
+  "interpretation": "Observed difference is statistically significant...",
+  "groups": [],
+  "expected_counts": [],
+  "warnings": []
+}
+```
+
 ## POST `/projector/stop`
 
 Sends a cooperative stop signal to the shared engine state.
