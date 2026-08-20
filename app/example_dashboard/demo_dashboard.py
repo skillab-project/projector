@@ -553,6 +553,7 @@ DEV_LABELS = {
         "Sector skills comparison": "Confronto settori-skill",
         "Selected sector focus": "Focus settore selezionato",
         "Statistical evidence": "Evidenza statistica",
+        "Inferential layer": "Layer inferenziale",
     },
     "EN": {}
 }
@@ -808,7 +809,7 @@ def render_statistical_evidence(payload: dict):
         for warning in warnings:
             st.warning(warning)
         dev_info(
-            "Statistical evidence",
+            "Inferential layer",
             STATISTICAL_COMPARISON_ENDPOINT,
             {
                 "method": "chi_square_2x2",
@@ -828,6 +829,114 @@ def render_statistical_evidence(payload: dict):
             ],
             payload,
         )
+
+
+def _safe_int(value) -> int:
+    try:
+        return int(float(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def build_regional_sector_statistical_payload(regions: list[dict], area_code: str, sector_label: str):
+    target_area = next((area for area in regions if area.get("code") == area_code), {})
+    target_sector = next(
+        (
+            sector for sector in target_area.get("top_sectors", [])
+            if sector.get("sector") == sector_label
+        ),
+        {},
+    )
+    group_a_total = _safe_int(target_area.get("total_jobs"))
+    group_a_count = _safe_int(target_sector.get("count"))
+    group_b_total = 0
+    group_b_count = 0
+    for area in regions:
+        if area.get("code") == area_code:
+            continue
+        area_total = _safe_int(area.get("total_jobs"))
+        match = next(
+            (
+                sector for sector in area.get("top_sectors", [])
+                if sector.get("sector") == sector_label
+            ),
+            {},
+        )
+        group_b_total += area_total
+        group_b_count += _safe_int(match.get("count"))
+    if not group_a_total or not group_b_total:
+        return None
+    return {
+        "comparison_type": "regional_sector",
+        "group_a_label": f"{sector_label} in {area_code}",
+        "group_a_count": group_a_count,
+        "group_a_total": group_a_total,
+        "group_b_label": f"{sector_label} in other regions",
+        "group_b_count": group_b_count,
+        "group_b_total": group_b_total,
+        "alpha": 0.05,
+    }
+
+
+def build_regional_skill_statistical_payload(regions: list[dict], area_code: str, skill_label: str):
+    target_area = next((area for area in regions if area.get("code") == area_code), {})
+    target_skill = next(
+        (
+            skill for skill in target_area.get("top_skills", [])
+            if skill.get("skill") == skill_label
+        ),
+        {},
+    )
+    group_a_total = _safe_int(target_area.get("total_jobs"))
+    group_a_count = _safe_int(target_skill.get("count"))
+    group_b_total = 0
+    group_b_count = 0
+    for area in regions:
+        if area.get("code") == area_code:
+            continue
+        match = next(
+            (
+                skill for skill in area.get("top_skills", [])
+                if skill.get("skill") == skill_label
+            ),
+            {},
+        )
+        group_b_total += _safe_int(area.get("total_jobs"))
+        group_b_count += _safe_int(match.get("count"))
+    if not group_a_total or not group_b_total:
+        return None
+    return {
+        "comparison_type": "regional_skill",
+        "group_a_label": f"{skill_label} in {area_code}",
+        "group_a_count": group_a_count,
+        "group_a_total": group_a_total,
+        "group_b_label": f"{skill_label} in other regions",
+        "group_b_count": group_b_count,
+        "group_b_total": group_b_total,
+        "alpha": 0.05,
+    }
+
+
+def build_sector_evolution_statistical_payload(sector: dict, current_year: int, snapshot_response: dict):
+    evolution = sector.get("evolution") or {}
+    sector_label = sector.get("sector_label") or sector.get("sector") or "sector"
+    current_total = _safe_int(evolution.get("total_jobs_current") or snapshot_response.get("total_jobs"))
+    reference_total = _safe_int(evolution.get("total_jobs_reference"))
+    current_count = _safe_int(evolution.get("job_count_current"))
+    reference_count = _safe_int(evolution.get("job_count_reference"))
+    reference_year = evolution.get("reference_year") or snapshot_response.get("reference_year")
+    if not current_total or not reference_total:
+        return None
+    return {
+        "comparison_type": "sector_evolution",
+        "group_a_label": f"{sector_label} in {current_year}",
+        "group_a_count": current_count,
+        "group_a_total": current_total,
+        "group_b_label": f"{sector_label} in {reference_year}",
+        "group_b_count": reference_count,
+        "group_b_total": reference_total,
+        "alpha": 0.05,
+    }
 
 
 def render_refresh_status_notice(response: dict):
@@ -1743,6 +1852,16 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     fig_reg.update_layout(yaxis={'categoryorder': 'total ascending'}, height=400)
                     st.plotly_chart(fig_reg, width="stretch", key=f"regional_skills_{target_code}")
 
+                    evidence_skill_label = None
+                    if not df_reg_skills.empty and "skill" in df_reg_skills.columns:
+                        evidence_skill_label = df_reg_skills.iloc[0].get("skill")
+                    regional_skill_payload = build_regional_skill_statistical_payload(
+                        selected_list,
+                        target_code,
+                        evidence_skill_label,
+                    ) if evidence_skill_label else None
+                    render_statistical_evidence(regional_skill_payload)
+
                     st.info(f"💡 **Insight Task 3.5**: {T['regional_insight'].format(target_code=target_code)}")
                 else:
                     st.warning(T["regional_no_level"].format(strategy=strategy))
@@ -1994,6 +2113,13 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                                     "specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["regional_sector_specialization"]),
                                 }
                             )
+                            evidence_sector_label = sector_rows[0].get("sector")
+                            regional_sector_payload = build_regional_sector_statistical_payload(
+                                regions_for_level,
+                                selected_area,
+                                evidence_sector_label,
+                            ) if evidence_sector_label else None
+                            render_statistical_evidence(regional_sector_payload)
 
                 with sector_first_tab:
                     if all_sector_options:
@@ -2980,6 +3106,14 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         format_growth_percentage(evolution.get("skill_churn")),
                         STAT_HELP["sector_skill_churn"],
                     )
+
+                render_statistical_evidence(
+                    build_sector_evolution_statistical_payload(
+                        snapshot_target,
+                        sectoral_snapshot_year,
+                        sectoral_snapshot_response,
+                    )
+                )
 
                 evo_a, evo_b = st.columns(2)
                 with evo_a:

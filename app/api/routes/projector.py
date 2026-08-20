@@ -196,7 +196,14 @@ async def temporal_projections(
 
 @router.post("/statistical-comparison", response_model=StatisticalComparisonResponse)
 async def statistical_comparison(
-        comparison_type: Literal["temporal", "sector_skill", "regional_sector", "sector_evolution", "generic"] = Form("generic"),
+        comparison_type: Literal[
+            "temporal",
+            "sector_skill",
+            "regional_skill",
+            "regional_sector",
+            "sector_evolution",
+            "generic",
+        ] = Form("generic"),
         group_a_label: str = Form(...),
         group_a_count: int = Form(...),
         group_a_total: int = Form(...),

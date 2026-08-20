@@ -192,7 +192,14 @@ class ProjectorService:
 
     def statistical_comparison(
             self,
-            comparison_type: Literal["temporal", "sector_skill", "regional_sector", "sector_evolution", "generic"],
+            comparison_type: Literal[
+                "temporal",
+                "sector_skill",
+                "regional_skill",
+                "regional_sector",
+                "sector_evolution",
+                "generic",
+            ],
             group_a_label: str,
             group_a_count: int,
             group_a_total: int,
@@ -416,7 +423,12 @@ class ProjectorService:
         jobs = self._filter_jobs_by_sector(jobs, sector_filter)
         await self._ensure_skill_labels(jobs)
         sectors_payload = self._build_sector_snapshot_rows(jobs, sector_filter)
-        sectors_payload = self._enrich_sector_skill_metrics(sectors_payload, [], reference_year)
+        sectors_payload = self._enrich_sector_skill_metrics(
+            sectors_payload,
+            [],
+            reference_year,
+            current_total_jobs=len(jobs),
+        )
 
         if not sectors_payload:
             return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "cache", len(jobs))
@@ -439,6 +451,8 @@ class ProjectorService:
             payload.get("sectors", []),
             reference_payload.get("sectors", []),
             reference_year,
+            current_total_jobs=payload.get("total_jobs"),
+            reference_total_jobs=reference_payload.get("total_jobs"),
         )
         return enriched
 
@@ -578,7 +592,14 @@ class ProjectorService:
     def _sector_snapshot_store_enabled(self):
         return bool(self.sector_snapshot_store and getattr(self.sector_snapshot_store, "enabled", False))
 
-    def _enrich_sector_skill_metrics(self, sectors: List[dict], reference_sectors: List[dict], reference_year: int):
+    def _enrich_sector_skill_metrics(
+            self,
+            sectors: List[dict],
+            reference_sectors: List[dict],
+            reference_year: int,
+            current_total_jobs: Optional[int] = None,
+            reference_total_jobs: Optional[int] = None,
+    ):
         sector_breadth = Counter()
         for sector in sectors:
             for skill in sector.get("all_skills") or sector.get("top_skills", []):
@@ -630,13 +651,22 @@ class ProjectorService:
                     sector,
                     reference_by_sector.get(sector_key, {}),
                     reference_year,
+                    current_total_jobs,
+                    reference_total_jobs,
                 ),
                 "top_skills": enriched_skills[:10],
                 "all_skills": enriched_skills,
             })
         return enriched_sectors
 
-    def _build_sector_evolution(self, sector: dict, reference_sector: dict, reference_year: int):
+    def _build_sector_evolution(
+            self,
+            sector: dict,
+            reference_sector: dict,
+            reference_year: int,
+            current_total_jobs: Optional[int] = None,
+            reference_total_jobs: Optional[int] = None,
+    ):
         current_jobs = int(sector.get("job_count", 0) or 0)
         reference_jobs = int(reference_sector.get("job_count", 0) or 0)
         job_delta = current_jobs - reference_jobs
@@ -673,6 +703,8 @@ class ProjectorService:
             "reference_year": reference_year,
             "job_count_current": current_jobs,
             "job_count_reference": reference_jobs,
+            "total_jobs_current": int(current_total_jobs or 0),
+            "total_jobs_reference": int(reference_total_jobs or 0),
             "job_delta": job_delta,
             "job_growth_percentage": job_growth_percentage,
             "job_growth_value": job_growth_value,

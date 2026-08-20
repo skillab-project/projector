@@ -629,7 +629,7 @@ Use it as an inferential evidence layer inside comparison views. It does not pro
 
 | Field | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `comparison_type` | enum | no | `generic` | `temporal`, `sector_skill`, `regional_sector`, `sector_evolution`, or `generic` |
+| `comparison_type` | enum | no | `generic` | `temporal`, `sector_skill`, `regional_skill`, `regional_sector`, `sector_evolution`, or `generic` |
 | `group_a_label` | string | yes | none | Display label for group A |
 | `group_a_count` | integer | yes | none | Selected count in group A |
 | `group_a_total` | integer | yes | none | Total observations in group A |
