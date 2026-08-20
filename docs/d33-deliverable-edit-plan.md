@@ -9,9 +9,9 @@ Related issue: #62.
 | Find / claim | Replace with |
 | --- | --- |
 | `D3.2` when referring to this deliverable | `D3.3` |
-| predictive forecasting implemented | trend-based monitoring implemented |
-| AI/ML forecasting model implemented | baseline projection / observed trend analysis |
-| XAI forecasting explanations implemented | future work / not in current runtime |
+| predictive forecasting implemented | trend-based monitoring implemented now; predictive forecasting planned |
+| AI/ML forecasting model implemented | baseline projection / observed trend analysis now; model design planned |
+| XAI forecasting explanations implemented | planned after predictive model design |
 | official NUTS mapping | NUTS-like projection, source-dependent |
 | NACE/ISCO sector mapping | Tracker API `job["sectors"]` |
 | shortage proof | observed statistical evidence |
@@ -35,7 +35,7 @@ The Projector implements predictive ML forecasting and XAI explanations.
 Use:
 
 ```text
-The implemented forecasting-related functionality is currently limited to trend-based monitoring and short-term baseline projection from observed counts. Predictive ML forecasting, confidence intervals, scenario simulation and XAI explanations are not part of the current runtime.
+The implemented forecasting-related functionality is currently limited to trend-based monitoring and short-term baseline projection from observed counts. Predictive ML forecasting (#80), confidence intervals (#81), XAI explanations (#82) and scenario simulation (#83) are planned follow-up work and are not part of the current runtime.
 ```
 
 ## Sectoral Wording
@@ -82,11 +82,10 @@ The statistical evidence indicates whether an observed difference is unlikely un
 
 ## Case Studies
 
-For every D3.3 case-study section, choose one of these:
+For every D3.3 case-study section, use this framing:
 
 ```text
-Option A: add real output tables/figures from a reproducible API run.
-Option B: label the section as a demonstration scenario rather than empirical validation.
+Label the section as a demonstration scenario rather than empirical validation.
 ```
 
 Do not present demo/fake snapshot data as production evidence.
