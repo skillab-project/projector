@@ -3,12 +3,13 @@ import hashlib
 import json
 import os
 import time
+from datetime import datetime
 from typing import Callable, List, Optional
 
 import httpx
 
 import logging
-from app.core.config import TRACKER_API, TRACKER_USERNAME, TRACKER_PASSWORD
+from app.core.config import TRACKER_API, TRACKER_USERNAME, TRACKER_PASSWORD, TRACKER_CACHE_TTL_DAYS
 
 logger = logging.getLogger("SKILLAB-Projector")
 
@@ -174,6 +175,38 @@ class TrackerClient:
             logger.error(f"Errore Login: {e}")
             return None
 
+    async def check_readiness(self):
+        if not self.api_url or not self.username or not self.password:
+            return {
+                "configured": False,
+                "available": False,
+                "authenticated": False,
+                "error": "Tracker API, username or password is not configured.",
+            }
+        try:
+            resp = await self.client.post(
+                f"{self.api_url}/login",
+                json={"username": self.username, "password": self.password},
+                timeout=10,
+            )
+        except Exception as exc:
+            return {
+                "configured": True,
+                "available": False,
+                "authenticated": False,
+                "error": str(exc),
+            }
+
+        authenticated = 200 <= int(resp.status_code) < 300
+        result = {
+            "configured": True,
+            "available": authenticated,
+            "authenticated": authenticated,
+        }
+        if not authenticated:
+            result["error"] = f"Tracker login returned HTTP {resp.status_code}."
+        return result
+
     def _stop_trend_res(self):
         return {
             "market_health": {
@@ -204,6 +237,36 @@ class TrackerClient:
             json.dump(payload, f)
         os.replace(tmp_path, path)
 
+    def _cache_ttl_seconds(self):
+        ttl_days = int(TRACKER_CACHE_TTL_DAYS or 0)
+        return ttl_days * 24 * 60 * 60 if ttl_days > 0 else None
+
+    def _parse_cache_timestamp(self, value: str):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return None
+
+    def _cache_updated_at(self, cache_file: str, metadata: dict):
+        metadata_ts = self._parse_cache_timestamp(str(metadata.get("updated_at") or ""))
+        if metadata_ts is not None:
+            return metadata_ts
+        try:
+            return os.path.getmtime(cache_file)
+        except OSError:
+            return None
+
+    def _is_cache_expired(self, cache_file: str, metadata: dict):
+        ttl_seconds = self._cache_ttl_seconds()
+        if ttl_seconds is None:
+            return False
+        updated_at = self._cache_updated_at(cache_file, metadata)
+        if updated_at is None:
+            return True
+        return (time.time() - updated_at) > ttl_seconds
+
     def load_cached_jobs(self, filters: dict):
         cache_info = self.load_cached_jobs_info(filters)
         return cache_info["jobs"] if cache_info else None
@@ -215,14 +278,6 @@ class TrackerClient:
             logger.info(f"Cache Miss: {query_sig}")
             return None
 
-        logger.info(f"Cache Hit: {query_sig}")
-        with open(cache_file, 'r') as f:
-            cached_jobs = json.load(f)
-
-        if cached_jobs and not any("sectors" in job for job in cached_jobs):
-            logger.info(f"Cache stale without job sectors: {query_sig}")
-            return None
-
         metadata = {}
         if os.path.exists(cache_meta_file):
             try:
@@ -230,6 +285,18 @@ class TrackerClient:
                     metadata = json.load(f)
             except (OSError, json.JSONDecodeError):
                 logger.warning(f"Cache metadata unreadable: {query_sig}")
+
+        if self._is_cache_expired(cache_file, metadata):
+            logger.info(f"Cache expired by TTL: {query_sig}")
+            return None
+
+        logger.info(f"Cache Hit: {query_sig}")
+        with open(cache_file, 'r') as f:
+            cached_jobs = json.load(f)
+
+        if cached_jobs and not any("sectors" in job for job in cached_jobs):
+            logger.info(f"Cache stale without job sectors: {query_sig}")
+            return None
 
         return {
             "jobs": cached_jobs,

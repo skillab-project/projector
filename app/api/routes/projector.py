@@ -86,6 +86,10 @@ async def readiness():
         and getattr(tracker, "username", None)
         and getattr(tracker, "password", None)
     )
+    tracker_status = {"configured": tracker_configured}
+    if tracker and hasattr(tracker, "check_readiness"):
+        tracker_status = await tracker.check_readiness()
+
     database_configured = bool(getattr(snapshot_store, "enabled", False))
     database_available = None
     database_error = None
@@ -98,9 +102,7 @@ async def readiness():
             database_error = str(exc)
 
     dependencies = {
-        "tracker": {
-            "configured": tracker_configured,
-        },
+        "tracker": tracker_status,
         "sector_snapshot_db": {
             "configured": database_configured,
             "available": database_available,
@@ -109,7 +111,9 @@ async def readiness():
     if database_error:
         dependencies["sector_snapshot_db"]["error"] = database_error
 
-    ready = tracker_configured and (not database_configured or database_available is True)
+    tracker_available = tracker_status.get("available")
+    tracker_ready = tracker_available if tracker_available is not None else tracker_status.get("configured")
+    ready = bool(tracker_ready) and (not database_configured or database_available is True)
     return {
         "status": "ready" if ready else "degraded",
         "dependencies": dependencies,

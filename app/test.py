@@ -2602,6 +2602,33 @@ def test_endpoint_readiness_reports_degraded_dependencies():
     assert "database unavailable" in data["dependencies"]["sector_snapshot_db"]["error"]
 
 
+def test_endpoint_readiness_reports_tracker_availability():
+    class FakeTracker:
+        api_url = "https://tracker.example"
+        username = "user"
+        password = "secret"
+
+        async def check_readiness(self):
+            return {
+                "configured": True,
+                "available": True,
+                "authenticated": True,
+            }
+
+    with patch.object(service, "tracker", FakeTracker()), \
+         patch.object(service, "sector_snapshot_store", None):
+        response = client.get("/projector/readiness")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["dependencies"]["tracker"] == {
+        "configured": True,
+        "available": True,
+        "authenticated": True,
+    }
+
+
 def test_endpoint_date_validation_rejects_invalid_ranges_before_fetch():
     form_data = {"keywords": ["test"], "min_date": "2024-02-01", "max_date": "2024-01-01"}
 
@@ -3047,6 +3074,42 @@ async def test_fetch_all_jobs_uses_sector_cache_and_refetches_stale_cache(tmp_pa
         refreshed = await tracker.fetch_all_jobs({"keywords": ["data"]})
 
     assert refreshed == [{"id": 3, "sectors": ["Research"]}]
+    assert mock_post.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_jobs_ignores_expired_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("app.client.tracker_client.TRACKER_CACHE_TTL_DAYS", 30)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cache_file.write_text(json.dumps([{"id": 1, "sectors": ["Education"]}]))
+    old_date = (datetime.now(timezone.utc) - timedelta(days=31)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 1,
+        "total": 1,
+        "status": "complete",
+        "updated_at": old_date,
+    }))
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"count": 1, "items": [{"id": 2, "sectors": ["Research"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = response
+        refreshed = await tracker.fetch_all_jobs(filters, page_size=2)
+
+    assert refreshed == [{"id": 2, "sectors": ["Research"]}]
     assert mock_post.await_count == 1
 
 

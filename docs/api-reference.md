@@ -452,7 +452,9 @@ Readiness check. Use it to verify whether required external dependencies are con
   "status": "ready",
   "dependencies": {
     "tracker": {
-      "configured": true
+      "configured": true,
+      "available": true,
+      "authenticated": true
     },
     "sector_snapshot_db": {
       "configured": true,
@@ -462,7 +464,7 @@ Readiness check. Use it to verify whether required external dependencies are con
 }
 ```
 
-If a configured dependency is unavailable, `status` is `degraded` and the dependency block includes the failure reason.
+If a configured dependency is unavailable, `status` is `degraded` and the dependency block includes the failure reason. In minimal test/fallback clients, Tracker may only expose `configured`; the real Tracker client also reports login availability and authentication.
 
 ## Error Shape
 
