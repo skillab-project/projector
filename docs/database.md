@@ -105,16 +105,24 @@ Regional refresh:
 python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
 ```
 
-Full backfill:
+Bootstrap and validate full backfill:
 
 ```bash
-python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
+python scripts/bootstrap_sectoral_snapshots.py --start-year 2020 --end-year 2024
 ```
 
 This fetches each year once, derives available `location_code` values from Tracker jobs, then writes:
 
 - one global snapshot per year
 - one regional snapshot per detected location and year
+
+It then validates every written snapshot through the DB and service layer.
+
+Backfill only:
+
+```bash
+python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
+```
 
 Tracker job fetch is resumable. During each paginated fetch, partial results are saved to:
 

@@ -23,6 +23,7 @@ from app.services.analytics.sectoral import SectoralAnalytics
 from app.services.projector_service import ProjectorService
 from app.services.sector_snapshot_store import SectorSnapshotStore
 from scripts import backfill_sectoral_snapshots as backfill_script
+from scripts import bootstrap_sectoral_snapshots as bootstrap_script
 from scripts import refresh_sectoral_snapshot as refresh_script
 from scripts import schedule_sectoral_snapshot_refresh as scheduler_script
 from scripts import validate_sectoral_snapshot_pipeline as validate_script
@@ -824,6 +825,7 @@ def test_refresh_script_helpers_filter_jobs_and_years():
 def test_script_import_bootstrap_inserts_repo_root(monkeypatch):
     module_names = [
         "scripts.backfill_sectoral_snapshots",
+        "scripts.bootstrap_sectoral_snapshots",
         "scripts.refresh_sectoral_snapshot",
         "scripts.schedule_sectoral_snapshot_refresh",
         "scripts.validate_sectoral_snapshot_pipeline",
@@ -1653,6 +1655,135 @@ def test_backfill_script_main_runs(monkeypatch):
         page_concurrency=4,
         max_retries=2,
     )
+
+
+def test_bootstrap_script_validation_targets_deduplicates_global_and_regions():
+    targets = bootstrap_script.validation_targets([
+        (2024, "GLOBAL", 1, 10, 3),
+        (2024, "IT", 2, 5, 2),
+        (2024, "IT", 3, 5, 2),
+        (2025, "GLOBAL", 4, 12, 4),
+    ])
+
+    assert targets == [(2024, None), (2024, "IT"), (2025, None)]
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_script_bootstrap_snapshots_runs_backfill_and_validation(monkeypatch):
+    backfill = AsyncMock(return_value=[
+        (2024, "GLOBAL", 1, 10, 3),
+        (2024, "IT", 2, 5, 2),
+    ])
+    validate = AsyncMock(side_effect=[
+        {"status": "completed", "year": 2024, "location_code": None},
+        {"status": "completed", "year": 2024, "location_code": "IT"},
+    ])
+    monkeypatch.setattr(bootstrap_script, "backfill_snapshots", backfill)
+    monkeypatch.setattr(bootstrap_script, "validate_pipeline", validate)
+
+    result = await bootstrap_script.bootstrap_snapshots(
+        start_year=2024,
+        end_year=2024,
+        regions=["IT"],
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+        min_sectors=1,
+        api_base_url="http://127.0.0.1:8000",
+        timeout_seconds=7,
+    )
+
+    backfill.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        regions=["IT"],
+        include_global=True,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+    )
+    assert validate.await_args_list[0].kwargs == {
+        "year": 2024,
+        "location_code": None,
+        "reference_year": 2023,
+        "min_sectors": 1,
+        "api_base_url": "http://127.0.0.1:8000",
+        "timeout_seconds": 7,
+        "run_refresh": False,
+    }
+    assert validate.await_args_list[1].kwargs["location_code"] == "IT"
+    assert result["status"] == "completed"
+    assert result["snapshots_written"] == 2
+    assert result["snapshots_validated"] == 2
+    assert result["backfilled"][0]["location_code"] is None
+
+
+def test_bootstrap_script_main_validates_args(monkeypatch):
+    for args, message in [
+        (["bootstrap", "--start-year", "2025", "--end-year", "2024"], "--end-year"),
+        (["bootstrap", "--start-year", "2024", "--page-size", "0"], "--page-size"),
+        (["bootstrap", "--start-year", "2024", "--page-concurrency", "0"], "--page-concurrency"),
+        (["bootstrap", "--start-year", "2024", "--max-retries", "0"], "--max-retries"),
+        (["bootstrap", "--start-year", "2024", "--min-sectors", "0"], "--min-sectors"),
+        (["bootstrap", "--start-year", "2024", "--timeout-seconds", "0"], "--timeout-seconds"),
+    ]:
+        monkeypatch.setattr(sys, "argv", args)
+        with pytest.raises(ValueError, match=message):
+            bootstrap_script.main()
+
+
+def test_bootstrap_script_main_runs(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "bootstrap",
+            "--start-year",
+            "2024",
+            "--end-year",
+            "2024",
+            "--regions",
+            "IT,DE",
+            "--skip-global",
+            "--page-size",
+            "100",
+            "--page-concurrency",
+            "4",
+            "--max-retries",
+            "2",
+            "--min-sectors",
+            "3",
+            "--api-base-url",
+            "http://127.0.0.1:8000",
+            "--timeout-seconds",
+            "7",
+            "--log-file",
+            "bootstrap.log",
+            "--debug",
+        ],
+    )
+    setup = MagicMock()
+    bootstrap = AsyncMock(return_value={"status": "completed"})
+    monkeypatch.setattr(bootstrap_script, "setup_logging", setup)
+    monkeypatch.setattr(bootstrap_script, "bootstrap_snapshots", bootstrap)
+
+    bootstrap_script.main()
+
+    setup.assert_called_once_with("bootstrap.log", True)
+    bootstrap.assert_awaited_once_with(
+        start_year=2024,
+        end_year=2024,
+        regions=["DE", "IT"],
+        include_global=False,
+        page_size=100,
+        page_concurrency=4,
+        max_retries=2,
+        min_sectors=3,
+        api_base_url="http://127.0.0.1:8000",
+        timeout_seconds=7,
+    )
+    assert '"status": "completed"' in capsys.readouterr().out
 
 
 def test_scheduler_env_helpers(monkeypatch):
