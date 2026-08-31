@@ -190,7 +190,7 @@ python scripts/refresh_sectoral_snapshot.py --year 2024 --location-code IT
 Backfill all available regions for multiple years:
 
 ```bash
-python scripts/backfill_sectoral_snapshots.py --start-year 2020 --end-year 2024
+python scripts/bootstrap_sectoral_snapshots.py --start-year 2020 --end-year 2024
 ```
 
 Validate the DB snapshot pipeline after a refresh/backfill:

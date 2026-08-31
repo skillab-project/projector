@@ -10,8 +10,9 @@ Required:
 
 ```text
 DATABASE_URL
-TRACKER_API_URL
-TRACKER_API_TOKEN
+TRACKER_API
+TRACKER_USERNAME
+TRACKER_PASSWORD
 ```
 
 Optional:
@@ -37,10 +38,40 @@ Start DB:
 docker compose up -d projector-db
 ```
 
-Backfill real snapshots:
+Bootstrap and validate real snapshots:
 
 ```bash
 export DATABASE_URL=postgresql://skillab:skillab@localhost:5433/skillab_projector
+python scripts/bootstrap_sectoral_snapshots.py \
+  --start-year 2020 \
+  --end-year 2024 \
+  --page-size 500 \
+  --page-concurrency 4
+```
+
+Omit `--regions` to write:
+
+- one global snapshot per year
+- one regional snapshot per `location_code` found in Tracker jobs
+
+The bootstrap command runs:
+
+```text
+backfill -> DB validation -> service validation -> optional HTTP API validation
+```
+
+Validate the running API too:
+
+```bash
+python scripts/bootstrap_sectoral_snapshots.py \
+  --start-year 2020 \
+  --end-year 2024 \
+  --api-base-url http://127.0.0.1:8000
+```
+
+Backfill only, without validation:
+
+```bash
 python scripts/backfill_sectoral_snapshots.py \
   --start-year 2020 \
   --end-year 2024 \
@@ -48,11 +79,6 @@ python scripts/backfill_sectoral_snapshots.py \
   --page-concurrency 4 \
   --log-file logs/sector_snapshot_backfill.log
 ```
-
-Omit `--regions` to write:
-
-- one global snapshot per year
-- one regional snapshot per `location_code` found in Tracker jobs
 
 ## Validate
 
@@ -103,6 +129,12 @@ Backfill log:
 
 ```text
 logs/sector_snapshot_backfill.log
+```
+
+Bootstrap log:
+
+```text
+logs/sector_snapshot_bootstrap.log
 ```
 
 Scheduler log:
