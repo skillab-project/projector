@@ -7,6 +7,7 @@ from fastapi import Form
 from app.schemas.responses import (
     EmergingSkillsResponse,
     ProjectorResponse,
+    RegionalTemporalResponse,
     RegionalSectoralResponse,
     SectoralIntelligenceResponse,
     SectorSkillsComparisonResponse,
@@ -195,6 +196,54 @@ async def temporal_projections(
         granularity=granularity,
         forecast_periods=forecast_periods,
         top_k=top_k,
+    )
+
+
+@router.post("/regional-temporal", response_model=RegionalTemporalResponse, response_model_exclude_none=True)
+async def regional_temporal(
+        min_date: str = Form(...),
+        max_date: str = Form(...),
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        granularity: Literal["monthly", "quarterly", "yearly"] = Form("monthly"),
+        top_k_regions: int = Form(10),
+        top_k_skills: int = Form(10),
+        demo: bool = Form(False),
+):
+    """
+       Compares regional demand over time for a live Tracker date range.
+
+       This is the regional x temporal view: it groups postings by region and
+       period, then reports top regional skills with period-level series.
+    """
+    validate_date_range(min_date, max_date, "min_date", "max_date")
+    if top_k_regions < 1 or top_k_regions > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_top_k_regions",
+                "top_k_regions must be between 1 and 100",
+                "top_k_regions",
+            ),
+        )
+    if top_k_skills < 1 or top_k_skills > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_top_k_skills",
+                "top_k_skills must be between 1 and 100",
+                "top_k_skills",
+            ),
+        )
+    return await service.regional_temporal(
+        min_date=min_date,
+        max_date=max_date,
+        keywords=keywords,
+        locations=locations,
+        granularity=granularity,
+        top_k_regions=top_k_regions,
+        top_k_skills=top_k_skills,
+        demo=demo,
     )
 
 

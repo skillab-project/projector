@@ -93,6 +93,55 @@ Skill row:
 }
 ```
 
+## Regional Temporal Analysis Response
+
+`POST /projector/regional-temporal`
+
+```json
+{
+  "status": "completed",
+  "total_jobs": 120,
+  "window": {
+    "min_date": "2024-01-01",
+    "max_date": "2024-12-31"
+  },
+  "granularity": "monthly",
+  "regional_temporal": {
+    "raw": [],
+    "nuts1": [],
+    "nuts2": [],
+    "nuts3": []
+  }
+}
+```
+
+Regional area:
+
+```json
+{
+  "code": "IT",
+  "total_jobs": 70,
+  "market_share": 58.33,
+  "periods": [],
+  "top_skills": []
+}
+```
+
+Regional temporal skill:
+
+```json
+{
+  "skill_id": "skill-python",
+  "label": "Python",
+  "total_count": 25,
+  "latest_count": 4,
+  "growth_rate": 20.0,
+  "trend_type": "emerging",
+  "specialization": 1.2,
+  "series": []
+}
+```
+
 ## Inferential Layer Response
 
 `POST /projector/statistical-comparison`

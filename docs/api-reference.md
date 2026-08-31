@@ -134,6 +134,84 @@ When `include_sectoral=true`, sectoral intelligence uses its own time window:
 
 When no jobs are found, the service returns a completed response with `jobs_analyzed=0` and empty insight lists.
 
+## POST `/projector/regional-temporal`
+
+Builds a regional x temporal view from live Tracker/cache jobs.
+
+Use it for Regional Temporal Analysis: compare regions over a selected date range.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `keywords` | list of strings | no | `null` | Search terms forwarded to Tracker |
+| `locations` | list of strings | no | `null` | Tracker location codes, forwarded as `location_code` |
+| `min_date` | string | yes | none | Start date, `YYYY-MM-DD` |
+| `max_date` | string | yes | none | End date, `YYYY-MM-DD` |
+| `granularity` | enum | no | `monthly` | `monthly`, `quarterly`, or `yearly` |
+| `top_k_regions` | integer | no | `10` | Max regions per level |
+| `top_k_skills` | integer | no | `10` | Max skills per region |
+| `demo` | boolean | no | `false` | Enables synthetic NUTS-like projection for country-level locations |
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-temporal" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=data" \
+  -d "locations=IT" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=monthly"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "total_jobs": 120,
+  "window": {
+    "min_date": "2024-01-01",
+    "max_date": "2024-12-31"
+  },
+  "granularity": "monthly",
+  "regional_temporal": {
+    "raw": [
+      {
+        "code": "IT",
+        "total_jobs": 70,
+        "market_share": 58.33,
+        "periods": [
+          {
+            "period": "2024-01",
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-31",
+            "job_count": 12,
+            "growth_vs_previous": null
+          }
+        ],
+        "top_skills": [
+          {
+            "skill_id": "skill-python",
+            "label": "Python",
+            "total_count": 25,
+            "latest_count": 4,
+            "growth_rate": 20.0,
+            "trend_type": "emerging",
+            "specialization": 1.2,
+            "series": []
+          }
+        ]
+      }
+    ],
+    "nuts1": [],
+    "nuts2": [],
+    "nuts3": []
+  }
+}
+```
+
 ## POST `/projector/sectoral-snapshot`
 
 Reads an annual sector snapshot.

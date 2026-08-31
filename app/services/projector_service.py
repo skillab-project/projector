@@ -190,6 +190,48 @@ class ProjectorService:
             "insights": insights,
         }
 
+    async def regional_temporal(
+            self,
+            min_date: str,
+            max_date: str,
+            keywords: Optional[List[str]] = None,
+            locations: Optional[List[str]] = None,
+            granularity: Literal["monthly", "quarterly", "yearly"] = "monthly",
+            top_k_regions: int = 10,
+            top_k_skills: int = 10,
+            demo: bool = False,
+    ):
+        self.engine.stop_requested = False
+        payload = {
+            "keywords": keywords,
+            "location_code": locations,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+        }
+        clean_payload = {key: value for key, value in payload.items() if value is not None}
+        jobs = await self.tracker.fetch_all_jobs(clean_payload)
+        await self._ensure_skill_labels(jobs)
+
+        return {
+            "status": "completed" if not self.engine.stop_requested else "stopped",
+            "total_jobs": len(jobs),
+            "window": {
+                "min_date": min_date,
+                "max_date": max_date,
+            },
+            "granularity": granularity,
+            "regional_temporal": self._build_regional_temporal_projection(
+                jobs=jobs,
+                min_date=min_date,
+                max_date=max_date,
+                granularity=granularity,
+                top_k_regions=top_k_regions,
+                top_k_skills=top_k_skills,
+                demo=demo,
+            ),
+            "message": None if jobs else "No jobs found for the selected filters.",
+        }
+
     def statistical_comparison(
             self,
             comparison_type: Literal[
@@ -569,6 +611,128 @@ class ProjectorService:
             }
 
         return payload
+
+    def _build_regional_temporal_projection(
+            self,
+            jobs: List[dict],
+            min_date: str,
+            max_date: str,
+            granularity: str,
+            top_k_regions: int,
+            top_k_skills: int,
+            demo: bool,
+    ):
+        buckets = self.trends._build_period_buckets(min_date, max_date, granularity)
+        bucket_keys = {bucket["period"] for bucket in buckets}
+        total_jobs = len(jobs)
+        global_skill_counts = Counter()
+        levels = {
+            "raw": {},
+            "nuts1": {},
+            "nuts2": {},
+            "nuts3": {},
+        }
+
+        for idx, job in enumerate(jobs):
+            period = self.trends._period_label(job.get("upload_date"), granularity)
+            if period not in bucket_keys:
+                continue
+            skills = [
+                str(skill_id).strip()
+                for skill_id in job.get("skills", []) or []
+                if str(skill_id).strip()
+            ]
+            for skill_id in skills:
+                global_skill_counts[skill_id] += 1
+
+            region_codes = self.regional._resolve_region_codes(job, idx, demo=demo)
+            for level, code in region_codes.items():
+                if not code:
+                    continue
+                area = levels[level].setdefault(
+                    code,
+                    {
+                        "total_jobs": 0,
+                        "period_jobs": Counter(),
+                        "skill_counts": Counter(),
+                        "period_skill_counts": defaultdict(Counter),
+                    },
+                )
+                area["total_jobs"] += 1
+                area["period_jobs"][period] += 1
+                for skill_id in skills:
+                    area["skill_counts"][skill_id] += 1
+                    area["period_skill_counts"][period][skill_id] += 1
+
+        def build_area(code, data):
+            periods = []
+            previous_jobs = None
+            for bucket in buckets:
+                period = bucket["period"]
+                job_count = int(data["period_jobs"].get(period, 0))
+                periods.append({
+                    **bucket,
+                    "job_count": job_count,
+                    "growth_vs_previous": self.trends._growth(previous_jobs, job_count),
+                })
+                previous_jobs = job_count
+
+            top_skills = []
+            for skill_id, total_count in data["skill_counts"].most_common(max(int(top_k_skills or 10), 1)):
+                counts = [
+                    int(data["period_skill_counts"].get(bucket["period"], {}).get(skill_id, 0))
+                    for bucket in buckets
+                ]
+                series = []
+                previous_skill_count = None
+                for bucket, count in zip(buckets, counts):
+                    period_jobs = int(data["period_jobs"].get(bucket["period"], 0))
+                    series.append({
+                        "period": bucket["period"],
+                        "start_date": bucket["start_date"],
+                        "end_date": bucket["end_date"],
+                        "count": count,
+                        "share": round(count / period_jobs, 4) if period_jobs else 0.0,
+                        "growth_vs_previous": self.trends._growth(previous_skill_count, count),
+                    })
+                    previous_skill_count = count
+
+                previous_count = counts[-2] if len(counts) > 1 else None
+                latest_count = counts[-1] if counts else 0
+                growth_rate = self.trends._growth(previous_count, latest_count)
+                area_share = total_count / data["total_jobs"] if data["total_jobs"] else 0
+                global_share = global_skill_counts[skill_id] / total_jobs if total_jobs else 0
+                meta = self._skill_meta(skill_id)
+                top_skills.append({
+                    "skill_id": skill_id,
+                    "label": meta["label"],
+                    "total_count": int(total_count),
+                    "latest_count": latest_count,
+                    "growth_rate": growth_rate,
+                    "trend_type": self.trends._trend_type(growth_rate),
+                    "specialization": round(area_share / global_share, 2) if global_share else 0.0,
+                    "series": series,
+                })
+
+            return {
+                "code": code,
+                "total_jobs": int(data["total_jobs"]),
+                "market_share": round((data["total_jobs"] / total_jobs) * 100, 2) if total_jobs else 0.0,
+                "periods": periods,
+                "top_skills": top_skills,
+            }
+
+        def build_level(level_data):
+            areas = [build_area(code, data) for code, data in level_data.items()]
+            areas.sort(key=lambda item: item["total_jobs"], reverse=True)
+            return areas[:max(int(top_k_regions or 10), 1)]
+
+        return {
+            "raw": build_level(levels["raw"]),
+            "nuts1": build_level(levels["nuts1"]),
+            "nuts2": build_level(levels["nuts2"]),
+            "nuts3": build_level(levels["nuts3"]),
+        }
 
     def _single_location(self, locations: Optional[List[str]]):
         for location in locations or []:
