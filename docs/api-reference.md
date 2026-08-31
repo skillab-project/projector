@@ -212,6 +212,81 @@ curl -X POST "http://127.0.0.1:8000/projector/regional-temporal" \
 }
 ```
 
+## POST `/projector/skill-explorer`
+
+Starts from one skill and reports where and when it appears.
+
+Use snapshot mode for annual sector intelligence. Use live mode for current date-range evidence.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `skill_id` | string | no | `null` | Exact skill identifier/URI |
+| `skill_label` | string | no | `null` | Case-insensitive skill label lookup |
+| `mode` | enum | no | `snapshot` | `snapshot` reads PostgreSQL; `live` reads Tracker/cache |
+| `year` | integer | no | current year | Single snapshot year |
+| `start_year` | integer | no | `year` | First snapshot year for range |
+| `end_year` | integer | no | `year` | Last snapshot year for range |
+| `min_date` | string | live only | none | Live start date, `YYYY-MM-DD` |
+| `max_date` | string | live only | none | Live end date, `YYYY-MM-DD` |
+| `locations` | list of strings | no | `null` | Optional Tracker location code |
+| `granularity` | enum | no | `monthly` | Live time bucket: `monthly`, `quarterly`, or `yearly` |
+| `top_k` | integer | no | `20` | Max sectors/regions returned |
+
+Either `skill_id` or `skill_label` is required.
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/skill-explorer" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "skill_label=Python" \
+  -d "mode=snapshot" \
+  -d "start_year=2023" \
+  -d "end_year=2024" \
+  -d "locations=IT"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "mode": "snapshot",
+  "data_source": "postgres",
+  "skill": {
+    "skill_id": "skill-python",
+    "label": "Python",
+    "match_type": "skill_label"
+  },
+  "total_mentions": 120,
+  "sectors": [
+    {
+      "sector": "ICT",
+      "sector_label": "Information and communication",
+      "count": 80,
+      "share": 0.666667
+    }
+  ],
+  "regions": [
+    {
+      "code": "IT",
+      "count": 50,
+      "share": 1.0
+    }
+  ],
+  "time_series": [
+    {
+      "period": "2024",
+      "count": 70,
+      "growth_vs_previous": 40.0
+    }
+  ],
+  "warnings": []
+}
+```
+
 ## POST `/projector/sectoral-snapshot`
 
 Reads an annual sector snapshot.

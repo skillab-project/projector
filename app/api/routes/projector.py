@@ -12,6 +12,7 @@ from app.schemas.responses import (
     SectoralIntelligenceResponse,
     SectorSkillsComparisonResponse,
     SectoralSnapshotResponse,
+    SkillExplorerResponse,
     StatisticalComparisonResponse,
     StopResponse,
     TemporalProjectionsResponse,
@@ -244,6 +245,84 @@ async def regional_temporal(
         top_k_regions=top_k_regions,
         top_k_skills=top_k_skills,
         demo=demo,
+    )
+
+
+@router.post("/skill-explorer", response_model=SkillExplorerResponse, response_model_exclude_none=True)
+async def skill_explorer(
+        skill_id: Optional[str] = Form(None),
+        skill_label: Optional[str] = Form(None),
+        mode: Literal["snapshot", "live"] = Form("snapshot"),
+        year: Optional[int] = Form(None),
+        start_year: Optional[int] = Form(None),
+        end_year: Optional[int] = Form(None),
+        min_date: Optional[str] = Form(None),
+        max_date: Optional[str] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        granularity: Literal["monthly", "quarterly", "yearly"] = Form("monthly"),
+        top_k: int = Form(20),
+):
+    """
+       Starts from one skill and reports where and when it appears.
+
+       Snapshot mode reads PostgreSQL yearly snapshots. Live mode reads Tracker
+       jobs for the requested date range and filters jobs containing the skill.
+    """
+    if not (str(skill_id or "").strip() or str(skill_label or "").strip()):
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "missing_skill",
+                "Either skill_id or skill_label is required",
+                "skill_id",
+            ),
+        )
+    if top_k < 1 or top_k > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_top_k", "top_k must be between 1 and 100", "top_k"),
+        )
+    if year is not None:
+        validate_year(year, "year")
+    if start_year is not None:
+        validate_year(start_year, "start_year")
+    if end_year is not None:
+        validate_year(end_year, "end_year")
+    if start_year is not None and end_year is not None and start_year > end_year:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_year_range",
+                "start_year must be less than or equal to end_year",
+                "start_year",
+            ),
+        )
+    if mode == "live":
+        if not min_date or not max_date:
+            raise HTTPException(
+                status_code=422,
+                detail=error_detail(
+                    "missing_date_range",
+                    "min_date and max_date are required in live mode",
+                    "min_date",
+                ),
+            )
+        validate_date_range(min_date, max_date, "min_date", "max_date")
+    elif min_date or max_date:
+        validate_date_range(min_date, max_date, "min_date", "max_date")
+
+    return await service.skill_explorer(
+        skill_id=skill_id,
+        skill_label=skill_label,
+        mode=mode,
+        year=year,
+        start_year=start_year,
+        end_year=end_year,
+        min_date=min_date,
+        max_date=max_date,
+        locations=locations,
+        granularity=granularity,
+        top_k=top_k,
     )
 
 

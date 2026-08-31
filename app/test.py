@@ -133,6 +133,20 @@ class _FakeSectorSnapshotStore:
             return self.payload["regional_sectoral_payload"]
         return self.payload
 
+    def read_skill_distribution(
+            self,
+            skill_id=None,
+            skill_label=None,
+            start_year=None,
+            end_year=None,
+            location_code=None,
+            top_k=20,
+    ):
+        self.requests.append(("skill", skill_id, skill_label, start_year, end_year, location_code, top_k))
+        if isinstance(self.payload, dict) and "skill_distribution" in self.payload:
+            return self.payload["skill_distribution"]
+        return self.payload
+
     def read_refresh_status(self, year, location_code=None):
         self.refresh_status_requests.append((year, location_code))
         return self.refresh_status
@@ -211,8 +225,67 @@ def test_sector_snapshot_store_disabled_reads_return_none():
 
     assert store.enabled is False
     assert store.read_latest(2024) is None
+    assert store.read_skill_distribution(skill_label="Python", start_year=2024, end_year=2024) is None
     assert store.latest_completed_at(2024) is None
     assert store.read_refresh_status(2024) is None
+
+
+def test_sector_snapshot_store_read_skill_distribution_matches_label_case_insensitive(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    rows = [
+        {
+            "year": 2023,
+            "location_code": None,
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "top_skills": [],
+            "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 4}],
+        },
+        {
+            "year": 2024,
+            "location_code": None,
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "top_skills": [],
+            "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 6}],
+        },
+        {
+            "year": 2024,
+            "location_code": "IT",
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "top_skills": [],
+            "all_skills": [{"skill_id": "skill-python", "label": "Python", "count": 3}],
+        },
+    ]
+    conn = _FakeStoreConnection([_FakeStoreResult(many=rows)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    payload = store.read_skill_distribution(
+        skill_label="python",
+        start_year=2023,
+        end_year=2024,
+        top_k=5,
+    )
+
+    assert payload["skill"] == {
+        "skill_id": "skill-python",
+        "label": "Python",
+        "match_type": "skill_label",
+    }
+    assert payload["total_mentions"] == 10
+    assert payload["sectors"][0]["sector"] == "ICT"
+    assert payload["sectors"][0]["share"] == 1.0
+    assert payload["regions"][0] == {"code": "IT", "count": 3, "share": 1.0}
+    assert payload["time_series"] == [
+        {"period": "2023", "count": 4, "growth_vs_previous": None},
+        {"period": "2024", "count": 6, "growth_vs_previous": 50.0},
+    ]
 
 
 def test_sector_snapshot_store_connect_requires_database_url():
@@ -3700,6 +3773,153 @@ def test_endpoint_regional_temporal_no_data_response():
     assert payload["regional_temporal"] == {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []}
     assert payload["message"] == "No jobs found for the selected filters."
     m_skill_names.assert_not_awaited()
+
+
+@pytest.mark.integration
+def test_endpoint_skill_explorer_snapshot_contract():
+    store = _FakeSectorSnapshotStore({
+        "skill_distribution": {
+            "skill": {
+                "skill_id": "skill-python",
+                "label": "Python",
+                "match_type": "skill_label",
+            },
+            "total_mentions": 10,
+            "sectors": [{
+                "sector": "ICT",
+                "sector_label": "Information and communication",
+                "count": 10,
+                "share": 1.0,
+            }],
+            "regions": [{"code": "IT", "count": 6, "share": 1.0}],
+            "time_series": [
+                {"period": "2023", "count": 4, "growth_vs_previous": None},
+                {"period": "2024", "count": 6, "growth_vs_previous": 50.0},
+            ],
+            "warnings": [],
+        }
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post("/projector/skill-explorer", data={
+            "skill_label": "python",
+            "mode": "snapshot",
+            "start_year": "2023",
+            "end_year": "2024",
+            "locations": "IT",
+            "top_k": "5",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["mode"] == "snapshot"
+    assert payload["data_source"] == "postgres"
+    assert payload["skill"]["label"] == "Python"
+    assert payload["sectors"][0]["sector"] == "ICT"
+    assert payload["regions"][0]["code"] == "IT"
+    assert payload["time_series"][1]["growth_vs_previous"] == 50.0
+    assert store.requests == [("skill", None, "python", 2023, 2024, "IT", 5)]
+
+
+@pytest.mark.integration
+def test_endpoint_skill_explorer_live_exact_skill_and_multi_sector_job():
+    jobs = [
+        {
+            "upload_date": "2024-01-15",
+            "skills": ["skill-python"],
+            "sectors": ["ICT", "Education"],
+            "location_code": "IT",
+        },
+        {
+            "upload_date": "2024-02-10",
+            "skills": ["skill-sql"],
+            "sectors": ["ICT"],
+            "location_code": "DE",
+        },
+    ]
+    engine.skill_map = {
+        "skill-python": {"label": "Python", "is_green": False, "is_digital": True},
+        "skill-sql": {"label": "SQL", "is_green": False, "is_digital": True},
+    }
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock):
+        m_fetch.return_value = jobs
+        response = client.post("/projector/skill-explorer", data={
+            "skill_id": "skill-python",
+            "mode": "live",
+            "min_date": "2024-01-01",
+            "max_date": "2024-02-29",
+            "locations": "IT",
+            "granularity": "monthly",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["mode"] == "live"
+    assert payload["total_mentions"] == 1
+    assert {item["sector"]: item["count"] for item in payload["sectors"]} == {"ICT": 1, "Education": 1}
+    assert payload["regions"] == [{"code": "IT", "count": 1, "share": 1.0}]
+    assert payload["time_series"][0]["period"] == "2024-01"
+    assert payload["time_series"][0]["count"] == 1
+    m_fetch.assert_awaited_once_with({
+        "location_code": ["IT"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-02-29",
+    })
+
+
+@pytest.mark.integration
+def test_endpoint_skill_explorer_snapshot_skill_not_found():
+    store = _FakeSectorSnapshotStore({
+        "skill_distribution": {
+            "skill": {
+                "skill_id": None,
+                "label": "Unknown",
+                "match_type": "skill_label",
+            },
+            "total_mentions": 0,
+            "sectors": [],
+            "regions": [],
+            "time_series": [{"period": "2024", "count": 0, "growth_vs_previous": None}],
+            "warnings": [],
+        }
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post("/projector/skill-explorer", data={
+            "skill_label": "Unknown",
+            "mode": "snapshot",
+            "year": "2024",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_found"
+    assert payload["total_mentions"] == 0
+    assert payload["message"] == "Skill not found in static snapshots."
+
+
+@pytest.mark.integration
+def test_endpoint_skill_explorer_live_skill_label_not_found():
+    engine.skill_map = {"skill-python": {"label": "Python", "is_green": False, "is_digital": True}}
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock):
+        m_fetch.return_value = [{"upload_date": "2024-01-15", "skills": ["skill-python"], "location_code": "IT"}]
+        response = client.post("/projector/skill-explorer", data={
+            "skill_label": "Rust",
+            "mode": "live",
+            "min_date": "2024-01-01",
+            "max_date": "2024-01-31",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_found"
+    assert payload["sectors"] == []
+    assert payload["message"] == "Skill not found in fetched Tracker jobs."
 
 
 def test_statistical_comparison_chi_square_baseline():

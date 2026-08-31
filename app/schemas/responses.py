@@ -164,6 +164,45 @@ class RegionalTemporalResponse(BaseModel):
     message: Optional[str] = None
 
 
+class SkillExplorerSkill(BaseModel):
+    skill_id: Optional[str] = None
+    label: str
+    match_type: Literal["skill_id", "skill_label"]
+
+
+class SkillExplorerSector(BaseModel):
+    sector: str
+    sector_label: str
+    count: int
+    share: float
+
+
+class SkillExplorerRegion(BaseModel):
+    code: str
+    count: int
+    share: float
+    specialization: Optional[float] = None
+
+
+class SkillExplorerTimePoint(BaseModel):
+    period: str
+    count: int
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = None
+
+
+class SkillExplorerResponse(BaseModel):
+    status: str
+    mode: Literal["snapshot", "live"]
+    data_source: Literal["postgres", "cache", "live"]
+    skill: Optional[SkillExplorerSkill] = None
+    total_mentions: int
+    sectors: List[SkillExplorerSector]
+    regions: List[SkillExplorerRegion]
+    time_series: List[SkillExplorerTimePoint]
+    warnings: List[str] = Field(default_factory=list)
+    message: Optional[str] = None
+
+
 class StatisticalComparisonGroup(BaseModel):
     label: str
     count: int

@@ -278,6 +278,158 @@ class SectorSnapshotStore:
             },
         }
 
+    def read_skill_distribution(
+            self,
+            skill_id: Optional[str] = None,
+            skill_label: Optional[str] = None,
+            start_year: Optional[int] = None,
+            end_year: Optional[int] = None,
+            location_code: Optional[str] = None,
+            top_k: int = 20,
+    ):
+        if not self.enabled:
+            return None
+
+        start_year = int(start_year)
+        end_year = int(end_year)
+        location_filter = str(location_code or "").strip()
+        target_skill_id = str(skill_id or "").strip()
+        target_label = str(skill_label or "").strip().lower()
+        top_k = max(int(top_k or 20), 1)
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                WITH latest_runs AS (
+                    SELECT DISTINCT ON (year, COALESCE(location_code, ''))
+                        id, year, location_code
+                    FROM sector_snapshot_runs
+                    WHERE year BETWEEN %s AND %s
+                      AND status = 'completed'
+                      AND (%s = '' OR COALESCE(location_code, '') = %s)
+                    ORDER BY year, COALESCE(location_code, ''), completed_at DESC NULLS LAST, id DESC
+                )
+                SELECT
+                    latest_runs.year,
+                    latest_runs.location_code,
+                    snapshots.sector,
+                    snapshots.sector_label,
+                    snapshots.top_skills,
+                    snapshots.all_skills
+                FROM latest_runs
+                JOIN sector_yearly_snapshots snapshots
+                    ON snapshots.run_id = latest_runs.id
+                ORDER BY latest_runs.year, latest_runs.location_code, snapshots.sector_label ASC
+                """,
+                (start_year, end_year, location_filter, location_filter),
+            ).fetchall()
+
+        if not rows:
+            return None
+
+        def decode_skills(value):
+            if isinstance(value, str):
+                return json.loads(value)
+            return value or []
+
+        def matching_skills(row):
+            matches = []
+            skills = decode_skills(row["all_skills"]) or decode_skills(row["top_skills"])
+            for skill in skills:
+                current_id = str(skill.get("skill_id") or skill.get("label") or "").strip()
+                current_label = str(skill.get("label") or current_id).strip()
+                id_matches = target_skill_id and current_id == target_skill_id
+                label_matches = target_label and current_label.lower() == target_label
+                if id_matches or label_matches:
+                    matches.append({
+                        "skill_id": current_id,
+                        "label": current_label,
+                        "count": int(skill.get("count", 0) or 0),
+                    })
+            return matches
+
+        matched_skill = None
+        sector_counts = Counter()
+        sector_labels = {}
+        region_counts = Counter()
+        time_counts = Counter()
+        warnings = []
+        base_rows = [row for row in rows if location_filter or row["location_code"] is None]
+        if not base_rows:
+            base_rows = rows
+            warnings.append("No global snapshot rows available; using regional rows as fallback.")
+
+        for row in base_rows:
+            for skill in matching_skills(row):
+                matched_skill = matched_skill or skill
+                sector_counts[row["sector"]] += skill["count"]
+                sector_labels[row["sector"]] = row["sector_label"] or row["sector"]
+                time_counts[int(row["year"])] += skill["count"]
+
+        regional_rows = [row for row in rows if row["location_code"] is not None]
+        if location_filter:
+            regional_rows = [row for row in rows if row["location_code"] == location_filter]
+        for row in regional_rows:
+            region_code = str(row["location_code"] or "").strip()
+            if not region_code:
+                continue
+            for skill in matching_skills(row):
+                matched_skill = matched_skill or skill
+                region_counts[region_code] += skill["count"]
+
+        total_mentions = sum(time_counts.values())
+        sector_total = sum(sector_counts.values())
+        region_total = sum(region_counts.values())
+        previous = None
+        time_series = []
+        for year in range(start_year, end_year + 1):
+            count = int(time_counts.get(year, 0))
+            time_series.append({
+                "period": str(year),
+                "count": count,
+                "growth_vs_previous": self._growth(previous, count),
+            })
+            previous = count
+
+        skill = {
+            "skill_id": matched_skill.get("skill_id") if matched_skill else target_skill_id or None,
+            "label": matched_skill.get("label") if matched_skill else skill_label or skill_id or "Unknown skill",
+            "match_type": "skill_id" if target_skill_id else "skill_label",
+        }
+
+        return {
+            "skill": skill,
+            "total_mentions": total_mentions,
+            "sectors": [
+                {
+                    "sector": sector,
+                    "sector_label": sector_labels.get(sector, sector),
+                    "count": count,
+                    "share": round(count / sector_total, 6) if sector_total else 0.0,
+                }
+                for sector, count in sector_counts.most_common(top_k)
+            ],
+            "regions": [
+                {
+                    "code": code,
+                    "count": count,
+                    "share": round(count / region_total, 6) if region_total else 0.0,
+                }
+                for code, count in region_counts.most_common(top_k)
+            ],
+            "time_series": time_series,
+            "warnings": warnings,
+        }
+
+    def _growth(self, previous, current):
+        if previous is None:
+            return None
+        if previous == 0 and current > 0:
+            return "new_entry"
+        if previous == 0:
+            return 0.0
+        return round(((current - previous) / previous) * 100, 2)
+
     def latest_completed_at(self, year: int, location_code: Optional[str] = None):
         if not self.enabled:
             return None

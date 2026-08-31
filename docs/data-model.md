@@ -142,6 +142,59 @@ Regional temporal skill:
 }
 ```
 
+## Skill Explorer Response
+
+`POST /projector/skill-explorer`
+
+```json
+{
+  "status": "completed",
+  "mode": "snapshot",
+  "data_source": "postgres",
+  "skill": {
+    "skill_id": "skill-python",
+    "label": "Python",
+    "match_type": "skill_label"
+  },
+  "total_mentions": 120,
+  "sectors": [],
+  "regions": [],
+  "time_series": [],
+  "warnings": []
+}
+```
+
+Sector row:
+
+```json
+{
+  "sector": "ICT",
+  "sector_label": "Information and communication",
+  "count": 80,
+  "share": 0.666667
+}
+```
+
+Region row:
+
+```json
+{
+  "code": "IT",
+  "count": 50,
+  "share": 1.0
+}
+```
+
+Time point:
+
+```json
+{
+  "period": "2024",
+  "count": 70,
+  "growth_vs_previous": 40.0
+}
+```
+
 ## Inferential Layer Response
 
 `POST /projector/statistical-comparison`
