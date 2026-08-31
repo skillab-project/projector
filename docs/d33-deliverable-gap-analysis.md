@@ -6,7 +6,7 @@ Related issue: #62.
 
 ## Overall Status
 
-The Projector currently supports descriptive labour-market analytics, observed trend monitoring, regional intelligence, regional-temporal analysis, sector intelligence, yearly sector snapshots, sector evolution, sector-skills comparison, regional-sectoral distribution, and an inferential validation layer.
+The Projector currently supports descriptive labour-market analytics, observed trend monitoring, skill-first exploration, regional intelligence, regional-temporal analysis, sector intelligence, yearly sector snapshots, sector evolution, sector-skills comparison, regional-sectoral distribution, and an inferential validation layer.
 
 The main remaining gap is not core descriptive analytics. It is scope alignment: the deliverable must not claim predictive ML forecasting, XAI forecasting, supply-side analytics, or production-loaded real snapshots as already implemented in the Projector runtime.
 
@@ -63,7 +63,7 @@ The main remaining gap is not core descriptive analytics. It is scope alignment:
 | 4.1.4.1 Temporal Dimension within Skill Demand Analysis | Implemented | `POST /projector/temporal-projections`. | Keep as trend monitoring. |
 | 4.1.4.2 Regional Dimension within Skill Demand Analysis | Implemented | Regional distribution and regional skill evidence. | Keep with NUTS caveat. |
 | 4.1.4.3 Sectoral Dimension within Skill Demand Analysis | Implemented | Sector distribution and sector intelligence. | Keep with Tracker-sector source caveat. |
-| 4.1.4.4 Combined Interpretation of Skills, Regions, Sectors and Time | Partial | Cross-dimension views exist; Regional x Temporal is implemented. Skill-first and Regional x Sectoral x Temporal completion are tracked in #33. | State implemented combinations explicitly. |
+| 4.1.4.4 Combined Interpretation of Skills, Regions, Sectors and Time | Partial | Cross-dimension views exist; Regional x Temporal and Skill x Sector/Regional/Temporal are implemented. Regional x Sectoral x Temporal completion is tracked in #33. | State implemented combinations explicitly. |
 | Dimension 4: Statistical Inferential Mechanisms | Implemented | `POST /projector/statistical-comparison`, chi-square, p-value, effect size. | Describe as inferential layer attached to comparison views, not standalone dashboard area. |
 | 4.2 Skills Forecasting | Implemented | Trend monitoring and baseline projection exist; the D3.3 source explicitly excludes predictive forecasting engines from the current runtime. | Keep current wording honest: forecasting means trend-based monitoring and period comparison here. |
 | 4.2.1 Current Scope: Trend-Based Skill Monitoring | Implemented | Period job counts, skill time series, baseline projection. | Keep as implemented. |

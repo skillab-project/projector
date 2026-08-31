@@ -106,6 +106,42 @@ count(skill mentions in jobs mapped to the region)
 
 Values above `1` indicate above-average regional concentration.
 
+## Skill Explorer
+
+`total_mentions`
+
+```text
+count(selected skill mentions)
+```
+
+Snapshot mode reads `sector_yearly_snapshots.all_skills`.
+
+Live mode filters fetched Tracker jobs:
+
+```text
+job is selected when selected_skill in job["skills"]
+```
+
+`sector_count`
+
+```text
+count(selected skill mentions mapped to each sector in job["sectors"])
+```
+
+A multi-sector job contributes once to each sector-skill relationship.
+
+`region_count`
+
+```text
+count(selected skill mentions by location_code)
+```
+
+`skill_time_series`
+
+```text
+count(selected skill mentions by year or upload_date bucket)
+```
+
 ## Inferential Layer
 
 `chi_square_2x2`

@@ -82,6 +82,7 @@ Sector Intelligence
 
 └── Skill Explorer
     [Skill] [Year / Range] [Region]
+    └── skill-first sectors, regions and time series
 
 Cross-Dimension Analysis
 ├── Sector Skills Comparison
@@ -123,6 +124,7 @@ Inferential Layer
 
 Skill Explorer
 = start from one skill
+= maps Skill x Sector, Skill x Regional and Skill x Temporal
 ```
 
 ## Run Locally
@@ -167,6 +169,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |
 | Regional Sector Distribution | region/sector matrix | year, optional region | `POST /projector/regional-sectoral` |
+| Skill Explorer | one skill | skill, snapshot/live mode, year or date range, region | `POST /projector/skill-explorer` |
 
 ## Static Sector Snapshots
 
@@ -249,6 +252,15 @@ curl -X POST http://127.0.0.1:8000/projector/regional-temporal \
   -d "min_date=2024-01-01" \
   -d "max_date=2024-12-31" \
   -d "granularity=monthly"
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/projector/skill-explorer \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "skill_label=Python" \
+  -d "mode=snapshot" \
+  -d "start_year=2023" \
+  -d "end_year=2024"
 ```
 
 ## Data Sources

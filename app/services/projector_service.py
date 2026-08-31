@@ -232,6 +232,41 @@ class ProjectorService:
             "message": None if jobs else "No jobs found for the selected filters.",
         }
 
+    async def skill_explorer(
+            self,
+            skill_id: Optional[str] = None,
+            skill_label: Optional[str] = None,
+            mode: Literal["snapshot", "live"] = "snapshot",
+            year: Optional[int] = None,
+            start_year: Optional[int] = None,
+            end_year: Optional[int] = None,
+            min_date: Optional[str] = None,
+            max_date: Optional[str] = None,
+            locations: Optional[List[str]] = None,
+            granularity: Literal["monthly", "quarterly", "yearly"] = "monthly",
+            top_k: int = 20,
+    ):
+        normalized_mode = str(mode or "snapshot").strip().lower()
+        if normalized_mode == "live":
+            return await self._skill_explorer_live(
+                skill_id=skill_id,
+                skill_label=skill_label,
+                min_date=min_date,
+                max_date=max_date,
+                locations=locations,
+                granularity=granularity,
+                top_k=top_k,
+            )
+        return self._skill_explorer_snapshot(
+            skill_id=skill_id,
+            skill_label=skill_label,
+            year=year,
+            start_year=start_year,
+            end_year=end_year,
+            locations=locations,
+            top_k=top_k,
+        )
+
     def statistical_comparison(
             self,
             comparison_type: Literal[
@@ -611,6 +646,265 @@ class ProjectorService:
             }
 
         return payload
+
+    def _skill_explorer_snapshot(
+            self,
+            skill_id: Optional[str],
+            skill_label: Optional[str],
+            year: Optional[int],
+            start_year: Optional[int],
+            end_year: Optional[int],
+            locations: Optional[List[str]],
+            top_k: int,
+    ):
+        target_start, target_end = self._resolve_skill_explorer_years(year, start_year, end_year)
+        location_code = self._single_location(locations)
+        if not self._sector_snapshot_store_enabled() or not hasattr(self.sector_snapshot_store, "read_skill_distribution"):
+            return self._empty_skill_explorer_response(
+                mode="snapshot",
+                data_source="postgres" if self._sector_snapshot_store_enabled() else "cache",
+                skill_id=skill_id,
+                skill_label=skill_label,
+                status="not_available",
+                message="No static sector snapshot store is available for Skill Explorer.",
+            )
+        try:
+            payload = self.sector_snapshot_store.read_skill_distribution(
+                skill_id=str(skill_id).strip() if skill_id else None,
+                skill_label=str(skill_label).strip() if skill_label else None,
+                start_year=target_start,
+                end_year=target_end,
+                location_code=location_code,
+                top_k=top_k,
+            )
+        except Exception as exc:
+            return self._empty_skill_explorer_response(
+                mode="snapshot",
+                data_source="postgres",
+                skill_id=skill_id,
+                skill_label=skill_label,
+                status="not_available",
+                message=f"Skill Explorer snapshot store is unreachable: {exc}",
+            )
+        if not payload:
+            return self._empty_skill_explorer_response(
+                mode="snapshot",
+                data_source="postgres",
+                skill_id=skill_id,
+                skill_label=skill_label,
+                status="not_available",
+                message=f"No static skill snapshot data available for {target_start}-{target_end}.",
+            )
+        total_mentions = int(payload.get("total_mentions", 0) or 0)
+        status = "completed" if total_mentions else "not_found"
+        message = None if total_mentions else "Skill not found in static snapshots."
+        return {
+            "status": status,
+            "mode": "snapshot",
+            "data_source": "postgres",
+            "skill": payload.get("skill"),
+            "total_mentions": total_mentions,
+            "sectors": payload.get("sectors", []),
+            "regions": payload.get("regions", []),
+            "time_series": payload.get("time_series", []),
+            "warnings": payload.get("warnings", []),
+            "message": message,
+        }
+
+    async def _skill_explorer_live(
+            self,
+            skill_id: Optional[str],
+            skill_label: Optional[str],
+            min_date: Optional[str],
+            max_date: Optional[str],
+            locations: Optional[List[str]],
+            granularity: str,
+            top_k: int,
+    ):
+        payload = {
+            "location_code": locations,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+        }
+        clean_payload = {key: value for key, value in payload.items() if value is not None}
+        jobs = await self.tracker.fetch_all_jobs(clean_payload)
+        await self._ensure_skill_labels(jobs)
+
+        wanted_ids = self._resolve_skill_explorer_ids(skill_id, skill_label)
+        if not wanted_ids:
+            return self._empty_skill_explorer_response(
+                mode="live",
+                data_source="live",
+                skill_id=skill_id,
+                skill_label=skill_label,
+                status="not_found",
+                message="Skill not found in fetched Tracker jobs.",
+            )
+
+        sector_counts = Counter()
+        region_counts = Counter()
+        time_counts = Counter()
+        total_mentions = 0
+        buckets = self.trends._build_period_buckets(min_date, max_date, granularity)
+        bucket_keys = {bucket["period"] for bucket in buckets}
+
+        for job in jobs:
+            skills = [
+                str(raw_skill).strip()
+                for raw_skill in job.get("skills", []) or []
+                if str(raw_skill).strip()
+            ]
+            match_count = sum(1 for raw_skill in skills if raw_skill in wanted_ids)
+            if not match_count:
+                continue
+            total_mentions += match_count
+            sectors = list(dict.fromkeys(self._job_sector_labels(job))) or ["Sector not specified"]
+            for sector in sectors:
+                sector_counts[sector] += match_count
+            region_code = str(job.get("location_code") or "EU").strip() or "EU"
+            region_counts[region_code] += match_count
+            period = self.trends._period_label(job.get("upload_date"), granularity)
+            if period in bucket_keys:
+                time_counts[period] += match_count
+
+        skill = self._build_skill_explorer_skill(skill_id, skill_label, wanted_ids)
+        response = self._format_skill_explorer_counts(
+            skill=skill,
+            mode="live",
+            data_source="live",
+            total_mentions=total_mentions,
+            sector_counts=sector_counts,
+            sector_labels={sector: sector for sector in sector_counts},
+            region_counts=region_counts,
+            time_counts=time_counts,
+            periods=[bucket["period"] for bucket in buckets],
+            top_k=top_k,
+        )
+        if not total_mentions:
+            response["status"] = "not_found"
+            response["message"] = "Skill not found in fetched Tracker jobs."
+        response["warnings"] = [
+            "Live mode scans Tracker jobs for the requested date range; prefer narrow filters for long windows."
+        ]
+        return response
+
+    def _resolve_skill_explorer_years(self, year: Optional[int], start_year: Optional[int], end_year: Optional[int]):
+        if year is not None:
+            target = int(year)
+            return target, target
+        if start_year is not None or end_year is not None:
+            start = int(start_year if start_year is not None else end_year)
+            end = int(end_year if end_year is not None else start_year)
+            return start, end
+        current_year = self._today().year
+        return current_year, current_year
+
+    def _resolve_skill_explorer_ids(self, skill_id: Optional[str], skill_label: Optional[str]):
+        if skill_id and str(skill_id).strip():
+            return {str(skill_id).strip()}
+        label_key = str(skill_label or "").strip().lower()
+        if not label_key:
+            return set()
+        return {
+            str(raw_id)
+            for raw_id, meta in getattr(self.engine, "skill_map", {}).items()
+            if str((meta or {}).get("label") or "").strip().lower() == label_key
+        }
+
+    def _build_skill_explorer_skill(self, skill_id: Optional[str], skill_label: Optional[str], wanted_ids: set):
+        first_id = str(skill_id).strip() if skill_id and str(skill_id).strip() else next(iter(wanted_ids), None)
+        label = str(skill_label).strip() if skill_label and str(skill_label).strip() else None
+        if first_id and not label:
+            label = self._skill_meta(first_id)["label"]
+        return {
+            "skill_id": first_id,
+            "label": label or first_id or "Unknown skill",
+            "match_type": "skill_id" if skill_id and str(skill_id).strip() else "skill_label",
+        }
+
+    def _format_skill_explorer_counts(
+            self,
+            skill: dict,
+            mode: str,
+            data_source: str,
+            total_mentions: int,
+            sector_counts: Counter,
+            sector_labels: dict,
+            region_counts: Counter,
+            time_counts: Counter,
+            periods: List[str],
+            top_k: int,
+    ):
+        sector_total = sum(sector_counts.values())
+        region_total = sum(region_counts.values())
+        sectors = [
+            {
+                "sector": sector,
+                "sector_label": sector_labels.get(sector, sector),
+                "count": count,
+                "share": round(count / sector_total, 6) if sector_total else 0.0,
+            }
+            for sector, count in sector_counts.most_common(max(int(top_k or 20), 1))
+        ]
+        regions = [
+            {
+                "code": code,
+                "count": count,
+                "share": round(count / region_total, 6) if region_total else 0.0,
+            }
+            for code, count in region_counts.most_common(max(int(top_k or 20), 1))
+        ]
+        time_series = []
+        previous = None
+        for period in periods:
+            count = int(time_counts.get(period, 0))
+            time_series.append({
+                "period": str(period),
+                "count": count,
+                "growth_vs_previous": self.trends._growth(previous, count),
+            })
+            previous = count
+
+        return {
+            "status": "completed",
+            "mode": mode,
+            "data_source": data_source,
+            "skill": skill,
+            "total_mentions": int(total_mentions),
+            "sectors": sectors,
+            "regions": regions,
+            "time_series": time_series,
+            "warnings": [],
+        }
+
+    def _empty_skill_explorer_response(
+            self,
+            mode: str,
+            data_source: str,
+            skill_id: Optional[str],
+            skill_label: Optional[str],
+            status: str,
+            message: str,
+    ):
+        skill = None
+        if skill_id or skill_label:
+            skill = {
+                "skill_id": str(skill_id).strip() if skill_id and str(skill_id).strip() else None,
+                "label": str(skill_label or skill_id or "Unknown skill").strip(),
+                "match_type": "skill_id" if skill_id and str(skill_id).strip() else "skill_label",
+            }
+        return {
+            "status": status,
+            "mode": mode,
+            "data_source": data_source,
+            "skill": skill,
+            "total_mentions": 0,
+            "sectors": [],
+            "regions": [],
+            "time_series": [],
+            "warnings": [],
+            "message": message,
+        }
 
     def _build_regional_temporal_projection(
             self,
