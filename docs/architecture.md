@@ -70,7 +70,8 @@ cache_data/search_<md5-filter-hash>.json
 Important behavior:
 
 - repeated identical filters reuse the cache
-- cache entries do not expire automatically
+- completed cache entries expire after `TRACKER_CACHE_TTL_DAYS` days, default `30`
+- set `TRACKER_CACHE_TTL_DAYS=0` to disable TTL expiration
 - cached job batches without `sectors` are treated as stale and refetched
 
 ## Stop Behavior
@@ -148,12 +149,18 @@ This keeps long Tracker aggregation out of normal dashboard requests.
 - The shared `ProjectorEngine` state is process-local and in-memory.
 - Real Tracker backfills still need operational validation before closing the refresh pipeline.
 
-## Production Hardening Priorities
+## Production Hardening
 
-1. Add input validation for date ranges and bounded page sizes.
-2. Define a standard error envelope.
-3. Add explicit cache invalidation or TTL.
-4. Add versioning, for example `/api/v1/projector/...`.
-5. Extend `/projector/health` with Tracker readiness.
-6. Expand automated tests for API-only sectoral payloads and no-data responses.
-7. Monitor scheduled snapshot refreshes in production and alert on repeated failures.
+Implemented:
+
+- validation errors use a stable `{detail: {error: {code, message, field}}}` envelope
+- date formats, date ranges, statistical parameters, and snapshot years are validated
+- completed Tracker cache entries use a configurable TTL
+- `/projector/readiness` reports Tracker authentication and snapshot DB availability
+
+Remaining priorities:
+
+1. Extend cache invalidation controls beyond the default Tracker TTL.
+2. Add versioning, for example `/api/v1/projector/...`.
+3. Expand automated tests for API-only sectoral payloads and no-data responses.
+4. Monitor scheduled snapshot refreshes in production and alert on repeated failures.
