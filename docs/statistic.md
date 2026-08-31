@@ -2,7 +2,7 @@
 
 Concise formulas for current API-only metrics.
 
-Related issues: #3, #7, #8, #47, #48, #52.
+Related issues: #3, #7, #8, #33, #47, #48, #52, #88, #89, #90.
 
 ## Core Source
 
@@ -316,6 +316,42 @@ count(new skills + disappeared skills) / count(union skills across both years)
 
 ```text
 skill_count_to_year - skill_count_from_year
+```
+
+## Regional Sectoral Temporal Evolution
+
+`regional_sector_count`
+
+```text
+count(jobs in region where sector appears)
+```
+
+`share_in_region`
+
+```text
+regional_sector_count / total_jobs_in_region * 100
+```
+
+`regional_sector_delta`
+
+```text
+count_to_year - count_from_year
+```
+
+`regional_sector_growth`
+
+```text
+(count_to_year - count_from_year) / count_from_year * 100
+```
+
+If `count_from_year = 0` and `count_to_year > 0`, growth is `new_entry`.
+
+The selected `metric` controls the frontend value:
+
+```text
+count  = count
+share  = share_in_region
+growth = growth_vs_previous
 ```
 
 ## Sector Skills Comparison

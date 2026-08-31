@@ -588,11 +588,18 @@ class ProjectorService:
     async def regional_sectoral(
             self,
             year: int,
+            reference_year: Optional[int] = None,
+            start_year: Optional[int] = None,
+            end_year: Optional[int] = None,
             locations: Optional[List[str]] = None,
+            level: Literal["raw", "nuts1", "nuts2", "nuts3"] = "raw",
+            sectors: Optional[List[str]] = None,
+            metric: Literal["count", "share", "growth"] = "count",
             top_k: int = 10,
     ):
         location_code = self._single_location(locations)
         min_date, max_date = self._year_window(year, f"{year}-12-31")
+        sector_filter = self._normalize_sector_filter(sectors)
         try:
             refresh_status = self._read_sector_refresh_status(year, location_code)
         except Exception as exc:
@@ -645,7 +652,123 @@ class ProjectorService:
                 "message": f"No static regional-sectoral snapshot available for {year}. Run the snapshot refresh job first.",
             }
 
-        return payload
+        if sector_filter:
+            payload = self._filter_regional_sectoral_payload(payload, sector_filter)
+        if not (reference_year is not None or start_year is not None or end_year is not None):
+            return payload
+
+        enriched = {
+            **payload,
+            "level": level,
+            "metric": metric,
+        }
+        if reference_year is not None:
+            enriched["reference_year"] = int(reference_year)
+        if not hasattr(self.sector_snapshot_store, "read_regional_sectoral_time_series"):
+            if reference_year is not None:
+                enriched["regional_sectoral_evolution"] = []
+            if start_year is not None or end_year is not None:
+                enriched["regional_sectoral_time_series"] = []
+            return enriched
+
+        series_start = int(start_year if start_year is not None else reference_year if reference_year is not None else year)
+        series_end = int(end_year if end_year is not None else year)
+        query_start = min(series_start, series_end)
+        query_end = max(series_start, series_end)
+        try:
+            series_payload = self.sector_snapshot_store.read_regional_sectoral_time_series(
+                start_year=query_start,
+                end_year=query_end,
+                location_code=location_code,
+                level=level,
+                sectors=sector_filter,
+                metric=metric,
+                top_k=top_k,
+            )
+        except Exception:
+            series_payload = None
+
+        series_rows = (series_payload or {}).get("regional_sectoral_time_series", [])
+        if start_year is not None or end_year is not None:
+            enriched["regional_sectoral_time_series"] = series_rows
+        if reference_year is not None:
+            enriched["regional_sectoral_evolution"] = self._build_regional_sectoral_evolution(
+                series_rows,
+                current_year=int(year),
+                reference_year=int(reference_year),
+                metric=metric,
+                top_k=top_k,
+            )
+
+        return enriched
+
+    def _filter_regional_sectoral_payload(self, payload: dict, sectors: List[str]):
+        wanted = {sector.lower() for sector in sectors}
+        filtered = {**payload}
+        filtered_levels = {}
+        for level, areas in payload.get("regional_sectoral", {}).items():
+            filtered_areas = []
+            for area in areas:
+                top_sectors = [
+                    sector for sector in area.get("top_sectors", [])
+                    if str(sector.get("sector_code") or "").lower() in wanted
+                    or str(sector.get("sector") or "").lower() in wanted
+                ]
+                if top_sectors:
+                    filtered_areas.append({**area, "top_sectors": top_sectors})
+            filtered_levels[level] = filtered_areas
+        filtered["regional_sectoral"] = filtered_levels
+        return filtered
+
+    def _build_regional_sectoral_evolution(
+            self,
+            series_rows: List[dict],
+            current_year: int,
+            reference_year: int,
+            metric: str,
+            top_k: int,
+    ):
+        rows = []
+        for item in series_rows:
+            points = {int(point.get("year")): point for point in item.get("series", [])}
+            current = points.get(current_year, {})
+            reference = points.get(reference_year, {})
+            current_count = int(current.get("count", 0) or 0)
+            reference_count = int(reference.get("count", 0) or 0)
+            current_share = float(current.get("share_in_region", 0.0) or 0.0)
+            reference_share = float(reference.get("share_in_region", 0.0) or 0.0)
+            delta = current_count - reference_count
+            growth = self.trends._growth(reference_count, current_count)
+            if growth is None:
+                growth = 0.0
+            share_delta = round(current_share - reference_share, 6)
+            growth_value = 1.0 if growth == "new_entry" else float(growth or 0.0)
+            values = {
+                "count": float(delta),
+                "share": share_delta,
+                "growth": growth_value,
+            }
+            display_values = {
+                "count": f"{delta:+d}",
+                "share": f"{share_delta:+.2f} pp",
+                "growth": "new" if growth == "new_entry" else f"{growth_value:.2f}%",
+            }
+            rows.append({
+                "code": item.get("code"),
+                "sector": item.get("sector"),
+                "sector_label": item.get("sector_label") or item.get("sector"),
+                "current_count": current_count,
+                "reference_count": reference_count,
+                "current_share_in_region": current_share,
+                "reference_share_in_region": reference_share,
+                "delta": delta,
+                "growth": growth,
+                "value": values.get(metric, float(delta)),
+                "display_value": display_values.get(metric, f"{delta:+d}"),
+            })
+
+        rows.sort(key=lambda item: abs(item["value"]), reverse=True)
+        return rows[:max(int(top_k or 10), 1)]
 
     def _skill_explorer_snapshot(
             self,

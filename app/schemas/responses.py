@@ -277,6 +277,38 @@ class RegionalSectoralProjections(BaseModel):
     nuts3: List[RegionalSectoralArea] = Field(..., description="Sector distribution at NUTS3-like level.")
 
 
+class RegionalSectoralEvolutionItem(BaseModel):
+    code: str
+    sector: str
+    sector_label: str
+    current_count: int
+    reference_count: int
+    current_share_in_region: float
+    reference_share_in_region: float
+    delta: int
+    growth: Union[float, Literal["new_entry"]]
+    value: float
+    display_value: str
+
+
+class RegionalSectoralTimePoint(BaseModel):
+    year: int
+    count: int
+    share_in_region: float
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = None
+    value: float
+    display_value: str
+
+
+class RegionalSectoralTimeSeriesItem(BaseModel):
+    code: str
+    sector: str
+    sector_label: str
+    delta: int
+    growth: Union[float, Literal["new_entry"]]
+    series: List[RegionalSectoralTimePoint]
+
+
 # -----------------------------
 # Main endpoint response models
 # -----------------------------
@@ -479,10 +511,15 @@ class SectorSkillsComparisonResponse(BaseModel):
 class RegionalSectoralResponse(BaseModel):
     status: str
     year: int
+    reference_year: Optional[int] = None
     data_source: Literal["postgres", "cache", "live"]
     window: dict[str, str]
     refresh_status: Optional[dict] = None
     regional_sectoral: RegionalSectoralProjections
+    level: Optional[Literal["raw", "nuts1", "nuts2", "nuts3"]] = None
+    metric: Optional[Literal["count", "share", "growth"]] = None
+    regional_sectoral_evolution: Optional[List[RegionalSectoralEvolutionItem]] = None
+    regional_sectoral_time_series: Optional[List[RegionalSectoralTimeSeriesItem]] = None
     message: Optional[str] = None
 
 

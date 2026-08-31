@@ -459,7 +459,13 @@ Use it for yearly regional sector distribution. It does not perform live Tracker
 | Field | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
 | `year` | integer | yes | none | Target snapshot year |
+| `reference_year` | integer | no | `null` | Adds evolution from reference year to `year` |
+| `start_year` | integer | no | `null` | Adds multi-year time series from this year |
+| `end_year` | integer | no | `null` | Adds multi-year time series to this year |
 | `locations` | list of strings | no | `null` | Optional Tracker location code |
+| `level` | enum | no | `raw` | Level used by optional time/evolution blocks: `raw`, `nuts1`, `nuts2`, `nuts3` |
+| `sectors` | list of strings | no | `null` | Optional sector filter |
+| `metric` | enum | no | `count` | Optional time/evolution value: `count`, `share`, or `growth` |
 | `top_k` | integer | no | `10` | Max sectors per region |
 
 ### Example Request
@@ -503,6 +509,59 @@ curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
     "nuts2": [],
     "nuts3": []
   }
+}
+```
+
+When `reference_year` is provided, the response also includes:
+
+```json
+{
+  "reference_year": 2023,
+  "level": "raw",
+  "metric": "growth",
+  "regional_sectoral_evolution": [
+    {
+      "code": "IT",
+      "sector": "Manufacturing",
+      "sector_label": "Manufacturing",
+      "current_count": 34,
+      "reference_count": 20,
+      "current_share_in_region": 28.33,
+      "reference_share_in_region": 20.0,
+      "delta": 14,
+      "growth": 70.0,
+      "value": 70.0,
+      "display_value": "70.00%"
+    }
+  ]
+}
+```
+
+When `start_year` or `end_year` is provided, the response also includes:
+
+```json
+{
+  "level": "nuts1",
+  "metric": "share",
+  "regional_sectoral_time_series": [
+    {
+      "code": "ITC",
+      "sector": "Manufacturing",
+      "sector_label": "Manufacturing",
+      "delta": 14,
+      "growth": 70.0,
+      "series": [
+        {
+          "year": 2023,
+          "count": 20,
+          "share_in_region": 20.0,
+          "growth_vs_previous": null,
+          "value": 20.0,
+          "display_value": "20.00%"
+        }
+      ]
+    }
+  ]
 }
 ```
 

@@ -2,7 +2,7 @@
 
 Current response fields. Metric formulas live in [Statistics](statistic.md).
 
-Related issues: #3, #4, #7, #8, #44, #47, #48, #52, #54, #74.
+Related issues: #3, #4, #7, #8, #33, #44, #47, #48, #52, #54, #74, #88, #89, #90.
 
 ## Root Response
 
@@ -378,6 +378,63 @@ If the reference year has no sector jobs and the selected year has sector jobs:
 ```
 
 `value` is the selected heatmap metric.
+
+## Regional Sectoral Evolution
+
+`POST /projector/regional-sectoral` with `reference_year`.
+
+```json
+{
+  "reference_year": 2023,
+  "level": "raw",
+  "metric": "growth",
+  "regional_sectoral_evolution": [
+    {
+      "code": "IT",
+      "sector": "ICT",
+      "sector_label": "Information and communication",
+      "current_count": 34,
+      "reference_count": 20,
+      "current_share_in_region": 28.33,
+      "reference_share_in_region": 20.0,
+      "delta": 14,
+      "growth": 70.0,
+      "value": 70.0,
+      "display_value": "70.00%"
+    }
+  ]
+}
+```
+
+## Regional Sectoral Time Series
+
+`POST /projector/regional-sectoral` with `start_year` / `end_year`.
+
+```json
+{
+  "level": "nuts1",
+  "metric": "share",
+  "regional_sectoral_time_series": [
+    {
+      "code": "ITC",
+      "sector": "ICT",
+      "sector_label": "Information and communication",
+      "delta": 14,
+      "growth": 70.0,
+      "series": [
+        {
+          "year": 2024,
+          "count": 34,
+          "share_in_region": 28.33,
+          "growth_vs_previous": 70.0,
+          "value": 28.33,
+          "display_value": "28.33%"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## Legacy Sectoral Detail
 

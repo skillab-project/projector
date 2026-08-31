@@ -584,7 +584,13 @@ async def sector_skills_comparison(
 )
 async def regional_sectoral(
         year: int = Form(...),
+        reference_year: Optional[int] = Form(None),
+        start_year: Optional[int] = Form(None),
+        end_year: Optional[int] = Form(None),
         locations: Optional[List[str]] = Form(None),
+        level: Literal["raw", "nuts1", "nuts2", "nuts3"] = Form("raw"),
+        sectors: Optional[List[str]] = Form(None),
+        metric: Literal["count", "share", "growth"] = Form("count"),
         top_k: int = Form(10),
 ):
     """
@@ -594,9 +600,35 @@ async def regional_sectoral(
        perform live Tracker aggregation.
     """
     validate_year(year, "year")
+    if reference_year is not None:
+        validate_year(reference_year, "reference_year")
+    if start_year is not None:
+        validate_year(start_year, "start_year")
+    if end_year is not None:
+        validate_year(end_year, "end_year")
+    if start_year is not None and end_year is not None and start_year > end_year:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_year_range",
+                "start_year must be less than or equal to end_year",
+                "start_year",
+            ),
+        )
+    if top_k < 1 or top_k > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_top_k", "top_k must be between 1 and 100", "top_k"),
+        )
     return await service.regional_sectoral(
         year=year,
+        reference_year=reference_year,
+        start_year=start_year,
+        end_year=end_year,
         locations=locations,
+        level=level,
+        sectors=sectors,
+        metric=metric,
         top_k=top_k,
     )
 

@@ -147,6 +147,21 @@ class _FakeSectorSnapshotStore:
             return self.payload["skill_distribution"]
         return self.payload
 
+    def read_regional_sectoral_time_series(
+            self,
+            start_year=None,
+            end_year=None,
+            location_code=None,
+            level="raw",
+            sectors=None,
+            metric="count",
+            top_k=10,
+    ):
+        self.requests.append(("regional_time_series", start_year, end_year, location_code, level, sectors, metric, top_k))
+        if isinstance(self.payload, dict) and "regional_sectoral_time_series_payload" in self.payload:
+            return self.payload["regional_sectoral_time_series_payload"]
+        return None
+
     def read_refresh_status(self, year, location_code=None):
         self.refresh_status_requests.append((year, location_code))
         return self.refresh_status
@@ -226,6 +241,7 @@ def test_sector_snapshot_store_disabled_reads_return_none():
     assert store.enabled is False
     assert store.read_latest(2024) is None
     assert store.read_skill_distribution(skill_label="Python", start_year=2024, end_year=2024) is None
+    assert store.read_regional_sectoral_time_series(start_year=2024, end_year=2024) is None
     assert store.latest_completed_at(2024) is None
     assert store.read_refresh_status(2024) is None
 
@@ -286,6 +302,103 @@ def test_sector_snapshot_store_read_skill_distribution_matches_label_case_insens
         {"period": "2023", "count": 4, "growth_vs_previous": None},
         {"period": "2024", "count": 6, "growth_vs_previous": 50.0},
     ]
+
+
+def test_sector_snapshot_store_read_regional_sectoral_time_series(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    rows = [
+        {
+            "run_id": 1,
+            "year": 2023,
+            "location_code": "ITC4D",
+            "total_jobs": 10,
+            "period_start": date(2023, 1, 1),
+            "period_end": date(2023, 12, 31),
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "job_count": 2,
+        },
+        {
+            "run_id": 2,
+            "year": 2024,
+            "location_code": "ITC4D",
+            "total_jobs": 20,
+            "period_start": date(2024, 1, 1),
+            "period_end": date(2024, 12, 31),
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "job_count": 8,
+        },
+    ]
+    conn = _FakeStoreConnection([_FakeStoreResult(many=rows)])
+
+    @contextmanager
+    def fake_connect():
+        yield conn
+
+    monkeypatch.setattr(store, "_connect", fake_connect)
+
+    payload = store.read_regional_sectoral_time_series(
+        start_year=2023,
+        end_year=2024,
+        level="nuts1",
+        sectors=["ICT"],
+        metric="growth",
+        top_k=5,
+    )
+
+    assert payload["level"] == "nuts1"
+    assert payload["metric"] == "growth"
+    assert payload["regional_sectoral_time_series"][0]["code"] == "ITC"
+    assert payload["regional_sectoral_time_series"][0]["delta"] == 6
+    assert payload["regional_sectoral_time_series"][0]["growth"] == 300.0
+    assert payload["regional_sectoral_time_series"][0]["series"][1]["share_in_region"] == 40.0
+    assert payload["regional_sectoral_time_series"][0]["series"][1]["value"] == 300.0
+
+
+def test_sector_snapshot_store_regional_sectoral_time_series_empty_and_normalized(monkeypatch):
+    store = SectorSnapshotStore("postgresql://db")
+    empty_conn = _FakeStoreConnection([_FakeStoreResult(many=[])])
+
+    @contextmanager
+    def fake_empty_connect():
+        yield empty_conn
+
+    monkeypatch.setattr(store, "_connect", fake_empty_connect)
+
+    assert store.read_regional_sectoral_time_series(start_year=2024, end_year=2024) is None
+
+    rows = [{
+        "run_id": 1,
+        "year": 2024,
+        "location_code": "ITC4D",
+        "total_jobs": 10,
+        "period_start": date(2024, 1, 1),
+        "period_end": date(2024, 12, 31),
+        "sector": "ICT",
+        "sector_label": "Information and communication",
+        "job_count": 3,
+    }]
+    normalized_conn = _FakeStoreConnection([_FakeStoreResult(many=rows)])
+
+    @contextmanager
+    def fake_normalized_connect():
+        yield normalized_conn
+
+    monkeypatch.setattr(store, "_connect", fake_normalized_connect)
+
+    payload = store.read_regional_sectoral_time_series(
+        start_year=2024,
+        end_year=2024,
+        level="unknown",
+        metric="unknown",
+        top_k=0,
+    )
+
+    assert payload["level"] == "raw"
+    assert payload["metric"] == "count"
+    assert payload["regional_sectoral_time_series"][0]["code"] == "ITC4D"
+    assert payload["regional_sectoral_time_series"][0]["series"][0]["display_value"] == "3"
 
 
 def test_sector_snapshot_store_connect_requires_database_url():
@@ -2883,6 +2996,65 @@ def test_endpoint_temporal_validation_rejects_invalid_numeric_controls():
     assert bad_forecast.json()["detail"]["error"]["code"] == "invalid_forecast_periods"
     assert bad_top_k.status_code == 422
     assert bad_top_k.json()["detail"]["error"]["code"] == "invalid_top_k"
+
+
+def test_endpoint_cross_dimension_validation_rejects_invalid_controls():
+    bad_regions = client.post("/projector/regional-temporal", data={
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+        "top_k_regions": "0",
+    })
+    bad_skills = client.post("/projector/regional-temporal", data={
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+        "top_k_skills": "101",
+    })
+    missing_skill = client.post("/projector/skill-explorer", data={
+        "mode": "snapshot",
+        "year": "2024",
+    })
+    bad_skill_top_k = client.post("/projector/skill-explorer", data={
+        "skill_label": "Python",
+        "mode": "snapshot",
+        "year": "2024",
+        "top_k": "0",
+    })
+    bad_skill_year_range = client.post("/projector/skill-explorer", data={
+        "skill_label": "Python",
+        "mode": "snapshot",
+        "start_year": "2025",
+        "end_year": "2024",
+    })
+    missing_live_dates = client.post("/projector/skill-explorer", data={
+        "skill_label": "Python",
+        "mode": "live",
+    })
+    bad_regional_sectoral_year_range = client.post("/projector/regional-sectoral", data={
+        "year": "2024",
+        "start_year": "2025",
+        "end_year": "2024",
+    })
+    bad_regional_sectoral_top_k = client.post("/projector/regional-sectoral", data={
+        "year": "2024",
+        "top_k": "0",
+    })
+
+    assert bad_regions.status_code == 422
+    assert bad_regions.json()["detail"]["error"]["code"] == "invalid_top_k_regions"
+    assert bad_skills.status_code == 422
+    assert bad_skills.json()["detail"]["error"]["code"] == "invalid_top_k_skills"
+    assert missing_skill.status_code == 422
+    assert missing_skill.json()["detail"]["error"]["code"] == "missing_skill"
+    assert bad_skill_top_k.status_code == 422
+    assert bad_skill_top_k.json()["detail"]["error"]["code"] == "invalid_top_k"
+    assert bad_skill_year_range.status_code == 422
+    assert bad_skill_year_range.json()["detail"]["error"]["code"] == "invalid_year_range"
+    assert missing_live_dates.status_code == 422
+    assert missing_live_dates.json()["detail"]["error"]["code"] == "missing_date_range"
+    assert bad_regional_sectoral_year_range.status_code == 422
+    assert bad_regional_sectoral_year_range.json()["detail"]["error"]["code"] == "invalid_year_range"
+    assert bad_regional_sectoral_top_k.status_code == 422
+    assert bad_regional_sectoral_top_k.json()["detail"]["error"]["code"] == "invalid_top_k"
 
 
 def test_endpoint_statistical_validation_rejects_negative_group_b_and_alpha():
@@ -7120,7 +7292,140 @@ def test_endpoint_regional_sectoral_returns_static_distribution():
     assert data["data_source"] == "postgres"
     assert data["regional_sectoral"]["raw"][0]["code"] == "ITC4D"
     assert data["regional_sectoral"]["nuts1"][0]["top_sectors"][0]["specialization"] == 1.33
+    assert "regional_sectoral_evolution" not in data
+    assert "regional_sectoral_time_series" not in data
+    assert "level" not in data
+    assert "metric" not in data
     assert fake_store.requests == [(2024, "IT", 5)]
+
+
+@pytest.mark.integration
+def test_endpoint_regional_sectoral_reference_year_produces_evolution():
+    current_payload = {
+        "status": "completed",
+        "year": 2024,
+        "data_source": "postgres",
+        "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+        "regional_sectoral": {
+            "raw": [{
+                "code": "ITC4D",
+                "total_jobs": 20,
+                "top_sectors": [{
+                    "sector": "Information and communication",
+                    "sector_code": "ICT",
+                    "count": 8,
+                    "share_in_region": 40.0,
+                    "specialization": 1.2,
+                }],
+            }],
+            "nuts1": [],
+            "nuts2": [],
+            "nuts3": [],
+        },
+    }
+    series_payload = {
+        "regional_sectoral_time_series": [{
+            "code": "ITC4D",
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "delta": 6,
+            "growth": 300.0,
+            "series": [
+                {"year": 2023, "count": 2, "share_in_region": 20.0, "growth_vs_previous": None, "value": 2.0, "display_value": "2"},
+                {"year": 2024, "count": 8, "share_in_region": 40.0, "growth_vs_previous": 300.0, "value": 8.0, "display_value": "8"},
+            ],
+        }]
+    }
+    store = _FakeSectorSnapshotStore({
+        "regional_sectoral_payload": current_payload,
+        "regional_sectoral_time_series_payload": series_payload,
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post("/projector/regional-sectoral", data={
+            "year": "2024",
+            "reference_year": "2023",
+            "locations": "IT",
+            "level": "raw",
+            "sectors": "ICT",
+            "metric": "growth",
+            "top_k": "5",
+        })
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["reference_year"] == 2023
+    assert data["level"] == "raw"
+    assert data["metric"] == "growth"
+    assert data["regional_sectoral_evolution"][0]["code"] == "ITC4D"
+    assert data["regional_sectoral_evolution"][0]["delta"] == 6
+    assert data["regional_sectoral_evolution"][0]["growth"] == 300.0
+    assert data["regional_sectoral_evolution"][0]["value"] == 300.0
+    assert store.requests[-1] == ("regional_time_series", 2023, 2024, "IT", "raw", ["ICT"], "growth", 5)
+
+
+@pytest.mark.integration
+def test_endpoint_regional_sectoral_year_range_produces_time_series():
+    current_payload = {
+        "status": "completed",
+        "year": 2024,
+        "data_source": "postgres",
+        "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+        "regional_sectoral": {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []},
+    }
+    series_payload = {
+        "regional_sectoral_time_series": [{
+            "code": "ITC",
+            "sector": "ICT",
+            "sector_label": "Information and communication",
+            "delta": 6,
+            "growth": 300.0,
+            "series": [
+                {"year": 2023, "count": 2, "share_in_region": 20.0, "growth_vs_previous": None, "value": 20.0, "display_value": "20.00%"},
+                {"year": 2024, "count": 8, "share_in_region": 40.0, "growth_vs_previous": 300.0, "value": 40.0, "display_value": "40.00%"},
+            ],
+        }]
+    }
+    store = _FakeSectorSnapshotStore({
+        "regional_sectoral_payload": current_payload,
+        "regional_sectoral_time_series_payload": series_payload,
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post("/projector/regional-sectoral", data={
+            "year": "2024",
+            "start_year": "2023",
+            "end_year": "2024",
+            "level": "nuts1",
+            "metric": "share",
+        })
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["regional_sectoral_time_series"][0]["code"] == "ITC"
+    assert data["regional_sectoral_time_series"][0]["series"][1]["value"] == 40.0
+    assert "regional_sectoral_evolution" not in data
+    assert store.requests[-1] == ("regional_time_series", 2023, 2024, None, "nuts1", [], "share", 10)
+
+
+@pytest.mark.integration
+def test_endpoint_regional_sectoral_missing_snapshot_returns_not_available():
+    store = _FakeSectorSnapshotStore({
+        "regional_sectoral_payload": None,
+        "regional_sectoral_time_series_payload": None,
+    })
+
+    with patch.object(service, "sector_snapshot_store", store):
+        response = client.post("/projector/regional-sectoral", data={
+            "year": "2026",
+            "reference_year": "2025",
+        })
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "not_available"
+    assert data["regional_sectoral"] == {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []}
+    assert data["message"] == "No static regional-sectoral snapshot available for 2026. Run the snapshot refresh job first."
 
 
 @pytest.mark.integration

@@ -421,6 +421,173 @@ class SectorSnapshotStore:
             "warnings": warnings,
         }
 
+    def read_regional_sectoral_time_series(
+            self,
+            start_year: int,
+            end_year: int,
+            location_code: Optional[str] = None,
+            level: str = "raw",
+            sectors: Optional[List[str]] = None,
+            metric: str = "count",
+            top_k: int = 10,
+    ):
+        if not self.enabled:
+            return None
+
+        start_year = int(start_year)
+        end_year = int(end_year)
+        location_filter = str(location_code or "").strip()
+        normalized_level = str(level or "raw").strip().lower()
+        if normalized_level not in {"raw", "nuts1", "nuts2", "nuts3"}:
+            normalized_level = "raw"
+        normalized_metric = str(metric or "count").strip().lower()
+        if normalized_metric not in {"count", "share", "growth"}:
+            normalized_metric = "count"
+        sector_filter = {
+            str(sector).strip().lower()
+            for sector in (sectors or [])
+            if str(sector).strip()
+        }
+        top_k = max(int(top_k or 10), 1)
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                WITH latest_runs AS (
+                    SELECT DISTINCT ON (year, COALESCE(location_code, ''))
+                        id, year, location_code, total_jobs, period_start, period_end, completed_at
+                    FROM sector_snapshot_runs
+                    WHERE year BETWEEN %s AND %s
+                      AND status = 'completed'
+                      AND location_code IS NOT NULL
+                      AND (%s = '' OR location_code = %s)
+                      AND (%s <> '' OR UPPER(location_code) <> 'DEMO')
+                    ORDER BY year, COALESCE(location_code, ''), completed_at DESC NULLS LAST, id DESC
+                )
+                SELECT
+                    latest_runs.id AS run_id,
+                    latest_runs.year,
+                    latest_runs.location_code,
+                    latest_runs.total_jobs,
+                    latest_runs.period_start,
+                    latest_runs.period_end,
+                    snapshots.sector,
+                    snapshots.sector_label,
+                    snapshots.job_count
+                FROM latest_runs
+                JOIN sector_yearly_snapshots snapshots
+                    ON snapshots.run_id = latest_runs.id
+                ORDER BY latest_runs.year, latest_runs.location_code, snapshots.job_count DESC
+                """,
+                (start_year, end_year, location_filter, location_filter, location_filter),
+            ).fetchall()
+
+        if not rows:
+            return None
+
+        def level_code(raw_code):
+            raw_code = str(raw_code or "").strip()
+            if normalized_level == "nuts1":
+                return raw_code[:3]
+            if normalized_level == "nuts2":
+                return raw_code[:4] if len(raw_code) >= 4 else None
+            if normalized_level == "nuts3":
+                return raw_code if len(raw_code) >= 5 else None
+            return raw_code
+
+        areas = {}
+        labels = {}
+        seen_runs = set()
+        for row in rows:
+            code = level_code(row["location_code"])
+            if not code:
+                continue
+            sector_key = row["sector"]
+            sector_label = row["sector_label"] or sector_key
+            if sector_filter and sector_key.lower() not in sector_filter and sector_label.lower() not in sector_filter:
+                continue
+            year = int(row["year"])
+            area = areas.setdefault(
+                (year, code),
+                {"total_jobs": 0, "sectors": Counter()},
+            )
+            run_key = (year, code, row["run_id"])
+            if run_key not in seen_runs:
+                area["total_jobs"] += int(row["total_jobs"] or 0)
+                seen_runs.add(run_key)
+            area["sectors"][sector_key] += int(row["job_count"] or 0)
+            labels[sector_key] = sector_label
+
+        if not areas:
+            return None
+
+        keys = {
+            (code, sector)
+            for (_year, code), area in areas.items()
+            for sector in area["sectors"]
+        }
+        output = []
+        years = list(range(start_year, end_year + 1))
+        for code, sector in keys:
+            series = []
+            previous_count = None
+            first_count = 0
+            latest_count = 0
+            for year in years:
+                area = areas.get((year, code), {"total_jobs": 0, "sectors": Counter()})
+                count = int(area["sectors"].get(sector, 0))
+                total_jobs = int(area["total_jobs"] or 0)
+                share = round((count / total_jobs) * 100, 6) if total_jobs else 0.0
+                growth = self._growth(previous_count, count)
+                growth_value = 1.0 if growth == "new_entry" else float(growth or 0.0)
+                values = {
+                    "count": float(count),
+                    "share": share,
+                    "growth": growth_value,
+                }
+                display_values = {
+                    "count": str(count),
+                    "share": f"{share:.2f}%",
+                    "growth": "new" if growth == "new_entry" else f"{growth_value:.2f}%",
+                }
+                series.append({
+                    "year": year,
+                    "count": count,
+                    "share_in_region": share,
+                    "growth_vs_previous": growth,
+                    "value": values.get(normalized_metric, float(count)),
+                    "display_value": display_values.get(normalized_metric, str(count)),
+                })
+                if year == start_year:
+                    first_count = count
+                if year == end_year:
+                    latest_count = count
+                previous_count = count
+            growth = self._growth(first_count, latest_count)
+            if growth is None:
+                growth = 0.0
+            output.append({
+                "code": code,
+                "sector": sector,
+                "sector_label": labels.get(sector, sector),
+                "delta": latest_count - first_count,
+                "growth": growth,
+                "series": series,
+            })
+
+        output.sort(
+            key=lambda item: max(point["count"] for point in item["series"]),
+            reverse=True,
+        )
+        return {
+            "status": "completed",
+            "start_year": start_year,
+            "end_year": end_year,
+            "level": normalized_level,
+            "metric": normalized_metric,
+            "regional_sectoral_time_series": output[:top_k],
+        }
+
     def _growth(self, previous, current):
         if previous is None:
             return None
