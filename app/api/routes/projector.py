@@ -11,7 +11,9 @@ from app.schemas.responses import (
     SectoralIntelligenceResponse,
     SectorSkillsComparisonResponse,
     SectoralSnapshotResponse,
+    StatisticalComparisonResponse,
     StopResponse,
+    TemporalProjectionsResponse,
 )
 from app.core.container import service
 
@@ -84,6 +86,10 @@ async def readiness():
         and getattr(tracker, "username", None)
         and getattr(tracker, "password", None)
     )
+    tracker_status = {"configured": tracker_configured}
+    if tracker and hasattr(tracker, "check_readiness"):
+        tracker_status = await tracker.check_readiness()
+
     database_configured = bool(getattr(snapshot_store, "enabled", False))
     database_available = None
     database_error = None
@@ -96,9 +102,7 @@ async def readiness():
             database_error = str(exc)
 
     dependencies = {
-        "tracker": {
-            "configured": tracker_configured,
-        },
+        "tracker": tracker_status,
         "sector_snapshot_db": {
             "configured": database_configured,
             "available": database_available,
@@ -107,7 +111,9 @@ async def readiness():
     if database_error:
         dependencies["sector_snapshot_db"]["error"] = database_error
 
-    ready = tracker_configured and (not database_configured or database_available is True)
+    tracker_available = tracker_status.get("available")
+    tracker_ready = tracker_available if tracker_available is not None else tracker_status.get("configured")
+    ready = bool(tracker_ready) and (not database_configured or database_available is True)
     return {
         "status": "ready" if ready else "degraded",
         "dependencies": dependencies,
@@ -144,6 +150,108 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
     validate_date_range(min_date, max_date, "min_date", "max_date")
     return await service.emerging_skills(min_date, max_date,
                                  keywords)
+
+
+@router.post("/temporal-projections", response_model=TemporalProjectionsResponse)
+async def temporal_projections(
+        min_date: str = Form(...),
+        max_date: str = Form(...),
+        keywords: Optional[List[str]] = Form(None),
+        locations: Optional[List[str]] = Form(None),
+        granularity: Literal["monthly", "quarterly", "yearly"] = Form("monthly"),
+        forecast_periods: int = Form(1),
+        top_k: int = Form(10),
+):
+    """
+       Aggregates observed skill demand by upload date and returns short-term baseline projections.
+
+       Granularity can be monthly, quarterly, or yearly. Forecast values use a simple
+       last-delta baseline over observed counts; they are not predictive ML outputs.
+    """
+    validate_date_range(min_date, max_date, "min_date", "max_date")
+    if forecast_periods < 0 or forecast_periods > 12:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_forecast_periods",
+                "forecast_periods must be between 0 and 12",
+                "forecast_periods",
+            ),
+        )
+    if top_k < 1 or top_k > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "invalid_top_k",
+                "top_k must be between 1 and 100",
+                "top_k",
+            ),
+        )
+    return await service.temporal_projections(
+        min_date=min_date,
+        max_date=max_date,
+        keywords=keywords,
+        locations=locations,
+        granularity=granularity,
+        forecast_periods=forecast_periods,
+        top_k=top_k,
+    )
+
+
+@router.post("/statistical-comparison", response_model=StatisticalComparisonResponse)
+async def statistical_comparison(
+        comparison_type: Literal[
+            "temporal",
+            "sector_skill",
+            "regional_skill",
+            "regional_sector",
+            "sector_evolution",
+            "generic",
+        ] = Form("generic"),
+        group_a_label: str = Form(...),
+        group_a_count: int = Form(...),
+        group_a_total: int = Form(...),
+        group_b_label: str = Form(...),
+        group_b_count: int = Form(...),
+        group_b_total: int = Form(...),
+        alpha: float = Form(0.05),
+):
+    """
+       Runs a baseline 2x2 chi-square comparison over observed count distributions.
+
+       This is an inferential evidence layer for comparison views. It does not prove
+       shortages or causality; it reports statistical evidence for an observed difference.
+    """
+    if group_a_count < 0 or group_b_count < 0 or group_a_total < 0 or group_b_total < 0:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_counts", "counts and totals must be non-negative"),
+        )
+    if group_a_count > group_a_total:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_group_a", "group_a_count cannot exceed group_a_total", "group_a_count"),
+        )
+    if group_b_count > group_b_total:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_group_b", "group_b_count cannot exceed group_b_total", "group_b_count"),
+        )
+    if alpha <= 0 or alpha >= 1:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_alpha", "alpha must be greater than 0 and lower than 1", "alpha"),
+        )
+    return service.statistical_comparison(
+        comparison_type=comparison_type,
+        group_a_label=group_a_label,
+        group_a_count=group_a_count,
+        group_a_total=group_a_total,
+        group_b_label=group_b_label,
+        group_b_count=group_b_count,
+        group_b_total=group_b_total,
+        alpha=alpha,
+    )
 
 
 @router.post("/analyze-skills", response_model=ProjectorResponse, response_model_exclude_none=True)

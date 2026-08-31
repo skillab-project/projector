@@ -2,7 +2,7 @@
 
 Concise formulas for current API-only metrics.
 
-Related issues: #7, #8, #47, #48, #52.
+Related issues: #3, #7, #8, #47, #48, #52.
 
 ## Core Source
 
@@ -20,7 +20,7 @@ sectors = job["sectors"]
 count(jobs)
 ```
 
-## Skill Analyzer
+## Job Demand Overview
 
 `frequency`
 
@@ -39,6 +39,81 @@ count(distinct sectors where skill appears)
 ```text
 sector with max count for that skill
 ```
+
+## Temporal Analysis
+
+`period`
+
+```text
+bucket(upload_date, granularity)
+```
+
+Granularity can be monthly, quarterly or yearly.
+
+`period_job_count`
+
+```text
+count(jobs where upload_date in period)
+```
+
+`skill_period_count`
+
+```text
+count(skill mentions where upload_date in period)
+```
+
+`growth_vs_previous`
+
+```text
+(count_current_period - count_previous_period) / count_previous_period * 100
+```
+
+If previous count is `0` and current count is greater than `0`, growth is `new_entry`.
+
+`forecast.projected_count`
+
+```text
+latest_count + average(last up to 3 period deltas) * forecast_step
+```
+
+This is a short-term baseline projection, not an ML forecast.
+
+## Inferential Layer
+
+`chi_square_2x2`
+
+```text
+observed = [
+  [group_a_count, group_a_total - group_a_count],
+  [group_b_count, group_b_total - group_b_count]
+]
+```
+
+Expected counts:
+
+```text
+expected_cell = row_total * column_total / grand_total
+```
+
+Statistic:
+
+```text
+sum((observed_cell - expected_cell)^2 / expected_cell)
+```
+
+`p_value`
+
+```text
+chi-square survival probability with df = 1
+```
+
+`effect_size`
+
+```text
+sqrt(chi_square / grand_total)
+```
+
+This is an inferential evidence layer for observed differences. It does not prove shortage, causality, or future demand.
 
 ## Sector Counts
 

@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+from math import erfc, sqrt
 from typing import Optional, List, Literal
 from datetime import date, timedelta
 
@@ -148,6 +149,152 @@ class ProjectorService:
         res = await self.trends.calculate_smart_trends({"keywords": keywords} if keywords else {}, min_date, max_date)
         return {"status": "completed" if not self.engine.stop_requested else "stopped", "insights": res}
 
+    async def temporal_projections(
+            self,
+            min_date: str,
+            max_date: str,
+            keywords: Optional[List[str]] = None,
+            locations: Optional[List[str]] = None,
+            granularity: Literal["monthly", "quarterly", "yearly"] = "monthly",
+            forecast_periods: int = 1,
+            top_k: int = 10,
+    ):
+        self.engine.stop_requested = False
+        payload = {
+            "keywords": keywords,
+            "location_code": locations,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+        }
+        clean_payload = {key: value for key, value in payload.items() if value is not None}
+        jobs = await self.tracker.fetch_all_jobs(clean_payload)
+        skill_ids = {
+            str(skill_id).strip()
+            for job in jobs
+            for skill_id in job.get("skills", [])
+            if str(skill_id).strip()
+        }
+        if skill_ids:
+            await self.tracker.fetch_skill_names(list(skill_ids))
+        insights = await self.trends.calculate_temporal_projections_from_data(
+            jobs,
+            min_date,
+            max_date,
+            granularity=granularity,
+            forecast_periods=forecast_periods,
+            top_k=top_k,
+        )
+        return {
+            "status": "completed" if not self.engine.stop_requested else "stopped",
+            "total_jobs": len(jobs),
+            "insights": insights,
+        }
+
+    def statistical_comparison(
+            self,
+            comparison_type: Literal[
+                "temporal",
+                "sector_skill",
+                "regional_skill",
+                "regional_sector",
+                "sector_evolution",
+                "generic",
+            ],
+            group_a_label: str,
+            group_a_count: int,
+            group_a_total: int,
+            group_b_label: str,
+            group_b_count: int,
+            group_b_total: int,
+            alpha: float = 0.05,
+    ):
+        a_other = max(group_a_total - group_a_count, 0)
+        b_other = max(group_b_total - group_b_count, 0)
+        observed = [
+            [group_a_count, a_other],
+            [group_b_count, b_other],
+        ]
+        row_totals = [sum(row) for row in observed]
+        col_totals = [observed[0][0] + observed[1][0], observed[0][1] + observed[1][1]]
+        grand_total = sum(row_totals)
+        warnings = []
+
+        if grand_total == 0:
+            expected = [[0.0, 0.0], [0.0, 0.0]]
+            statistic = 0.0
+            p_value = 1.0
+            warnings.append("No observations available for statistical comparison.")
+        else:
+            expected = [
+                [
+                    round(row_total * col_total / grand_total, 4)
+                    for col_total in col_totals
+                ]
+                for row_total in row_totals
+            ]
+            statistic = 0.0
+            for row_idx, row in enumerate(observed):
+                for col_idx, value in enumerate(row):
+                    expected_value = expected[row_idx][col_idx]
+                    if expected_value > 0:
+                        statistic += ((value - expected_value) ** 2) / expected_value
+            statistic = round(statistic, 4)
+            p_value = round(erfc(sqrt(statistic / 2)), 6)
+
+        if any(value < 5 for row in expected for value in row):
+            warnings.append("At least one expected cell count is below 5; interpret the test cautiously.")
+
+        effect_size = round(sqrt(statistic / grand_total), 4) if grand_total else 0.0
+        if effect_size < 0.1:
+            effect_label = "negligible"
+        elif effect_size < 0.3:
+            effect_label = "small"
+        elif effect_size < 0.5:
+            effect_label = "medium"
+        else:
+            effect_label = "large"
+
+        significant = p_value < alpha
+        share_a = round(group_a_count / group_a_total, 4) if group_a_total else 0.0
+        share_b = round(group_b_count / group_b_total, 4) if group_b_total else 0.0
+        direction = group_a_label if share_a >= share_b else group_b_label
+        interpretation = (
+            f"Observed difference is statistically significant at alpha={alpha}; "
+            f"{direction} has the higher observed share. Effect size is {effect_label}."
+            if significant else
+            f"Observed difference is not statistically significant at alpha={alpha}. "
+            f"Effect size is {effect_label}."
+        )
+
+        return {
+            "status": "completed",
+            "comparison_type": comparison_type,
+            "method": "chi_square_2x2",
+            "alpha": alpha,
+            "significant": significant,
+            "statistic": statistic,
+            "p_value": p_value,
+            "effect_size": effect_size,
+            "effect_size_label": effect_label,
+            "interpretation": interpretation,
+            "groups": [
+                {
+                    "label": group_a_label,
+                    "count": group_a_count,
+                    "total": group_a_total,
+                    "share": share_a,
+                },
+                {
+                    "label": group_b_label,
+                    "count": group_b_count,
+                    "total": group_b_total,
+                    "share": share_b,
+                },
+            ],
+            "expected_counts": expected,
+            "warnings": warnings,
+        }
+
     async def sectoral_intelligence(
             self,
             keywords: Optional[List[str]] = None,
@@ -276,7 +423,12 @@ class ProjectorService:
         jobs = self._filter_jobs_by_sector(jobs, sector_filter)
         await self._ensure_skill_labels(jobs)
         sectors_payload = self._build_sector_snapshot_rows(jobs, sector_filter)
-        sectors_payload = self._enrich_sector_skill_metrics(sectors_payload, [], reference_year)
+        sectors_payload = self._enrich_sector_skill_metrics(
+            sectors_payload,
+            [],
+            reference_year,
+            current_total_jobs=len(jobs),
+        )
 
         if not sectors_payload:
             return self._empty_sector_snapshot(year, min_date, max_date, sector_filter, "cache", len(jobs))
@@ -299,6 +451,8 @@ class ProjectorService:
             payload.get("sectors", []),
             reference_payload.get("sectors", []),
             reference_year,
+            current_total_jobs=payload.get("total_jobs"),
+            reference_total_jobs=reference_payload.get("total_jobs"),
         )
         return enriched
 
@@ -438,7 +592,14 @@ class ProjectorService:
     def _sector_snapshot_store_enabled(self):
         return bool(self.sector_snapshot_store and getattr(self.sector_snapshot_store, "enabled", False))
 
-    def _enrich_sector_skill_metrics(self, sectors: List[dict], reference_sectors: List[dict], reference_year: int):
+    def _enrich_sector_skill_metrics(
+            self,
+            sectors: List[dict],
+            reference_sectors: List[dict],
+            reference_year: int,
+            current_total_jobs: Optional[int] = None,
+            reference_total_jobs: Optional[int] = None,
+    ):
         sector_breadth = Counter()
         for sector in sectors:
             for skill in sector.get("all_skills") or sector.get("top_skills", []):
@@ -490,13 +651,22 @@ class ProjectorService:
                     sector,
                     reference_by_sector.get(sector_key, {}),
                     reference_year,
+                    current_total_jobs,
+                    reference_total_jobs,
                 ),
                 "top_skills": enriched_skills[:10],
                 "all_skills": enriched_skills,
             })
         return enriched_sectors
 
-    def _build_sector_evolution(self, sector: dict, reference_sector: dict, reference_year: int):
+    def _build_sector_evolution(
+            self,
+            sector: dict,
+            reference_sector: dict,
+            reference_year: int,
+            current_total_jobs: Optional[int] = None,
+            reference_total_jobs: Optional[int] = None,
+    ):
         current_jobs = int(sector.get("job_count", 0) or 0)
         reference_jobs = int(reference_sector.get("job_count", 0) or 0)
         job_delta = current_jobs - reference_jobs
@@ -533,6 +703,8 @@ class ProjectorService:
             "reference_year": reference_year,
             "job_count_current": current_jobs,
             "job_count_reference": reference_jobs,
+            "total_jobs_current": int(current_total_jobs or 0),
+            "total_jobs_reference": int(reference_total_jobs or 0),
             "job_delta": job_delta,
             "job_growth_percentage": job_growth_percentage,
             "job_growth_value": job_growth_value,

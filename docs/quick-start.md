@@ -2,23 +2,37 @@
 
 Concise guide for developers working on the Projector API, dashboard, sector snapshots and documentation.
 
-Related issues: #1, #7, #8, #44, #47, #48, #49, #52, #54.
+Related issues: #1, #3, #4, #7, #8, #44, #47, #48, #49, #50, #52, #54, #73, #74.
 
 ## Intelligence Design
 
 ```text
-Skill Intelligence
-├── Skill Analyzer (already implemented)
+Job Demand
+├── Job Demand Overview
 │   [Keyword] [Date range] [Region]
 │
 │   question:
-│   given a job/search keyword, which skills emerge?
+│   what does this selected job-market slice look like?
 │
 │   outputs:
 │   - top skills
-│   - trends
+│   - job titles
+│   - employers
 │   - regional distribution
 │   - sector distribution
+│   - compact trend summary
+│
+├── Temporal Analysis
+│   [Keyword] [Date range] [Region] [Granularity]
+│
+│   question:
+│   how does this selected job-market slice evolve over time?
+│
+│   outputs:
+│   - period job counts
+│   - skill time series
+│   - growth rates
+│   - short-term baseline projection
 
 Sector Intelligence
 ├── Sector Overview
@@ -68,14 +82,29 @@ Sector Intelligence
 
 └── Skill Explorer
     [Skill] [Year / Range] [Region]
+
+Cross-Dimension Analysis
+├── Sector Skills Comparison
+│   └── inferential layer
+├── Regional Sector Distribution
+│   └── inferential layer
+├── Temporal Analysis
+│   └── inferential layer
+├── Sector Evolution
+│   └── inferential layer
+└── future skill/region/time combinations
 ```
 
 ## Final Navigation
 
 ```text
-Skill Analyzer
-= start from a job/search keyword
-= already implemented
+Job Demand Overview
+= composition of a job-market slice
+= maps to D3.3 4.1.1
+
+Temporal Analysis
+= evolution of the same job-market slice
+= maps to D3.3 4.1.1.4, 4.2.1 and 4.2.2
 
 Sector Overview
 = start from one sector
@@ -83,6 +112,11 @@ Sector Overview
 
 Sector Skills Comparison
 = compare many sectors against many skills
+
+Inferential Layer
+= p-value and effect size attached to comparison views
+= not a standalone navigation item
+= maps to D3.3 Dimension 4
 
 Skill Explorer
 = start from one skill
@@ -122,7 +156,9 @@ streamlit run app/example_dashboard/demo_dashboard.py
 
 | View | Start from | Main controls | Main endpoint |
 | --- | --- | --- | --- |
-| Skill Analyzer | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` |
+| Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` |
+| Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` |
+| Inferential Layer | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` |
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |
@@ -190,6 +226,16 @@ curl -X POST http://127.0.0.1:8000/projector/sector-skills-comparison \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "year=2024" \
   -d "metric=share"
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/projector/temporal-projections \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=monthly" \
+  -d "forecast_periods=2"
 ```
 
 ## Data Sources

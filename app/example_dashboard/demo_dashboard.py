@@ -30,6 +30,9 @@ if 'sector_skills_comparison_data' not in st.session_state:
 if 'regional_sectoral_data' not in st.session_state:
     st.session_state.regional_sectoral_data = None
 
+if 'temporal_projection_data' not in st.session_state:
+    st.session_state.temporal_projection_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -90,7 +93,8 @@ translations = {
         'filters_header': "Filtri di Ricerca",
         'dashboard_view': "Vista dashboard",
         'dashboard_view_options': {
-            "skill": "Skill Overview",
+            "skill": "Job Demand Overview",
+            "temporal": "Temporal Analysis",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
@@ -98,7 +102,27 @@ translations = {
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
         'date_range': "Intervallo Temporale",
-        'submit_general': "Lancia Skill Overview",
+        'submit_general': "Lancia Job Demand Overview",
+        'submit_temporal': "Lancia Temporal Analysis",
+        'temporal_header': "Temporal Analysis",
+        'temporal_help': "Aggrega le offerte per upload_date e mostra movimento skill per mese, trimestre o anno.",
+        'temporal_granularity': "Granularità temporale",
+        'temporal_granularity_options': {
+            "monthly": "Mensile",
+            "quarterly": "Trimestrale",
+            "yearly": "Annuale",
+        },
+        'forecast_periods': "Periodi forecast",
+        'top_k_skills': "Numero skill",
+        'period_job_volume': "Volume job per periodo",
+        'skill_time_series': "Serie temporale skill",
+        'baseline_forecast': "Baseline forecast",
+        'statistical_evidence': "Evidenza statistica",
+        'statistical_evidence_help': "Test chi-square 2x2 sui conteggi osservati. Indica evidenza statistica per una differenza, non prova causalità o shortage.",
+        'p_value': "p-value",
+        'effect_size': "Effect size",
+        'significant': "Significativo",
+        'not_significant': "Non significativo",
         'submit_sectoral': "Lancia Sector Overview",
         'sectoral_time_mode': "Finestra settoriale",
         'sector_filter': "Filtro settori (virgola)",
@@ -219,7 +243,7 @@ translations = {
         'backend_help': "Avvia FastAPI prima della dashboard. Esempio: `uvicorn app.main:app --reload`. Se Streamlit gira in container o su altra macchina, usa l'URL raggiungibile da Streamlit, non per forza 127.0.0.1.",
         'backend_timeout': "Timeout richiesta backend (secondi)",
         'check_backend': "Verifica backend",
-        'tabs': ["📊 Analisi Competenze", "📈 Emerging Trends", "🗺️ Distribuzione Geografica", "🏭 Settori & Aziende"],
+        'tabs': ["📊 Job Demand", "📈 Trend Summary", "🗺️ Distribuzione Geografica", "🏭 Settori & Aziende"],
         'top_skills': "Top Skills più richieste",
         'jobs_analyzed': "Job Analizzati",
         'trends_header': "Emerging vs Declining Skills",
@@ -282,7 +306,8 @@ translations = {
         'filters_header': "Search Filters",
         'dashboard_view': "Dashboard view",
         'dashboard_view_options': {
-            "skill": "Skill Overview",
+            "skill": "Job Demand Overview",
+            "temporal": "Temporal Analysis",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
@@ -290,7 +315,27 @@ translations = {
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
         'date_range': "Time Range",
-        'submit_general': "Run Skill Overview",
+        'submit_general': "Run Job Demand Overview",
+        'submit_temporal': "Run Temporal Analysis",
+        'temporal_header': "Temporal Analysis",
+        'temporal_help': "Aggregates postings by upload_date and shows skill movement by month, quarter or year.",
+        'temporal_granularity': "Temporal granularity",
+        'temporal_granularity_options': {
+            "monthly": "Monthly",
+            "quarterly": "Quarterly",
+            "yearly": "Yearly",
+        },
+        'forecast_periods': "Forecast periods",
+        'top_k_skills': "Number of skills",
+        'period_job_volume': "Job volume by period",
+        'skill_time_series': "Skill time series",
+        'baseline_forecast': "Baseline forecast",
+        'statistical_evidence': "Statistical evidence",
+        'statistical_evidence_help': "2x2 chi-square test on observed counts. It indicates statistical evidence for a difference, not causality or shortage proof.",
+        'p_value': "p-value",
+        'effect_size': "Effect size",
+        'significant': "Significant",
+        'not_significant': "Not significant",
         'submit_sectoral': "Run Sector Overview",
         'sectoral_time_mode': "Sectoral window",
         'sector_filter': "Sector filter (comma-separated)",
@@ -411,7 +456,7 @@ translations = {
         'backend_help': "Start FastAPI before the dashboard. Example: `uvicorn app.main:app --reload`. If Streamlit runs in a container or another machine, use the URL reachable from Streamlit, not necessarily 127.0.0.1.",
         'backend_timeout': "Backend request timeout (seconds)",
         'check_backend': "Check backend",
-        'tabs': ["📊 Skill Analysis", "📈 Emerging Trends", "🗺️ Geographic Distribution", "🏭 Sectors & Employers"],
+        'tabs': ["📊 Job Demand", "📈 Trend Summary", "🗺️ Geographic Distribution", "🏭 Sectors & Employers"],
         'top_skills': "Top Requested Skills",
         'jobs_analyzed': "Jobs Analyzed",
         'trends_header': "Emerging vs Declining Skills",
@@ -507,6 +552,8 @@ DEV_LABELS = {
         "Skill transversality": "Transversalità skill",
         "Sector skills comparison": "Confronto settori-skill",
         "Selected sector focus": "Focus settore selezionato",
+        "Statistical evidence": "Evidenza statistica",
+        "Inferential layer": "Layer inferenziale",
     },
     "EN": {}
 }
@@ -547,6 +594,7 @@ STAT_HELP_BY_LANG = {
         "regional_sector_count": "Numero di job del settore nella regione selezionata. Se un job ha più settori, contribuisce a ciascun settore.",
         "share_in_region": "Quota del settore nella regione. Formula: sector_jobs_region / total_jobs_region * 100.",
         "regional_sector_specialization": "Concentrazione settore-region rispetto al totale anno. Formula: sector_share_region / sector_share_global.",
+        "temporal_forecast": "Proiezione baseline a breve termine. Formula: latest_count + media degli ultimi delta * step.",
     },
     "EN": {
         "jobs_analyzed": "Number of Tracker jobs processed after filters. Formula: count(jobs).",
@@ -583,6 +631,7 @@ STAT_HELP_BY_LANG = {
         "regional_sector_count": "Number of sector jobs in the selected region. If a job has multiple sectors, it contributes to each sector.",
         "share_in_region": "Sector share inside the region. Formula: sector_jobs_region / total_jobs_region * 100.",
         "regional_sector_specialization": "Region-sector concentration versus the yearly total. Formula: sector_share_region / sector_share_global.",
+        "temporal_forecast": "Short-term baseline projection. Formula: latest_count + average recent deltas * step.",
     }
 }
 
@@ -702,6 +751,194 @@ def get_regional_sectoral_data(api_base_url: str, payload: dict, timeout_seconds
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
 
 
+def get_temporal_projection_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/temporal-projections",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def get_statistical_comparison_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/statistical-comparison",
+            data=payload,
+            timeout=min(int(timeout_seconds), 60)
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def render_statistical_evidence(payload: dict):
+    if not payload:
+        return
+    evidence = get_statistical_comparison_data(
+        st.session_state.api_base_url,
+        payload,
+        st.session_state.backend_timeout,
+    )
+    with st.expander(T["statistical_evidence"], expanded=False):
+        if not evidence or "_error" in evidence:
+            st.info(evidence.get("_error", T["no_data"]) if isinstance(evidence, dict) else T["no_data"])
+            return
+        status_label = T["significant"] if evidence.get("significant") else T["not_significant"]
+        c1, c2, c3 = st.columns(3)
+        c1.metric(T["p_value"], evidence.get("p_value"))
+        c2.metric(T["effect_size"], evidence.get("effect_size_label"))
+        c3.metric(T["statistical_evidence"], status_label)
+        st.caption(evidence.get("interpretation", ""))
+        warnings = evidence.get("warnings") or []
+        for warning in warnings:
+            st.warning(warning)
+        dev_info(
+            "Inferential layer",
+            STATISTICAL_COMPARISON_ENDPOINT,
+            {
+                "method": "chi_square_2x2",
+                "p_value": 0.013,
+                "effect_size": 0.22,
+                "effect_size_label": "small",
+                "significant": True,
+            },
+            [
+                "p_value",
+                "statistic",
+                "effect_size",
+                "effect_size_label",
+                "significant",
+                "interpretation",
+                "warnings[]",
+            ],
+            payload,
+        )
+
+
+def _safe_int(value) -> int:
+    try:
+        return int(float(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def build_regional_sector_statistical_payload(regions: list[dict], area_code: str, sector_label: str):
+    target_area = next((area for area in regions if area.get("code") == area_code), {})
+    target_sector = next(
+        (
+            sector for sector in target_area.get("top_sectors", [])
+            if sector.get("sector") == sector_label
+        ),
+        {},
+    )
+    group_a_total = _safe_int(target_area.get("total_jobs"))
+    group_a_count = _safe_int(target_sector.get("count"))
+    group_b_total = 0
+    group_b_count = 0
+    for area in regions:
+        if area.get("code") == area_code:
+            continue
+        area_total = _safe_int(area.get("total_jobs"))
+        match = next(
+            (
+                sector for sector in area.get("top_sectors", [])
+                if sector.get("sector") == sector_label
+            ),
+            {},
+        )
+        group_b_total += area_total
+        group_b_count += _safe_int(match.get("count"))
+    if not group_a_total or not group_b_total:
+        return None
+    return {
+        "comparison_type": "regional_sector",
+        "group_a_label": f"{sector_label} in {area_code}",
+        "group_a_count": group_a_count,
+        "group_a_total": group_a_total,
+        "group_b_label": f"{sector_label} in other regions",
+        "group_b_count": group_b_count,
+        "group_b_total": group_b_total,
+        "alpha": 0.05,
+    }
+
+
+def build_regional_skill_statistical_payload(regions: list[dict], area_code: str, skill_label: str):
+    target_area = next((area for area in regions if area.get("code") == area_code), {})
+    target_skill = next(
+        (
+            skill for skill in target_area.get("top_skills", [])
+            if skill.get("skill") == skill_label
+        ),
+        {},
+    )
+    group_a_total = _safe_int(target_area.get("total_jobs"))
+    group_a_count = _safe_int(target_skill.get("count"))
+    group_b_total = 0
+    group_b_count = 0
+    for area in regions:
+        if area.get("code") == area_code:
+            continue
+        match = next(
+            (
+                skill for skill in area.get("top_skills", [])
+                if skill.get("skill") == skill_label
+            ),
+            {},
+        )
+        group_b_total += _safe_int(area.get("total_jobs"))
+        group_b_count += _safe_int(match.get("count"))
+    if not group_a_total or not group_b_total:
+        return None
+    return {
+        "comparison_type": "regional_skill",
+        "group_a_label": f"{skill_label} in {area_code}",
+        "group_a_count": group_a_count,
+        "group_a_total": group_a_total,
+        "group_b_label": f"{skill_label} in other regions",
+        "group_b_count": group_b_count,
+        "group_b_total": group_b_total,
+        "alpha": 0.05,
+    }
+
+
+def build_sector_evolution_statistical_payload(sector: dict, current_year: int, snapshot_response: dict):
+    evolution = sector.get("evolution") or {}
+    sector_label = sector.get("sector_label") or sector.get("sector") or "sector"
+    current_total = _safe_int(evolution.get("total_jobs_current") or snapshot_response.get("total_jobs"))
+    reference_total = _safe_int(evolution.get("total_jobs_reference"))
+    current_count = _safe_int(evolution.get("job_count_current"))
+    reference_count = _safe_int(evolution.get("job_count_reference"))
+    reference_year = evolution.get("reference_year") or snapshot_response.get("reference_year")
+    if not current_total or not reference_total:
+        return None
+    return {
+        "comparison_type": "sector_evolution",
+        "group_a_label": f"{sector_label} in {current_year}",
+        "group_a_count": current_count,
+        "group_a_total": current_total,
+        "group_b_label": f"{sector_label} in {reference_year}",
+        "group_b_count": reference_count,
+        "group_b_total": reference_total,
+        "alpha": 0.05,
+    }
+
+
 def render_refresh_status_notice(response: dict):
     refresh_status = (response or {}).get("refresh_status") or {}
     if (response or {}).get("data_source") != "postgres":
@@ -808,12 +1045,22 @@ def metric_with_info(label: str, value, info: str, **kwargs):
     st.metric(label, value, help=info, **kwargs)
 
 
+def normalize_date_range(value, fallback):
+    if isinstance(value, tuple) and len(value) == 2:
+        return [pd.to_datetime(value[0]), pd.to_datetime(value[1])]
+    if isinstance(value, list) and len(value) == 2:
+        return [pd.to_datetime(value[0]), pd.to_datetime(value[1])]
+    return fallback
+
+
 ANALYZE_ENDPOINT = "POST /projector/analyze-skills"
 SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
 SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
 SECTOR_SKILLS_COMPARISON_ENDPOINT = "POST /projector/sector-skills-comparison"
 REGIONAL_SECTORAL_ENDPOINT = "POST /projector/regional-sectoral"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
+TEMPORAL_PROJECTIONS_ENDPOINT = "POST /projector/temporal-projections"
+STATISTICAL_COMPARISON_ENDPOINT = "POST /projector/statistical-comparison"
 HEALTH_ENDPOINT = "GET /projector/health"
 STOP_ENDPOINT = "POST /projector/stop"
 
@@ -854,12 +1101,44 @@ with st.sidebar:
     regional_sectoral_level = "raw"
     regional_sectoral_top_k = 10
     regional_sectoral_visual = "auto"
+    temporal_submit_button = False
+    temporal_granularity = "monthly"
+    temporal_forecast_periods = 1
+    temporal_top_k = 10
 
     if dashboard_view == "skill":
         keywords = st.text_input(T['keywords'], "software")
         location = st.text_input(T['location'], "")
-        date_range = st.date_input(T['date_range'], date_range)
+        date_range = normalize_date_range(st.date_input(T['date_range'], date_range), date_range)
         submit_button = st.button(T["submit_general"], use_container_width=True)
+    elif dashboard_view == "temporal":
+        keywords = st.text_input(T['keywords'], "software")
+        location = st.text_input(T['location'], "")
+        date_range = normalize_date_range(st.date_input(T['date_range'], date_range, key="temporal_date_range"), date_range)
+        temporal_label = st.radio(
+            T["temporal_granularity"],
+            list(T["temporal_granularity_options"].values()),
+            horizontal=True,
+        )
+        temporal_granularity = next(
+            key for key, value in T["temporal_granularity_options"].items()
+            if value == temporal_label
+        )
+        temporal_forecast_periods = st.number_input(
+            T["forecast_periods"],
+            min_value=0,
+            max_value=12,
+            value=1,
+            step=1,
+        )
+        temporal_top_k = st.number_input(
+            T["top_k_skills"],
+            min_value=1,
+            max_value=100,
+            value=10,
+            step=1,
+        )
+        temporal_submit_button = st.button(T["submit_temporal"], use_container_width=True)
 
     st.markdown("---")
     st.text_input(T["backend_url"], key="api_base_url")
@@ -957,6 +1236,16 @@ regional_sectoral_payload = {
     "year": int(sectoral_snapshot_year),
     "locations": [sectoral_location] if sectoral_location else None,
     "top_k": 10,
+}
+
+temporal_payload = {
+    "keywords": [keywords] if keywords else None,
+    "locations": [location] if location else None,
+    "min_date": date_range[0].strftime("%Y-%m-%d"),
+    "max_date": date_range[1].strftime("%Y-%m-%d"),
+    "granularity": temporal_granularity,
+    "forecast_periods": int(temporal_forecast_periods),
+    "top_k": int(temporal_top_k),
 }
 
 if dashboard_view == "sector":
@@ -1174,8 +1463,27 @@ if submit_button:
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
+            st.error(error_msg)
+
+if temporal_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        temporal_response = get_temporal_projection_data(
+            st.session_state.api_base_url,
+            temporal_payload,
+            st.session_state.backend_timeout
+        )
+        if temporal_response and "_error" not in temporal_response:
+            st.session_state.temporal_projection_data = temporal_response
+            st.session_state.all_data = None
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.sectoral_data = None
+            st.session_state.sector_skills_comparison_data = None
+            st.session_state.regional_sectoral_data = None
+        else:
+            error_msg = temporal_response.get("_error", T['server_error']) if isinstance(temporal_response, dict) else T['server_error']
             st.error(error_msg)
 
 if sectoral_submit_button:
@@ -1191,6 +1499,7 @@ if sectoral_submit_button:
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1208,6 +1517,7 @@ if comparison_submit_button:
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = comparison_response.get("_error", T['server_error']) if isinstance(comparison_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1225,13 +1535,14 @@ if regional_sectoral_submit_button:
             st.session_state.sectoral_snapshot_data = None
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
+            st.session_state.temporal_projection_data = None
         else:
             error_msg = regional_sectoral_response.get("_error", T['server_error']) if isinstance(regional_sectoral_response, dict) else T['server_error']
             st.error(error_msg)
 
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
-if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data:
+if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data or st.session_state.temporal_projection_data:
     all_data = st.session_state.all_data or {
         "insights": {
             "ranking": [],
@@ -1250,10 +1561,11 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     sectoral_snapshot_response = st.session_state.sectoral_snapshot_data or {}
     sector_skills_comparison_response = st.session_state.sector_skills_comparison_data or {}
     regional_sectoral_response = st.session_state.regional_sectoral_data or {}
+    temporal_projection_response = st.session_state.temporal_projection_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
-    if dashboard_view in {"sector", "comparison", "regional_sectoral"}:
+    if dashboard_view in {"sector", "comparison", "regional_sectoral", "temporal"}:
         tab4 = st.container()
     else:
         tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
@@ -1540,6 +1852,16 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     fig_reg.update_layout(yaxis={'categoryorder': 'total ascending'}, height=400)
                     st.plotly_chart(fig_reg, width="stretch", key=f"regional_skills_{target_code}")
 
+                    evidence_skill_label = None
+                    if not df_reg_skills.empty and "skill" in df_reg_skills.columns:
+                        evidence_skill_label = df_reg_skills.iloc[0].get("skill")
+                    regional_skill_payload = build_regional_skill_statistical_payload(
+                        selected_list,
+                        target_code,
+                        evidence_skill_label,
+                    ) if evidence_skill_label else None
+                    render_statistical_evidence(regional_skill_payload)
+
                     st.info(f"💡 **Insight Task 3.5**: {T['regional_insight'].format(target_code=target_code)}")
                 else:
                     st.warning(T["regional_no_level"].format(strategy=strategy))
@@ -1791,6 +2113,13 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                                     "specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["regional_sector_specialization"]),
                                 }
                             )
+                            evidence_sector_label = sector_rows[0].get("sector")
+                            regional_sector_payload = build_regional_sector_statistical_payload(
+                                regions_for_level,
+                                selected_area,
+                                evidence_sector_label,
+                            ) if evidence_sector_label else None
+                            render_statistical_evidence(regional_sector_payload)
 
                 with sector_first_tab:
                     if all_sector_options:
@@ -1905,6 +2234,143 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 st.info(T["no_data"])
             st.stop()
 
+        if dashboard_view == "temporal":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["temporal_header"], help=T["temporal_help"])
+            with h_info:
+                dev_info(
+                    "Temporal analysis",
+                    TEMPORAL_PROJECTIONS_ENDPOINT,
+                    {
+                        "status": "completed",
+                        "total_jobs": 120,
+                        "insights": {
+                            "granularity": "quarterly",
+                            "forecast_method": "last_delta_baseline",
+                            "periods": [
+                                {
+                                    "period": "2024-Q1",
+                                    "job_count": 30,
+                                    "growth_vs_previous": None,
+                                }
+                            ],
+                            "skills": [
+                                {
+                                    "name": "Python",
+                                    "growth_rate": 20.0,
+                                    "series": [{"period": "2024-Q1", "count": 8}],
+                                    "forecast": [{"period": "2025-Q1", "projected_count": 14.0}],
+                                }
+                            ],
+                        },
+                    },
+                    [
+                        "total_jobs",
+                        "insights.granularity",
+                        "insights.periods[].period",
+                        "insights.periods[].job_count",
+                        "insights.periods[].growth_vs_previous",
+                        "insights.skills[].name",
+                        "insights.skills[].growth_rate",
+                        "insights.skills[].series[].count",
+                        "insights.skills[].forecast[].projected_count",
+                    ],
+                    temporal_payload,
+                )
+
+            temporal_insights = temporal_projection_response.get("insights", {})
+            periods = temporal_insights.get("periods", [])
+            skills = temporal_insights.get("skills", [])
+            if periods:
+                df_periods = pd.DataFrame(periods)
+                metric_with_info(
+                    T["jobs_analyzed"],
+                    temporal_projection_response.get("total_jobs", 0),
+                    STAT_HELP["jobs_analyzed"],
+                )
+                fig_periods = px.line(
+                    df_periods,
+                    x="period",
+                    y="job_count",
+                    markers=True,
+                    title=T["period_job_volume"],
+                )
+                st.plotly_chart(fig_periods, width="stretch", key="temporal_period_job_volume")
+
+            if skills:
+                series_rows = []
+                forecast_rows = []
+                for skill in skills:
+                    for row in skill.get("series", []):
+                        series_rows.append({
+                            "skill": skill.get("name"),
+                            "period": row.get("period"),
+                            "count": row.get("count"),
+                            "growth_vs_previous": row.get("growth_vs_previous"),
+                        })
+                    for row in skill.get("forecast", []):
+                        forecast_rows.append({
+                            "skill": skill.get("name"),
+                            "period": row.get("period"),
+                            "projected_count": row.get("projected_count"),
+                            "method": row.get("method"),
+                        })
+
+                df_series = pd.DataFrame(series_rows)
+                if not df_series.empty:
+                    fig_skills = px.line(
+                        df_series,
+                        x="period",
+                        y="count",
+                        color="skill",
+                        markers=True,
+                        title=T["skill_time_series"],
+                    )
+                    st.plotly_chart(fig_skills, width="stretch", key="temporal_skill_time_series")
+                    st.dataframe(
+                        df_series,
+                        width="stretch",
+                        column_config={
+                            "count": st.column_config.NumberColumn("count (i)", help=STAT_HELP["skill_frequency"]),
+                            "growth_vs_previous": st.column_config.TextColumn("growth (i)", help=STAT_HELP["skill_growth"]),
+                        },
+                    )
+                    period_totals = {row.get("period"): row.get("job_count", 0) for row in periods}
+                    evidence_skill = next(
+                        (
+                            skill for skill in skills
+                            if len(skill.get("series", [])) >= 2
+                        ),
+                        None,
+                    )
+                    if evidence_skill:
+                        evidence_series = evidence_skill.get("series", [])
+                        previous_row = evidence_series[-2]
+                        current_row = evidence_series[-1]
+                        current_period = current_row.get("period")
+                        previous_period = previous_row.get("period")
+                        statistical_payload = {
+                            "comparison_type": "temporal",
+                            "group_a_label": f"{evidence_skill.get('name')} in {current_period}",
+                            "group_a_count": int(current_row.get("count", 0)),
+                            "group_a_total": int(period_totals.get(current_period, 0)),
+                            "group_b_label": f"{evidence_skill.get('name')} in {previous_period}",
+                            "group_b_count": int(previous_row.get("count", 0)),
+                            "group_b_total": int(period_totals.get(previous_period, 0)),
+                            "alpha": 0.05,
+                        }
+                        if statistical_payload["group_a_total"] and statistical_payload["group_b_total"]:
+                            render_statistical_evidence(statistical_payload)
+
+                df_forecast = pd.DataFrame(forecast_rows)
+                if not df_forecast.empty:
+                    st.subheader(T["baseline_forecast"], help=STAT_HELP["temporal_forecast"])
+                    st.dataframe(df_forecast, width="stretch")
+            else:
+                st.info(T["no_data"])
+            st.stop()
+
         if dashboard_view == "comparison":
             h_main, h_info = st.columns([8, 1])
             with h_main:
@@ -2014,6 +2480,40 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         "growth_value": st.column_config.NumberColumn("growth", help=STAT_HELP["skill_growth"]),
                     }
                 )
+                df_comparison = pd.DataFrame(comparison_rows)
+                if {"sector_label", "label", "count", "share"}.issubset(df_comparison.columns):
+                    sectors_for_test = [s for s in df_comparison["sector_label"].dropna().unique().tolist()]
+                    skills_for_test = [s for s in df_comparison["label"].dropna().unique().tolist()]
+                    if len(sectors_for_test) >= 2 and skills_for_test:
+                        selected_skill_for_test = skills_for_test[0]
+                        row_a = df_comparison[
+                            (df_comparison["sector_label"] == sectors_for_test[0])
+                            & (df_comparison["label"] == selected_skill_for_test)
+                        ]
+                        row_b = df_comparison[
+                            (df_comparison["sector_label"] == sectors_for_test[1])
+                            & (df_comparison["label"] == selected_skill_for_test)
+                        ]
+                        if not row_a.empty and not row_b.empty:
+                            row_a = row_a.iloc[0]
+                            row_b = row_b.iloc[0]
+                            share_a = float(row_a.get("share") or 0)
+                            share_b = float(row_b.get("share") or 0)
+                            total_a = int(round(float(row_a.get("count", 0)) / share_a)) if share_a > 0 else 0
+                            total_b = int(round(float(row_b.get("count", 0)) / share_b)) if share_b > 0 else 0
+                            if total_a and total_b:
+                                render_statistical_evidence(
+                                    {
+                                        "comparison_type": "sector_skill",
+                                        "group_a_label": f"{selected_skill_for_test} in {sectors_for_test[0]}",
+                                        "group_a_count": int(row_a.get("count", 0)),
+                                        "group_a_total": total_a,
+                                        "group_b_label": f"{selected_skill_for_test} in {sectors_for_test[1]}",
+                                        "group_b_count": int(row_b.get("count", 0)),
+                                        "group_b_total": total_b,
+                                        "alpha": 0.05,
+                                    }
+                                )
             elif sector_skills_comparison_response.get("message"):
                 st.info(sector_skills_comparison_response["message"])
             else:
@@ -2606,6 +3106,14 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         format_growth_percentage(evolution.get("skill_churn")),
                         STAT_HELP["sector_skill_churn"],
                     )
+
+                render_statistical_evidence(
+                    build_sector_evolution_statistical_payload(
+                        snapshot_target,
+                        sectoral_snapshot_year,
+                        sectoral_snapshot_response,
+                    )
+                )
 
                 evo_a, evo_b = st.columns(2)
                 with evo_a:

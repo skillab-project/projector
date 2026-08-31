@@ -6,7 +6,7 @@ import sys
 import tempfile
 from contextlib import contextmanager
 from collections import defaultdict, Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import ModuleType, SimpleNamespace
 
 import httpx
@@ -2318,6 +2318,8 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert len(sector["all_skills"]) == 2
     assert sector["evolution"]["job_count_current"] == 2
     assert sector["evolution"]["job_count_reference"] == 0
+    assert sector["evolution"]["total_jobs_current"] == 2
+    assert sector["evolution"]["total_jobs_reference"] == 0
     assert sector["evolution"]["job_growth_percentage"] == "new_entry"
     assert sector["evolution"]["new_skill_count"] == 2
     assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
@@ -2380,6 +2382,8 @@ async def test_projector_service_sectoral_snapshot_prefers_static_store():
     evolution = result["sectors"][0]["evolution"]
     assert evolution["job_count_current"] == 10
     assert evolution["job_count_reference"] == 8
+    assert evolution["total_jobs_current"] == 10
+    assert evolution["total_jobs_reference"] == 8
     assert evolution["job_delta"] == 2
     assert evolution["job_growth_percentage"] == 0.25
     assert evolution["growing_skill_count"] == 1
@@ -2729,6 +2733,33 @@ def test_endpoint_readiness_reports_degraded_dependencies():
     assert "database unavailable" in data["dependencies"]["sector_snapshot_db"]["error"]
 
 
+def test_endpoint_readiness_reports_tracker_availability():
+    class FakeTracker:
+        api_url = "https://tracker.example"
+        username = "user"
+        password = "secret"
+
+        async def check_readiness(self):
+            return {
+                "configured": True,
+                "available": True,
+                "authenticated": True,
+            }
+
+    with patch.object(service, "tracker", FakeTracker()), \
+         patch.object(service, "sector_snapshot_store", None):
+        response = client.get("/projector/readiness")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["dependencies"]["tracker"] == {
+        "configured": True,
+        "available": True,
+        "authenticated": True,
+    }
+
+
 def test_endpoint_date_validation_rejects_invalid_ranges_before_fetch():
     form_data = {"keywords": ["test"], "min_date": "2024-02-01", "max_date": "2024-01-01"}
 
@@ -2759,6 +2790,78 @@ def test_endpoint_year_validation_rejects_out_of_range_snapshot_year():
 
     assert response.status_code == 422
     assert response.json()["detail"]["error"]["code"] == "invalid_year"
+
+
+def test_endpoint_temporal_validation_rejects_invalid_numeric_controls():
+    bad_forecast = client.post("/projector/temporal-projections", data={
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+        "forecast_periods": "13",
+        "top_k": "10",
+    })
+    bad_top_k = client.post("/projector/temporal-projections", data={
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+        "forecast_periods": "1",
+        "top_k": "0",
+    })
+
+    assert bad_forecast.status_code == 422
+    assert bad_forecast.json()["detail"]["error"]["code"] == "invalid_forecast_periods"
+    assert bad_top_k.status_code == 422
+    assert bad_top_k.json()["detail"]["error"]["code"] == "invalid_top_k"
+
+
+def test_endpoint_statistical_validation_rejects_negative_group_b_and_alpha():
+    negative = client.post("/projector/statistical-comparison", data={
+        "group_a_label": "A",
+        "group_a_count": "1",
+        "group_a_total": "10",
+        "group_b_label": "B",
+        "group_b_count": "-1",
+        "group_b_total": "10",
+    })
+    bad_group_b = client.post("/projector/statistical-comparison", data={
+        "group_a_label": "A",
+        "group_a_count": "1",
+        "group_a_total": "10",
+        "group_b_label": "B",
+        "group_b_count": "11",
+        "group_b_total": "10",
+    })
+    bad_alpha = client.post("/projector/statistical-comparison", data={
+        "group_a_label": "A",
+        "group_a_count": "1",
+        "group_a_total": "10",
+        "group_b_label": "B",
+        "group_b_count": "1",
+        "group_b_total": "10",
+        "alpha": "1",
+    })
+
+    assert negative.status_code == 422
+    assert negative.json()["detail"]["error"]["code"] == "invalid_counts"
+    assert bad_group_b.status_code == 422
+    assert bad_group_b.json()["detail"]["error"]["code"] == "invalid_group_b"
+    assert bad_alpha.status_code == 422
+    assert bad_alpha.json()["detail"]["error"]["code"] == "invalid_alpha"
+
+
+def test_endpoint_analyze_and_sectoral_intelligence_validate_snapshot_years():
+    analyze_response = client.post("/projector/analyze-skills", data={
+        "keywords": "data",
+        "min_date": "2024-01-01",
+        "max_date": "2024-01-31",
+        "sectoral_snapshot_year": "1800",
+    })
+    sectoral_response = client.post("/projector/sectoral-intelligence", data={
+        "snapshot_year": "1800",
+    })
+
+    assert analyze_response.status_code == 422
+    assert analyze_response.json()["detail"]["error"]["field"] == "sectoral_snapshot_year"
+    assert sectoral_response.status_code == 422
+    assert sectoral_response.json()["detail"]["error"]["field"] == "snapshot_year"
 
 
 # ==========================================
@@ -3106,6 +3209,42 @@ async def test_fetch_all_jobs_uses_sector_cache_and_refetches_stale_cache(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_fetch_all_jobs_ignores_expired_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("app.client.tracker_client.TRACKER_CACHE_TTL_DAYS", 30)
+    engine.token = "fake-token"
+    engine.stop_requested = False
+
+    filters = {"keywords": ["data"]}
+    query_sig = hashlib.md5(json.dumps(filters, sort_keys=True).encode()).hexdigest()
+    cache_dir = tmp_path / "cache_data"
+    cache_dir.mkdir()
+    cache_file = cache_dir / f"search_{query_sig}.json"
+    meta_file = cache_dir / f"search_{query_sig}.meta.json"
+    cache_file.write_text(json.dumps([{"id": 1, "sectors": ["Education"]}]))
+    old_date = (datetime.now(timezone.utc) - timedelta(days=31)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    meta_file.write_text(json.dumps({
+        "filters": filters,
+        "page_size": 2,
+        "fetched": 1,
+        "total": 1,
+        "status": "complete",
+        "updated_at": old_date,
+    }))
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"count": 1, "items": [{"id": 2, "sectors": ["Research"]}]}
+
+    with patch.object(engine.client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = response
+        refreshed = await tracker.fetch_all_jobs(filters, page_size=2)
+
+    assert refreshed == [{"id": 2, "sectors": ["Research"]}]
+    assert mock_post.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_fetch_all_jobs_requires_complete_cache_for_backfill(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     engine.token = "fake-token"
@@ -3349,6 +3488,462 @@ def test_endpoint_emerging_skills_structure():
         })
         assert response.status_code == 200
         assert "market_health" in response.json()["insights"]
+
+
+@pytest.mark.asyncio
+async def test_temporal_projections_monthly_growth_and_forecast():
+    engine.skill_map = {
+        "s1": {"label": "Python", "is_green": False, "is_digital": True},
+        "s2": {"label": "SQL", "is_green": False, "is_digital": True},
+    }
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": ["s1"]},
+        {"upload_date": "2024-02-10", "skills": ["s1", "s2"]},
+        {"upload_date": "2024-02-20", "skills": ["s1"]},
+        {"upload_date": "2024-03-05", "skills": ["s1"]},
+        {"upload_date": "2024-03-12", "skills": ["s1"]},
+        {"upload_date": "2024-03-20", "skills": ["s1"]},
+    ]
+
+    result = await trends.calculate_temporal_projections_from_data(
+        jobs,
+        "2024-01-01",
+        "2024-03-31",
+        granularity="monthly",
+        forecast_periods=2,
+        top_k=1,
+    )
+
+    assert [period["period"] for period in result["periods"]] == ["2024-01", "2024-02", "2024-03"]
+    assert [period["job_count"] for period in result["periods"]] == [1, 2, 3]
+    assert result["periods"][1]["growth_vs_previous"] == 100.0
+    python = result["skills"][0]
+    assert python["name"] == "Python"
+    assert python["growth_rate"] == 50.0
+    assert python["trend_type"] == "emerging"
+    assert python["forecast"] == [
+        {"period": "2024-04", "projected_count": 4.0, "method": "last_delta_baseline"},
+        {"period": "2024-05", "projected_count": 5.0, "method": "last_delta_baseline"},
+    ]
+
+
+@pytest.mark.integration
+def test_endpoint_temporal_projections_contract():
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": ["s1"], "location_code": "IT"},
+        {"upload_date": "2024-04-10", "skills": ["s1"], "location_code": "IT"},
+    ]
+    engine.skill_map = {"s1": {"label": "Python", "is_green": False, "is_digital": True}}
+
+    with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, 'fetch_skill_names', new_callable=AsyncMock) as m_skill_names:
+        m_fetch.return_value = jobs
+        response = client.post("/projector/temporal-projections", data={
+            "keywords": "data",
+            "locations": "IT",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+            "granularity": "quarterly",
+            "forecast_periods": "1",
+            "top_k": "5",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["total_jobs"] == 2
+    assert payload["insights"]["granularity"] == "quarterly"
+    assert payload["insights"]["forecast_method"] == "last_delta_baseline"
+    assert payload["insights"]["periods"][0]["period"] == "2024-Q1"
+    assert payload["insights"]["skills"][0]["series"][1]["period"] == "2024-Q2"
+    assert payload["insights"]["skills"][0]["forecast"][0]["period"] == "2025-Q1"
+    m_fetch.assert_awaited_once_with({
+        "keywords": ["data"],
+        "location_code": ["IT"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-12-31",
+    })
+    m_skill_names.assert_awaited_once_with(["s1"])
+
+
+@pytest.mark.integration
+def test_endpoint_temporal_projections_skips_skill_fetch_when_jobs_have_no_skills():
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": [], "location_code": "IT"},
+    ]
+
+    with patch.object(tracker, 'fetch_all_jobs', new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, 'fetch_skill_names', new_callable=AsyncMock) as m_skill_names:
+        m_fetch.return_value = jobs
+        response = client.post("/projector/temporal-projections", data={
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+            "granularity": "yearly",
+            "forecast_periods": "0",
+            "top_k": "5",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["insights"]["granularity"] == "yearly"
+    assert payload["insights"]["periods"][0]["period"] == "2024"
+    assert payload["insights"]["skills"] == []
+    m_skill_names.assert_not_awaited()
+
+
+def test_temporal_projection_helpers_cover_edge_branches():
+    assert trends._period_label(None, "monthly") is None
+    assert trends._period_label("not-a-date", "monthly") is None
+    assert trends._growth(None, 5) is None
+    assert trends._growth(0, 3) == "new_entry"
+    assert trends._growth(0, 0) == 0.0
+    assert trends._trend_type("new_entry") == "emerging"
+    assert trends._trend_type(None) == "stable"
+    assert trends._trend_type(-10) == "declining"
+    assert trends._format_period(date(2024, 1, 1), "yearly") == "2024"
+    assert trends._format_period(date(2024, 4, 1), "quarterly") == "2024-Q2"
+    assert trends._parse_period_start("2024", "yearly") == date(2024, 1, 1)
+    assert trends._parse_period_start("2024-Q3", "quarterly") == date(2024, 7, 1)
+    assert trends._forecast_skill_counts([], None, "monthly", 2) == []
+
+
+def test_statistical_comparison_chi_square_baseline():
+    result = service.statistical_comparison(
+        comparison_type="temporal",
+        group_a_label="Current period",
+        group_a_count=30,
+        group_a_total=100,
+        group_b_label="Previous period",
+        group_b_count=10,
+        group_b_total=100,
+        alpha=0.05,
+    )
+
+    assert result["status"] == "completed"
+    assert result["method"] == "chi_square_2x2"
+    assert result["significant"] is True
+    assert result["p_value"] < 0.05
+    assert result["effect_size_label"] in {"small", "medium"}
+    assert result["groups"][0]["share"] == 0.3
+    assert result["groups"][1]["share"] == 0.1
+
+
+def test_statistical_comparison_handles_empty_and_large_effect_cases():
+    empty = service.statistical_comparison(
+        comparison_type="generic",
+        group_a_label="A",
+        group_a_count=0,
+        group_a_total=0,
+        group_b_label="B",
+        group_b_count=0,
+        group_b_total=0,
+    )
+    large = service.statistical_comparison(
+        comparison_type="regional_sector",
+        group_a_label="A",
+        group_a_count=90,
+        group_a_total=100,
+        group_b_label="B",
+        group_b_count=10,
+        group_b_total=100,
+    )
+
+    assert empty["p_value"] == 1.0
+    assert empty["effect_size_label"] == "negligible"
+    assert "No observations available" in empty["warnings"][0]
+    assert large["effect_size_label"] == "large"
+    assert large["significant"] is True
+
+    regional_skill = service.statistical_comparison(
+        comparison_type="regional_skill",
+        group_a_label="Python in ITC",
+        group_a_count=18,
+        group_a_total=50,
+        group_b_label="Python in other regions",
+        group_b_count=12,
+        group_b_total=120,
+    )
+    assert regional_skill["comparison_type"] == "regional_skill"
+    assert regional_skill["groups"][0]["share"] == 0.36
+
+
+@pytest.mark.integration
+def test_endpoint_statistical_comparison_contract():
+    response = client.post("/projector/statistical-comparison", data={
+        "comparison_type": "sector_skill",
+        "group_a_label": "ICT",
+        "group_a_count": "40",
+        "group_a_total": "100",
+        "group_b_label": "Education",
+        "group_b_count": "20",
+        "group_b_total": "100",
+        "alpha": "0.05",
+    })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["comparison_type"] == "sector_skill"
+    assert payload["method"] == "chi_square_2x2"
+    assert "p_value" in payload
+    assert "effect_size" in payload
+    assert len(payload["expected_counts"]) == 2
+    assert payload["groups"][0]["label"] == "ICT"
+
+
+@pytest.mark.integration
+def test_endpoint_statistical_comparison_rejects_invalid_counts():
+    response = client.post("/projector/statistical-comparison", data={
+        "group_a_label": "A",
+        "group_a_count": "11",
+        "group_a_total": "10",
+        "group_b_label": "B",
+        "group_b_count": "1",
+        "group_b_total": "10",
+    })
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_group_a"
+
+
+def _e2e_sector_snapshot_store_payload():
+    return {
+        "by_year": {
+            2023: {
+                "status": "completed",
+                "year": 2023,
+                "data_source": "postgres",
+                "window": {"label": "2023 snapshot", "min_date": "2023-01-01", "max_date": "2023-12-31"},
+                "total_jobs": 100,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 40,
+                        "job_share": 0.4,
+                        "total_skill_mentions": 80,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 12, "frequency": 0.15},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 8, "frequency": 0.1},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 12, "frequency": 0.15},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 8, "frequency": 0.1},
+                        ],
+                        "top_job_titles": [{"name": "Developer", "count": 10}],
+                    },
+                    {
+                        "sector": "Education",
+                        "sector_label": "Education",
+                        "job_count": 60,
+                        "job_share": 0.6,
+                        "total_skill_mentions": 120,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 24, "frequency": 0.2},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 6, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 24, "frequency": 0.2},
+                        ],
+                        "top_job_titles": [{"name": "Teacher", "count": 20}],
+                    },
+                ],
+            },
+            2024: {
+                "status": "completed",
+                "year": 2024,
+                "data_source": "postgres",
+                "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+                "total_jobs": 140,
+                "sector_filter": [],
+                "sectors": [
+                    {
+                        "sector": "ICT",
+                        "sector_label": "ICT",
+                        "job_count": 70,
+                        "job_share": 0.5,
+                        "total_skill_mentions": 140,
+                        "unique_skills": 3,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 28, "frequency": 0.2},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 14, "frequency": 0.1},
+                            {"skill_id": "skill-cloud", "label": "Cloud", "count": 21, "frequency": 0.15},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 28, "frequency": 0.2},
+                            {"skill_id": "skill-sql", "label": "SQL", "count": 14, "frequency": 0.1},
+                            {"skill_id": "skill-cloud", "label": "Cloud", "count": 21, "frequency": 0.15},
+                        ],
+                        "top_job_titles": [{"name": "Developer", "count": 25}],
+                    },
+                    {
+                        "sector": "Education",
+                        "sector_label": "Education",
+                        "job_count": 70,
+                        "job_share": 0.5,
+                        "total_skill_mentions": 140,
+                        "unique_skills": 2,
+                        "top_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 7, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 28, "frequency": 0.2},
+                        ],
+                        "all_skills": [
+                            {"skill_id": "skill-python", "label": "Python", "count": 7, "frequency": 0.05},
+                            {"skill_id": "skill-teaching", "label": "Teaching", "count": 28, "frequency": 0.2},
+                        ],
+                        "top_job_titles": [{"name": "Teacher", "count": 30}],
+                    },
+                ],
+            },
+        },
+        "regional_sectoral_payload": {
+            "status": "completed",
+            "year": 2024,
+            "data_source": "postgres",
+            "window": {"label": "2024 snapshot", "min_date": "2024-01-01", "max_date": "2024-12-31"},
+            "regional_sectoral": {
+                "raw": [
+                    {
+                        "code": "IT",
+                        "total_jobs": 140,
+                        "top_sectors": [
+                            {
+                                "sector": "ICT",
+                                "sector_code": "ICT",
+                                "count": 70,
+                                "share_in_region": 50.0,
+                                "specialization": 1.0,
+                            }
+                        ],
+                    }
+                ],
+                "nuts1": [],
+                "nuts2": [],
+                "nuts3": [],
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+@pytest.mark.e2e
+def test_e2e_intelligence_api_flow_uses_snapshot_temporal_and_statistical_algorithms():
+    store = _FakeSectorSnapshotStore(_e2e_sector_snapshot_store_payload())
+    temporal_jobs = [
+        {"upload_date": "2024-01-10", "skills": ["skill-python"], "location_code": "IT"},
+        {"upload_date": "2024-04-10", "skills": ["skill-python"], "location_code": "IT"},
+        {"upload_date": "2024-04-20", "skills": ["skill-python", "skill-sql"], "location_code": "IT"},
+    ]
+    engine.skill_map = {
+        "skill-python": {"label": "Python", "is_green": False, "is_digital": True},
+        "skill-sql": {"label": "SQL", "is_green": False, "is_digital": True},
+    }
+
+    with patch.object(service, "sector_snapshot_store", store), \
+         patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+         patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_fetch_skill_names:
+        m_fetch.return_value = temporal_jobs
+        m_fetch_skill_names.return_value = None
+
+        snapshot_response = client.post("/projector/sectoral-snapshot", data={
+            "year": "2024",
+            "reference_year": "2023",
+            "locations": "IT",
+        })
+        comparison_response = client.post("/projector/sector-skills-comparison", data={
+            "year": "2024",
+            "reference_year": "2023",
+            "locations": "IT",
+            "metric": "growth",
+        })
+        regional_response = client.post("/projector/regional-sectoral", data={
+            "year": "2024",
+            "locations": "IT",
+            "top_k": "5",
+        })
+        temporal_response = client.post("/projector/temporal-projections", data={
+            "keywords": "developer",
+            "locations": "IT",
+            "min_date": "2024-01-01",
+            "max_date": "2024-12-31",
+            "granularity": "quarterly",
+            "forecast_periods": "1",
+            "top_k": "2",
+        })
+
+    assert snapshot_response.status_code == 200
+    snapshot = snapshot_response.json()
+    ict = next(sector for sector in snapshot["sectors"] if sector["sector"] == "ICT")
+    assert ict["job_count"] == 70
+    assert ict["evolution"]["job_delta"] == 30
+    assert ict["evolution"]["total_jobs_current"] == 140
+    assert ict["evolution"]["total_jobs_reference"] == 100
+    assert ict["evolution"]["job_growth_percentage"] == 0.75
+    assert ict["evolution"]["new_skill_count"] == 1
+    assert ict["top_skills"][0]["label"] == "Python"
+    assert ict["top_skills"][0]["share_in_sector"] == 0.2
+    assert ict["top_skills"][0]["growth_vs_reference_year"] == round((28 - 12) / 12, 6)
+    assert ict["top_skills"][0]["sector_breadth"] == 2
+
+    assert comparison_response.status_code == 200
+    comparison = comparison_response.json()
+    python_ict = next(
+        row for row in comparison["matrix"]
+        if row["sector"] == "ICT" and row["skill_id"] == "skill-python"
+    )
+    assert comparison["metric"] == "growth"
+    assert python_ict["count"] == 28
+    assert python_ict["share"] == 0.2
+    assert python_ict["rank"] == 1
+    assert python_ict["growth"] == round((28 - 12) / 12, 6)
+    assert python_ict["value"] == python_ict["growth_value"]
+
+    assert regional_response.status_code == 200
+    regional = regional_response.json()
+    assert regional["regional_sectoral"]["raw"][0]["code"] == "IT"
+    assert regional["regional_sectoral"]["raw"][0]["top_sectors"][0]["sector"] == "ICT"
+
+    assert temporal_response.status_code == 200
+    temporal = temporal_response.json()
+    assert temporal["total_jobs"] == 3
+    assert [period["period"] for period in temporal["insights"]["periods"]] == [
+        "2024-Q1",
+        "2024-Q2",
+        "2024-Q3",
+        "2024-Q4",
+    ]
+    assert [period["job_count"] for period in temporal["insights"]["periods"]] == [1, 2, 0, 0]
+    assert temporal["insights"]["periods"][1]["growth_vs_previous"] == 100.0
+    python_temporal = next(skill for skill in temporal["insights"]["skills"] if skill["name"] == "Python")
+    assert python_temporal["series"][1]["growth_vs_previous"] == 100.0
+    assert python_temporal["growth_rate"] == 0.0
+    assert python_temporal["forecast"][0]["method"] == "last_delta_baseline"
+
+    evidence_response = client.post("/projector/statistical-comparison", data={
+        "comparison_type": "sector_skill",
+        "group_a_label": "Python in ICT",
+        "group_a_count": str(python_ict["count"]),
+        "group_a_total": str(ict["total_skill_mentions"]),
+        "group_b_label": "Python in Education",
+        "group_b_count": "7",
+        "group_b_total": "140",
+        "alpha": "0.05",
+    })
+
+    assert evidence_response.status_code == 200
+    evidence = evidence_response.json()
+    assert evidence["method"] == "chi_square_2x2"
+    assert evidence["groups"][0]["share"] == 0.2
+    assert evidence["groups"][1]["share"] == 0.05
+    assert evidence["p_value"] < 0.05
+    assert evidence["significant"] is True
+    assert evidence["effect_size_label"] in {"small", "medium"}
+    m_fetch.assert_awaited_once()
+    m_fetch_skill_names.assert_awaited_once()
+    assert set(m_fetch_skill_names.await_args.args[0]) == {"skill-python", "skill-sql"}
 
 
 import csv
@@ -4023,6 +4618,140 @@ def test_load_local_esco_support_accepts_alternative_column_names(monkeypatch, t
     assert engine.occ_skill_relations["occ_alt"] == {"skill_alt"}
     assert engine.occupation_group_labels["isco_alt"] == "Alt group label"
 
+
+def test_esco_loader_loads_nace_labels_and_support_files_with_skill_groups(monkeypatch, tmp_path):
+    from app.core.container import ProjectorEngine
+
+    data_dir = tmp_path / "complementary_data"
+    data_dir.mkdir()
+    (data_dir / "nace_codes_2_1.csv").write_text(
+        "Section,Division,Group,Class,Activity\n"
+        "J,62,62.0,62.01,Computer programming activities\n"
+        "P,85,85.4,85.42,Higher education\n",
+        encoding="utf-8",
+    )
+    (data_dir / "skillsHierarchy_en.csv").write_text(
+        "skillUri,skillLevel1,skillLevel2,skillLevel3\n"
+        "skill-python,S4,S4.8,S4.8.1\n",
+        encoding="utf-8",
+    )
+    (data_dir / "skillGroups_en.csv").write_text(
+        "conceptUri,preferredLabel\n"
+        "http://data.europa.eu/esco/skill-group/S4.8,working with computers\n",
+        encoding="utf-8",
+    )
+    (data_dir / "occupationSkillRelations_en.csv").write_text(
+        "conceptUriOccupation,conceptUriSkill\n"
+        "occ-dev,skill-python\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    engine = ProjectorEngine()
+    loader = EscoLoader(engine)
+
+    loader.load_nace_labels()
+    loader.load_local_esco_support(use_local_sector_files=False)
+
+    assert engine.nace_labels["62.01"] == "Computer programming activities"
+    assert engine.nace_labels_by_level["section"]["J"] == "Computer programming activities"
+    assert engine.skill_hierarchy["skill-python"]["level_2"] == "S4.8"
+    assert engine.skill_group_labels["http://data.europa.eu/esco/skill-group/S4.8"] == "working with computers"
+    assert engine.skill_group_labels["S4.8"] == "working with computers"
+    assert engine.occ_skill_relations["occ-dev"] == {"skill-python"}
+
+
+def test_esco_loader_loads_crosswalk_from_alternate_workbook(monkeypatch, tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    from app.core.container import ProjectorEngine
+
+    data_dir = tmp_path / "complementary_data"
+    data_dir.mkdir()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["ESCO URI", "NACE code", "NACE title"])
+    ws.append(["occ-dev", "6201", "Computer programming activities"])
+    ws.append(["", "8500", "Ignored empty occupation"])
+    ws.append(["occ-empty-code", "", "Ignored empty code"])
+    wb.save(data_dir / "ESCO-NACE rev. 2.1 crosswalk.xlsx")
+
+    monkeypatch.chdir(tmp_path)
+    engine = ProjectorEngine()
+    loader = EscoLoader(engine)
+
+    loader.load_esco_nace_crosswalk()
+
+    assert engine.occupation_nace_map["occ-dev"] == [{
+        "code": "62.01",
+        "label": "Computer programming activities",
+    }]
+    assert "occ-empty-code" not in engine.occupation_nace_map
+
+
+def test_esco_loader_loads_official_matrix_workbook(monkeypatch, tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    from app.core.container import ProjectorEngine
+
+    data_dir = tmp_path / "complementary_data"
+    data_dir.mkdir()
+    wb = openpyxl.Workbook()
+    overview = wb.active
+    overview.title = "Overview"
+    overview.append(["Sheet", "Skill level", "Occupation level", "Size"])
+    overview.append(["Matrix 1.1", 1, 1, "2x2"])
+
+    ws = wb.create_sheet("Matrix 1.1")
+    ws.append(["occupation", "label", "S1", "S2", ""])
+    ws.append(["", "", "communication", "digital", "blank"])
+    ws.append(["http://data.europa.eu/esco/isco/C2", "Professionals", 0.25, 0.75, 1])
+    ws.append(["C3", "Technicians", "bad-number", None, 0.5])
+    ws.append([None, "Ignored", 1, 1, 1])
+    wb.save(data_dir / "Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx")
+
+    monkeypatch.chdir(tmp_path)
+    engine = ProjectorEngine()
+    loader = EscoLoader(engine)
+
+    loader.load_official_esco_matrix()
+
+    assert engine.esco_matrix_loaded is True
+    assert engine.esco_matrix_overview["Matrix 1.1"] == {
+        "skill_level": 1,
+        "occupation_level": 1,
+        "size": "2x2",
+    }
+    assert engine.esco_matrix_profiles[("Matrix 1.1", "http://data.europa.eu/esco/isco/C2")] == {
+        "occupation_group_label": "Professionals",
+        "profile": {"S1": 0.25, "S2": 0.75},
+    }
+    assert engine.esco_matrix_profiles[("Matrix 1.1", "C3")] == {
+        "occupation_group_label": "Technicians",
+        "profile": {},
+    }
+
+
+def test_esco_loader_handles_missing_and_invalid_matrix_workbooks(monkeypatch, tmp_path):
+    from app.core.container import ProjectorEngine
+
+    data_dir = tmp_path / "complementary_data"
+    data_dir.mkdir()
+    (data_dir / "Skills_Occupations Matrix Tables_ESCOv1.2.0_1.xlsx").write_text(
+        "not a workbook",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    engine = ProjectorEngine()
+    loader = EscoLoader(engine)
+
+    loader.load_esco_nace_crosswalk()
+    loader.load_official_esco_matrix()
+    loader.load_nace_labels("missing.csv")
+
+    assert engine.occupation_nace_map == {}
+    assert engine.esco_matrix_loaded is False
+    assert engine.nace_labels == {}
+
 # ==========================================
 # 7. OCCUPATION -> SECTOR RESOLUTION
 # ==========================================
@@ -4242,6 +4971,104 @@ def test_get_sector_label_uses_official_nace_section_lookup():
 
     occupations = OccupationAnalytics(ProjectorEngine())
     assert occupations.get_sector_label("J", system="nace") == "Information and communication"
+
+
+def test_occupation_nace_mapping_deduplicates_and_supports_fallbacks():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.occupation_nace_map["occ_1"] = [
+        {"code": "6201", "label": "Computer programming activities"},
+        {"code": "62.01", "label": "Duplicate programming label"},
+        {"code": "", "label": "Ignored empty code"},
+        {"code": "8500", "label": "Education"},
+    ]
+    engine.nace_labels = {
+        "62.01": "Programming from labels",
+        "J": "Information and communication",
+        "P": "Education section",
+    }
+
+    assert occupations.get_nace_mappings_for_occupation("", level="nace_code") == []
+    assert occupations.get_nace_mappings_for_occupation("missing", level="nace_code") == []
+    assert occupations.get_nace_mappings_for_occupation("occ_1", level="nace_code") == [
+        {"code": "62.01", "label": "Programming from labels"},
+        {"code": "85.00", "label": "Education"},
+    ]
+    assert occupations.get_nace_mappings_for_occupation("occ_1", level="nace_section") == [
+        {"code": "J", "label": "Information and communication"},
+        {"code": "P", "label": "Education section"},
+    ]
+    assert occupations.get_sector_keys_from_occupation("occ_1", level="nace_section") == ["J", "P"]
+    assert occupations.get_sector_keys_from_occupation("missing", level="nace_section") == []
+
+
+def test_occupation_job_sector_parsing_handles_nested_and_label_only_shapes():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+
+    assert occupations.get_sector_keys_from_job({"sectors": ["J62"]}, level="isco_group") == []
+    assert occupations.get_nace_mappings_from_job("not-a-dict") == []
+    assert occupations._iter_job_sector_entries(None) == []
+    assert occupations._iter_job_sector_entries(("J62", "P85")) == ["J62", "P85"]
+    assert occupations._iter_job_sector_entries({"results": [{"code": "J62"}]}) == [{"code": "J62"}]
+    assert occupations._iter_job_sector_entries({"code": "P85", "label": "Education"}) == [
+        {"code": "P85", "label": "Education"}
+    ]
+    assert occupations._extract_sector_code_and_label({"sector": {"code": "J62", "label": "ICT"}}) == ("J62", "ICT")
+    assert occupations._extract_sector_code_and_label({"classification": {"label": "Advertising"}}) == ("", "")
+    assert occupations._extract_sector_code_and_label({"sectorLabel": "Advertising"}) == ("", "Advertising")
+    assert occupations._extract_sector_code_and_label(42) == ("42", "")
+
+    mappings = occupations.get_nace_mappings_from_job(
+        {
+            "sectors": {
+                "items": [
+                    {"sector": {"code": "J62.01", "label": "Programming"}},
+                    {"sectorLabel": "Higher education"},
+                    {"externalId": "P85", "preferredLabel": "Education"},
+                ]
+            }
+        },
+        level="nace_section",
+    )
+
+    assert mappings == [
+        {"code": "Higher education", "label": "Higher education"},
+        {"code": "J", "label": "Programming"},
+        {"code": "P", "label": "Education"},
+    ]
+
+
+def test_occupation_normalization_and_label_edge_cases():
+    from app.core.container import ProjectorEngine
+
+    engine = ProjectorEngine()
+    occupations = OccupationAnalytics(engine)
+    engine.occupation_group_labels = {
+        "C2512": "Software developers",
+        "http://data.europa.eu/esco/isco/C25": "ICT professionals",
+    }
+
+    assert occupations.normalize_nace_code("") == ""
+    assert occupations.normalize_nace_code("abc") == ""
+    assert occupations.normalize_nace_code("J") == "J"
+    assert occupations.normalize_nace_code("J62") == "J62"
+    assert occupations.normalize_nace_code("J62.") == "J62"
+    assert occupations.normalize_nace_code("J62.0") == "J62.0"
+    assert occupations.normalize_nace_code("J6201") == "J62.01"
+    assert occupations._get_nace_level_code("", "nace_section") == ""
+    assert occupations._get_nace_level_code("ABC", "nace_section") == ""
+    assert occupations._get_nace_level_code("99", "unknown") == ""
+    assert occupations._division_to_nace_section("") == ""
+    assert occupations._division_to_nace_section("XX") == ""
+    assert occupations._division_to_nace_section("100") == "C"
+    assert occupations.get_sector_label("", system="isco") == "Sector not specified"
+    assert occupations.get_sector_label("C2512", system="isco") == "Software developers"
+    assert occupations.get_sector_label("C25", system="isco") == "ICT professionals"
 
 
 def test_nace_section_derivation_follows_official_division_ranges():
