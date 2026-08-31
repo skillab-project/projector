@@ -14,21 +14,26 @@ This folder contains the maintained documentation for the current `app/` impleme
 8. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
 9. [Database](database.md) documents PostgreSQL sector snapshot storage.
 10. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
-11. [Data sources](data-sources.md) explains Tracker API data usage.
-12. [Architecture](architecture.md) maps the runtime flow to the current code.
-13. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
-14. [Examples](examples.md) provides request examples and frontend integration patterns.
-15. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-16. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+11. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
+12. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
+13. [Data sources](data-sources.md) explains Tracker API data usage.
+14. [Architecture](architecture.md) maps the runtime flow to the current code.
+15. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
+16. [Examples](examples.md) provides request examples and frontend integration patterns.
+17. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+18. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 
 - #1: quick start and demo launch instructions.
+- #3: temporal projections by upload date, growth rates and short-term baseline projection.
 - #7: architecture, data flow, internal method map and maintainability notes.
 - #8: endpoint cheatsheet and API reference.
 - #59: forecasting scope and predictive forecasting deferral.
+- #4: inferential layer for selected observed comparisons.
 - #44, #54: PostgreSQL sector snapshot storage and refresh pipeline.
 - #47, #48, #49, #52: sector-first yearly views, detailed skills, redesign and comparison heatmap.
+- #62: D3.3 scope alignment, gap analysis and deliverable edit plan.
 
 ## Current Code Layout
 

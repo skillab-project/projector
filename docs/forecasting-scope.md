@@ -14,7 +14,7 @@ Predictive forecasting is deferred until the data, validation and model requirem
 
 ## Implemented Now
 
-`Skill Analyzer`
+`Job Demand Overview`
 
 - compares skills inside the selected job/date slice
 - returns emerging, declining, stable and new-entry skill signals
@@ -24,6 +24,13 @@ Predictive forecasting is deferred until the data, validation and model requirem
 
 - compares two internal periods in the requested date range
 - reports market volume growth and skill growth
+
+`Temporal Analysis`
+
+- aggregates jobs by `upload_date`
+- supports monthly, quarterly and yearly granularity
+- reports period-level job growth and skill-level growth
+- returns a short-term baseline projection using recent count deltas
 
 `Sector Evolution`
 
@@ -35,6 +42,12 @@ Predictive forecasting is deferred until the data, validation and model requirem
 - compares sectors x skills for one year
 - optionally compares skill counts between two selected years
 
+`Inferential Layer`
+
+- reports a baseline 2x2 chi-square p-value and effect size
+- works as an evidence layer inside temporal, sectoral and regional comparisons
+- does not prove shortage, causality or future demand
+
 ## Not Implemented Yet
 
 - predictive time-series forecasting
@@ -42,7 +55,7 @@ Predictive forecasting is deferred until the data, validation and model requirem
 - XAI forecasting explanations
 - scenario simulation
 - confidence intervals for future demand
-- statistical hypothesis testing with p-values
+- advanced statistical testing such as multiple-test correction or model-based inference
 
 ## Language To Use
 
@@ -53,6 +66,8 @@ Use:
 - `period comparison`
 - `year-over-year evolution`
 - `growth between selected periods`
+- `short-term baseline projection`
+- `statistical evidence for observed differences`
 
 Avoid for current implementation:
 

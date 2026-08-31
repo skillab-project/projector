@@ -62,6 +62,7 @@ Create a `.env` file in the repository root:
 TRACKER_API=https://your-tracker-url
 TRACKER_USERNAME=your_username
 TRACKER_PASSWORD=your_password
+TRACKER_CACHE_TTL_DAYS=30
 DATABASE_URL=postgresql://skillab:skillab@localhost:5433/skillab_projector
 ```
 

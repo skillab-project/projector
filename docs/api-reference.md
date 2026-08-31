@@ -18,7 +18,7 @@ Content-Type: application/x-www-form-urlencoded
 
 ## POST `/projector/analyze-skills`
 
-Runs the main labor-market analysis.
+Runs Job Demand Overview: a composition analysis of the selected job-market slice.
 
 ### Request Fields
 
@@ -452,7 +452,9 @@ Readiness check. Use it to verify whether required external dependencies are con
   "status": "ready",
   "dependencies": {
     "tracker": {
-      "configured": true
+      "configured": true,
+      "available": true,
+      "authenticated": true
     },
     "sector_snapshot_db": {
       "configured": true,
@@ -462,7 +464,7 @@ Readiness check. Use it to verify whether required external dependencies are con
 }
 ```
 
-If a configured dependency is unavailable, `status` is `degraded` and the dependency block includes the failure reason.
+If a configured dependency is unavailable, `status` is `degraded` and the dependency block includes the failure reason. In minimal test/fallback clients, Tracker may only expose `configured`; the real Tracker client also reports login availability and authentication.
 
 ## Error Shape
 
@@ -529,6 +531,132 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
       }
     ]
   }
+}
+```
+
+## POST `/projector/temporal-projections`
+
+Runs Temporal Analysis: aggregates Tracker jobs by `upload_date` and returns evolution across monthly, quarterly or yearly periods.
+
+This endpoint also returns a short-term baseline projection. The projection is not an ML forecast: it extends the recent average count delta for each skill.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `min_date` | string | yes | none | Start date, `YYYY-MM-DD` |
+| `max_date` | string | yes | none | End date, `YYYY-MM-DD` |
+| `keywords` | list of strings | no | `null` | Optional search terms forwarded to Tracker |
+| `locations` | list of strings | no | `null` | Optional Tracker location codes |
+| `granularity` | enum | no | `monthly` | `monthly`, `quarterly`, or `yearly` |
+| `forecast_periods` | integer | no | `1` | Number of future periods to project, `0..12` |
+| `top_k` | integer | no | `10` | Number of skills to include, `1..100` |
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/temporal-projections" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "locations=IT" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=quarterly" \
+  -d "forecast_periods=2" \
+  -d "top_k=10"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "total_jobs": 120,
+  "insights": {
+    "window": {
+      "min_date": "2024-01-01",
+      "max_date": "2024-12-31"
+    },
+    "granularity": "quarterly",
+    "forecast_method": "last_delta_baseline",
+    "periods": [
+      {
+        "period": "2024-Q1",
+        "start_date": "2024-01-01",
+        "end_date": "2024-03-31",
+        "job_count": 30,
+        "growth_vs_previous": null
+      }
+    ],
+    "skills": [
+      {
+        "skill_id": "http://data.europa.eu/esco/skill/...",
+        "name": "Python",
+        "total_count": 42,
+        "latest_count": 12,
+        "growth_rate": 20.0,
+        "trend_type": "emerging",
+        "is_green": false,
+        "is_digital": true,
+        "series": [
+          {
+            "period": "2024-Q1",
+            "start_date": "2024-01-01",
+            "end_date": "2024-03-31",
+            "count": 8,
+            "share": 0.2667,
+            "growth_vs_previous": null
+          }
+        ],
+        "forecast": [
+          {
+            "period": "2025-Q1",
+            "projected_count": 14.0,
+            "method": "last_delta_baseline"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## POST `/projector/statistical-comparison`
+
+Runs a baseline 2x2 chi-square comparison over observed counts.
+
+Use it as an inferential evidence layer inside comparison views. It does not prove shortage or causality.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `comparison_type` | enum | no | `generic` | `temporal`, `sector_skill`, `regional_skill`, `regional_sector`, `sector_evolution`, or `generic` |
+| `group_a_label` | string | yes | none | Display label for group A |
+| `group_a_count` | integer | yes | none | Selected count in group A |
+| `group_a_total` | integer | yes | none | Total observations in group A |
+| `group_b_label` | string | yes | none | Display label for group B |
+| `group_b_count` | integer | yes | none | Selected count in group B |
+| `group_b_total` | integer | yes | none | Total observations in group B |
+| `alpha` | float | no | `0.05` | Significance threshold |
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "comparison_type": "sector_skill",
+  "method": "chi_square_2x2",
+  "alpha": 0.05,
+  "significant": true,
+  "statistic": 6.06,
+  "p_value": 0.0138,
+  "effect_size": 0.1741,
+  "effect_size_label": "small",
+  "interpretation": "Observed difference is statistically significant...",
+  "groups": [],
+  "expected_counts": [],
+  "warnings": []
 }
 ```
 

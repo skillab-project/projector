@@ -33,18 +33,21 @@ insights.sectoral_views
 insights.sector_view_names
 ```
 
-## Temporal Projections
+## Temporal Analysis
 
 Current support:
-- splits the selected period into two halves,
-- compares skill frequency between the two periods,
+- splits the selected job-market slice by `upload_date`,
+- supports monthly, quarterly and yearly granularity,
+- compares skill frequency between periods,
 - reports emerging, declining, stable and new-entry skills,
-- reports volume growth at market level.
+- reports volume growth at market level,
+- returns a short-term baseline projection.
 
-Relevant response field:
+Relevant response fields:
 
 ```text
 insights.trends
+POST /projector/temporal-projections
 ```
 
 ## Statistical Interpretation

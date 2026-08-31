@@ -56,6 +56,89 @@ class TrendsContainer(BaseModel):
     trends: List[TrendItem] = Field(..., description="Skill-level trend items sorted by descending growth.")
 
 
+class TemporalPeriodItem(BaseModel):
+    period: str = Field(..., description="Period label in the selected granularity.")
+    start_date: str = Field(..., description="First date included in the period.")
+    end_date: str = Field(..., description="Last date included in the period.")
+    job_count: int = Field(..., description="Number of postings uploaded in the period.")
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = Field(
+        None,
+        description="Job-count growth versus the previous period."
+    )
+
+
+class TemporalSkillSeriesItem(BaseModel):
+    period: str
+    start_date: str
+    end_date: str
+    count: int = Field(..., description="Skill mentions in the period.")
+    share: float = Field(..., description="Skill mentions divided by period job count.")
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = None
+
+
+class TemporalSkillForecastItem(BaseModel):
+    period: str
+    projected_count: float
+    method: Literal["last_delta_baseline"]
+
+
+class TemporalSkillProjectionItem(BaseModel):
+    skill_id: str
+    name: str
+    total_count: int
+    latest_count: int
+    growth_rate: Optional[Union[float, Literal["new_entry"]]]
+    trend_type: Literal["emerging", "declining", "stable"]
+    is_green: bool
+    is_digital: bool
+    series: List[TemporalSkillSeriesItem]
+    forecast: List[TemporalSkillForecastItem]
+
+
+class TemporalProjectionsInsights(BaseModel):
+    window: dict[str, str]
+    granularity: Literal["monthly", "quarterly", "yearly"]
+    forecast_method: Literal["last_delta_baseline"]
+    periods: List[TemporalPeriodItem]
+    skills: List[TemporalSkillProjectionItem]
+
+
+class TemporalProjectionsResponse(BaseModel):
+    status: str
+    total_jobs: int
+    insights: TemporalProjectionsInsights
+
+
+class StatisticalComparisonGroup(BaseModel):
+    label: str
+    count: int
+    total: int
+    share: float
+
+
+class StatisticalComparisonResponse(BaseModel):
+    status: str
+    comparison_type: Literal[
+        "temporal",
+        "sector_skill",
+        "regional_skill",
+        "regional_sector",
+        "sector_evolution",
+        "generic",
+    ]
+    method: Literal["chi_square_2x2"]
+    alpha: float
+    significant: bool
+    statistic: float
+    p_value: float
+    effect_size: float
+    effect_size_label: str
+    interpretation: str
+    groups: List[StatisticalComparisonGroup]
+    expected_counts: List[List[float]]
+    warnings: List[str] = Field(default_factory=list)
+
+
 # -----------------------------
 # Regional projection models
 # -----------------------------
@@ -228,6 +311,8 @@ class SectorEvolution(BaseModel):
     reference_year: int
     job_count_current: int
     job_count_reference: int
+    total_jobs_current: int
+    total_jobs_reference: int
     job_delta: int
     job_growth_percentage: Union[float, Literal["new_entry"]]
     job_growth_value: float
