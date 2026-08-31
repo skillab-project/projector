@@ -18,15 +18,16 @@ This folder contains the maintained documentation for the current `app/` impleme
 12. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
 13. [Data sources](data-sources.md) explains Tracker API data usage.
 14. [Architecture](architecture.md) maps the runtime flow to the current code.
-15. [Examples](examples.md) provides request examples and frontend integration patterns.
-16. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-17. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+15. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
+16. [Examples](examples.md) provides request examples and frontend integration patterns.
+17. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+18. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 
 - #1: quick start and demo launch instructions.
 - #3: temporal projections by upload date, growth rates and short-term baseline projection.
-- #7: architecture, data flow and maintainability notes.
+- #7: architecture, data flow, internal method map and maintainability notes.
 - #8: endpoint cheatsheet and API reference.
 - #59: forecasting scope and predictive forecasting deferral.
 - #4: inferential layer for selected observed comparisons.
