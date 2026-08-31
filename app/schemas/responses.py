@@ -109,6 +109,61 @@ class TemporalProjectionsResponse(BaseModel):
     insights: TemporalProjectionsInsights
 
 
+class RegionalTemporalPeriodItem(BaseModel):
+    period: str = Field(..., description="Period label in the selected granularity.")
+    start_date: str = Field(..., description="First date included in the period.")
+    end_date: str = Field(..., description="Last date included in the period.")
+    job_count: int = Field(..., description="Number of postings for the region in the period.")
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = Field(
+        None,
+        description="Regional job-count growth versus the previous period."
+    )
+
+
+class RegionalTemporalSkillSeriesItem(BaseModel):
+    period: str
+    start_date: str
+    end_date: str
+    count: int = Field(..., description="Skill mentions in the region and period.")
+    share: float = Field(..., description="Skill mentions divided by regional period jobs.")
+    growth_vs_previous: Optional[Union[float, Literal["new_entry"]]] = None
+
+
+class RegionalTemporalSkill(BaseModel):
+    skill_id: str
+    label: str
+    total_count: int
+    latest_count: int
+    growth_rate: Optional[Union[float, Literal["new_entry"]]]
+    trend_type: Literal["emerging", "declining", "stable"]
+    specialization: float = Field(..., description="Location Quotient-like skill concentration score.")
+    series: List[RegionalTemporalSkillSeriesItem]
+
+
+class RegionalTemporalArea(BaseModel):
+    code: str = Field(..., description="Original or inferred geographic code.")
+    total_jobs: int = Field(..., description="Number of postings associated with the area.")
+    market_share: float = Field(..., description="Percentage of analyzed postings represented by the area.")
+    periods: List[RegionalTemporalPeriodItem]
+    top_skills: List[RegionalTemporalSkill]
+
+
+class RegionalTemporalProjections(BaseModel):
+    raw: List[RegionalTemporalArea]
+    nuts1: List[RegionalTemporalArea]
+    nuts2: List[RegionalTemporalArea]
+    nuts3: List[RegionalTemporalArea]
+
+
+class RegionalTemporalResponse(BaseModel):
+    status: str
+    total_jobs: int
+    window: dict[str, str]
+    granularity: Literal["monthly", "quarterly", "yearly"]
+    regional_temporal: RegionalTemporalProjections
+    message: Optional[str] = None
+
+
 class StatisticalComparisonGroup(BaseModel):
     label: str
     count: int

@@ -88,6 +88,9 @@ Cross-Dimension Analysis
 │   └── inferential layer
 ├── Regional Sector Distribution
 │   └── inferential layer
+├── Regional Temporal Analysis
+│   [Keyword] [Date range] [Region] [Granularity]
+│   └── regional demand and top skills through time
 ├── Temporal Analysis
 │   └── inferential layer
 ├── Sector Evolution
@@ -158,6 +161,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | --- | --- | --- | --- |
 | Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` |
 | Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` |
+| Regional Temporal Analysis | region/time comparison | keyword, date range, region, granularity | `POST /projector/regional-temporal` |
 | Inferential Layer | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` |
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
@@ -236,6 +240,15 @@ curl -X POST http://127.0.0.1:8000/projector/temporal-projections \
   -d "max_date=2024-12-31" \
   -d "granularity=monthly" \
   -d "forecast_periods=2"
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/projector/regional-temporal \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=monthly"
 ```
 
 ## Data Sources

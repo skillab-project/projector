@@ -3607,6 +3607,101 @@ def test_temporal_projection_helpers_cover_edge_branches():
     assert trends._forecast_skill_counts([], None, "monthly", 2) == []
 
 
+@pytest.mark.integration
+def test_endpoint_regional_temporal_contract():
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": ["s1"], "location_code": "IT"},
+        {"upload_date": "2024-02-10", "skills": ["s1", "s2"], "location_code": "IT"},
+        {"upload_date": "2024-02-20", "skills": ["s2"], "location_code": "DE"},
+    ]
+    engine.skill_map = {
+        "s1": {"label": "Python", "is_green": False, "is_digital": True},
+        "s2": {"label": "SQL", "is_green": False, "is_digital": True},
+    }
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_skill_names:
+        m_fetch.return_value = jobs
+        response = client.post("/projector/regional-temporal", data={
+            "keywords": "data",
+            "locations": "IT",
+            "min_date": "2024-01-01",
+            "max_date": "2024-03-31",
+            "granularity": "monthly",
+            "top_k_regions": "2",
+            "top_k_skills": "2",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["total_jobs"] == 3
+    assert payload["granularity"] == "monthly"
+    assert payload["regional_temporal"]["raw"][0]["code"] == "IT"
+    assert payload["regional_temporal"]["raw"][0]["total_jobs"] == 2
+    assert payload["regional_temporal"]["raw"][0]["market_share"] == 66.67
+    assert [period["period"] for period in payload["regional_temporal"]["raw"][0]["periods"]] == [
+        "2024-01",
+        "2024-02",
+        "2024-03",
+    ]
+    assert payload["regional_temporal"]["raw"][0]["top_skills"][0]["label"] == "Python"
+    assert payload["regional_temporal"]["raw"][0]["top_skills"][0]["series"][1]["count"] == 1
+    m_fetch.assert_awaited_once_with({
+        "keywords": ["data"],
+        "location_code": ["IT"],
+        "min_upload_date": "2024-01-01",
+        "max_upload_date": "2024-03-31",
+    })
+    assert set(m_skill_names.await_args.args[0]) == {"s1", "s2"}
+
+
+@pytest.mark.integration
+def test_endpoint_regional_temporal_demo_projects_nuts_levels():
+    jobs = [
+        {"upload_date": "2024-01-15", "skills": ["s1"], "location_code": "IT"},
+        {"upload_date": "2024-01-16", "skills": ["s1"], "location_code": "IT"},
+    ]
+    engine.skill_map = {"s1": {"label": "Python", "is_green": False, "is_digital": True}}
+
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock):
+        m_fetch.return_value = jobs
+        response = client.post("/projector/regional-temporal", data={
+            "min_date": "2024-01-01",
+            "max_date": "2024-01-31",
+            "granularity": "monthly",
+            "demo": "true",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["regional_temporal"]["raw"][0]["code"] == "IT"
+    assert payload["regional_temporal"]["nuts1"][0]["code"].startswith("IT")
+    assert payload["regional_temporal"]["nuts2"][0]["code"].startswith("IT")
+    assert payload["regional_temporal"]["nuts3"][0]["code"].startswith("IT")
+
+
+@pytest.mark.integration
+def test_endpoint_regional_temporal_no_data_response():
+    with patch.object(tracker, "fetch_all_jobs", new_callable=AsyncMock) as m_fetch, \
+            patch.object(tracker, "fetch_skill_names", new_callable=AsyncMock) as m_skill_names:
+        m_fetch.return_value = []
+        response = client.post("/projector/regional-temporal", data={
+            "min_date": "2024-01-01",
+            "max_date": "2024-01-31",
+            "granularity": "monthly",
+        })
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["total_jobs"] == 0
+    assert payload["regional_temporal"] == {"raw": [], "nuts1": [], "nuts2": [], "nuts3": []}
+    assert payload["message"] == "No jobs found for the selected filters."
+    m_skill_names.assert_not_awaited()
+
+
 def test_statistical_comparison_chi_square_baseline():
     result = service.statistical_comparison(
         comparison_type="temporal",

@@ -78,6 +78,34 @@ latest_count + average(last up to 3 period deltas) * forecast_step
 
 This is a short-term baseline projection, not an ML forecast.
 
+## Regional Temporal Analysis
+
+`regional_period_job_count`
+
+```text
+count(jobs where location_code maps to region and upload_date maps to period)
+```
+
+`regional_market_share`
+
+```text
+regional_jobs / total_jobs * 100
+```
+
+`regional_skill_count`
+
+```text
+count(skill mentions in jobs mapped to the region)
+```
+
+`regional_skill_specialization`
+
+```text
+(skill_count_in_region / region_jobs) / (skill_count_all_regions / total_jobs)
+```
+
+Values above `1` indicate above-average regional concentration.
+
 ## Inferential Layer
 
 `chi_square_2x2`
