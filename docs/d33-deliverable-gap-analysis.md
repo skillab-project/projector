@@ -16,8 +16,21 @@ The main remaining gap is not core descriptive analytics. It is scope alignment:
 | --- | --- |
 | Implemented | Runtime API and/or documented workflow exists and is tested. |
 | Partial | A compatible baseline exists, but wording needs caveats or production data. |
-| Not implemented | Should be removed from implemented claims or marked future work. |
+| Out of scope | Should be removed from Projector runtime claims. |
+| Needs decision | Scope or data ownership is not clear yet. |
 | Documentation only | No runtime change needed; update deliverable wording. |
+
+## Scope Decisions From The D3.3 Source
+
+| Area | Decision |
+| --- | --- |
+| Predictive forecasting | Out of current D3.3 runtime scope. The deliverable explicitly limits forecasting to trend-based monitoring and period comparison. |
+| Confidence intervals | Not evidenced in the D3.3 source and out of current runtime scope. |
+| XAI forecasting | Out of current D3.3 runtime scope. XAI appears as glossary/context, not as an implemented Projector forecasting feature. |
+| Scenario simulation | Out of current D3.3 runtime scope. The source mentions validation/demonstration scenarios, not a runtime simulation feature. |
+| Supply-side analytics | Out of current Projector runtime scope. The source title mentions demand and supply, but the Projector implementation described is based on Tracker job advertisements. |
+| Real case-study outputs/figures | Out of scope for this implementation track. |
+| Production real snapshots | Deferred to #61 and server deployment. |
 
 ## Micro-Section Matrix
 
@@ -52,10 +65,10 @@ The main remaining gap is not core descriptive analytics. It is scope alignment:
 | 4.1.4.3 Sectoral Dimension within Skill Demand Analysis | Implemented | Sector distribution and sector intelligence. | Keep with Tracker-sector source caveat. |
 | 4.1.4.4 Combined Interpretation of Skills, Regions, Sectors and Time | Partial | Cross-dimension views exist; not every possible combination exists. | State implemented combinations explicitly. |
 | Dimension 4: Statistical Inferential Mechanisms | Implemented | `POST /projector/statistical-comparison`, chi-square, p-value, effect size. | Describe as inferential layer attached to comparison views, not standalone dashboard area. |
-| 4.2 Skills Forecasting | Partial | Trend monitoring and baseline projection only. | Word as forecasting-related trend monitoring unless future predictive work is approved. |
+| 4.2 Skills Forecasting | Implemented | Trend monitoring and baseline projection exist; the D3.3 source explicitly excludes predictive forecasting engines from the current runtime. | Keep current wording honest: forecasting means trend-based monitoring and period comparison here. |
 | 4.2.1 Current Scope: Trend-Based Skill Monitoring | Implemented | Period job counts, skill time series, baseline projection. | Keep as implemented. |
 | 4.2.2 Emerging-Skills Endpoint and Period Comparison | Implemented | `POST /projector/emerging-skills` and temporal endpoints. | Keep as observed period comparison. |
-| 4.2.3 Forecasting-Related Limitations | Implemented as documentation | `docs/forecasting-scope.md`. | Keep and make limitations explicit. |
+| 4.2.3 Forecasting-Related Limitations | Implemented as documentation | `docs/forecasting-scope.md` documents current limits. | Keep limits explicit; do not convert excluded methods into implementation requirements. |
 | 5.1 Technology Stack | Implemented | FastAPI, Streamlit demo, PostgreSQL, pytest, Jenkins. | Keep current stack. |
 | 5.2.1 Projector Architecture | Implemented | `app/` package architecture and docs. | Keep as implemented. |
 | 5.2.2 Integration with SKILLAB Tracker | Implemented | Tracker client and API-only job processing. | Keep; mention job sectors and skills come from Tracker API. |
@@ -71,41 +84,41 @@ The main remaining gap is not core descriptive analytics. It is scope alignment:
 | 5.2.12 Dashboard Views and API Interfaces | Implemented | Demo dashboard and endpoint docs. | Clarify dashboard is demo/integration guide for final frontend. |
 | 5.2.13 Cooperative Stop Mechanism | Implemented | Stop endpoint/state. | Keep. |
 | 5.2.14 Caching Strategy | Partial | Cache exists; TTL cleanup issue remains separate. | Mention operational cache policy separately if needed. |
-| 5.3 Skills Forecasting | Partial | Baseline trend projection only. | Avoid predictive forecasting language. |
+| 5.3 Skills Forecasting | Implemented | Baseline trend projection only. | Avoid claiming predictive forecasting, XAI, confidence intervals or scenario forecasting. |
 | 5.3.1 Implemented Trend-Based Temporal Analysis | Implemented | Temporal projections endpoint. | Keep. |
 | 5.3.2 Emerging and Declining Skill Detection | Implemented | Period comparison. | Keep. |
-| 5.3.3 Current Gaps and Production Hardening Priorities | Implemented as documentation | Forecasting scope + production docs. | Keep. |
-| 6.1 Skills Analytics case studies | Partial | Features exist; repo does not contain real case-study outputs/figures. | Label as demonstration scenarios or add real outputs. |
-| 6.1.1.1 Case Study 1 | Partial | Skill demand API exists. | Add real run output or mark demo. |
-| 6.1.1.2 Case Study 2 | Partial | Emerging/declining API exists. | Add real run output or mark demo. |
-| 6.1.1.3 Case Study 3 | Partial | Job title/employer analytics exist. | Add real run output or mark demo. |
-| 6.1.2.1 Case Study 4 | Partial | Raw regional demand exists. | Add real run output or mark demo. |
-| 6.1.2.2 Case Study 5 | Partial | NUTS-like projections exist. | Add caveat and real/demo output. |
-| 6.1.2.3 Case Study 6 | Partial | Regional comparison exists. | Add real/demo output. |
-| 6.1.3.1 Case Study 7 | Partial | Tracker sector-skill analysis exists. | Add real/demo output. |
-| 6.1.3.2 Case Study 8 | Partial | Yearly snapshots exist. | Add real/demo output; server bootstrap later. |
-| 6.1.3.3 Case Study 9 | Partial | Sector evolution exists. | Add real/demo output. |
-| 6.1.3.4 Case Study 10 | Partial | Heatmap comparison exists. | Add real/demo output. |
-| 6.1.3.5 Case Study 11 | Partial | Skill portfolio exists in dashboard. | Add real/demo output. |
-| 6.1.3.6 Case Study 12 | Partial | Sector job titles exist. | Add real/demo output. |
-| 6.2 Skill Forecasting case studies | Partial | Trend monitoring exists; predictive forecasting does not. | Frame as trend monitoring demos, not predictive forecasts. |
-| 6.2.1 Case Study 13 | Partial | Emerging skills through time-window comparison exists. | Keep as observed comparison. |
-| 6.2.2 Case Study 14 | Partial | Sector evolution through yearly snapshots exists. | Keep as year-to-year observed evolution. |
+| 5.3.3 Current Gaps and Production Hardening Priorities | Implemented as documentation | Forecasting scope + production docs exist. | Keep limitations explicit and focus hardening on implemented runtime features. |
+| 6.1 Skills Analytics case studies | Out of scope | Features exist; repo does not contain real case-study outputs/figures. | Do not implement real case-study outputs in Projector; label any examples as demonstration scenarios. |
+| 6.1.1.1 Case Study 1 | Out of scope | Skill demand API exists. | Do not add real output artifacts here. |
+| 6.1.1.2 Case Study 2 | Out of scope | Emerging/declining API exists. | Do not add real output artifacts here. |
+| 6.1.1.3 Case Study 3 | Out of scope | Job title/employer analytics exist. | Do not add real output artifacts here. |
+| 6.1.2.1 Case Study 4 | Out of scope | Raw regional demand exists. | Do not add real output artifacts here. |
+| 6.1.2.2 Case Study 5 | Out of scope | NUTS-like projections exist. | Do not add real output artifacts here. |
+| 6.1.2.3 Case Study 6 | Out of scope | Regional comparison exists. | Do not add real output artifacts here. |
+| 6.1.3.1 Case Study 7 | Out of scope | Tracker sector-skill analysis exists. | Do not add real output artifacts here. |
+| 6.1.3.2 Case Study 8 | Out of scope | Yearly snapshots exist. | Do not add real output artifacts here; server bootstrap remains #61. |
+| 6.1.3.3 Case Study 9 | Out of scope | Sector evolution exists. | Do not add real output artifacts here. |
+| 6.1.3.4 Case Study 10 | Out of scope | Heatmap comparison exists. | Do not add real output artifacts here. |
+| 6.1.3.5 Case Study 11 | Out of scope | Skill portfolio exists in dashboard. | Do not add real output artifacts here. |
+| 6.1.3.6 Case Study 12 | Out of scope | Sector job titles exist. | Do not add real output artifacts here. |
+| 6.2 Skill Forecasting case studies | Out of scope | Trend monitoring exists; predictive forecasting does not. | Do not implement real case-study outputs in Projector. |
+| 6.2.1 Case Study 13 | Out of scope | Emerging skills through time-window comparison exists. | Keep only as an example if needed. |
+| 6.2.2 Case Study 14 | Out of scope | Sector evolution through yearly snapshots exists. | Keep only as an example if needed. |
 
 ## Deliverable Edits Checklist
 
 - Replace accidental `D3.2` references with `D3.3`.
 - Use "trend monitoring", "observed change", "period comparison" and "baseline projection".
-- Do not claim predictive ML forecasting as implemented.
-- Do not claim XAI forecasting explanations as implemented.
-- Do not claim confidence intervals or scenario simulation as implemented.
-- Do not claim supply-side analytics in Projector unless another component provides it.
+- Do not claim predictive ML forecasting as implemented or required for the current D3.3 runtime.
+- Do not claim XAI forecasting explanations as implemented or required for the current D3.3 runtime.
+- Do not add confidence intervals or scenario simulation as D3.3 runtime requirements unless a later scope decision changes this.
+- Treat supply-side analytics as outside the current Projector runtime unless a supply-side data source and owner are identified.
 - Mark NUTS outputs as NUTS-like and source-dependent.
 - Describe sector data source as Tracker `job["sectors"]`.
 - Explain sector counts as relationship counts when jobs contain multiple sectors.
 - Describe statistical inference as an inferential layer, not as a standalone dimension view.
 - State that p-values/effect sizes validate observed differences; they do not prove shortage, causality or future demand.
-- Either add real case-study outputs/figures or label case studies as demonstration scenarios.
+- Do not implement real case-study outputs/figures in Projector; label any examples as demonstration scenarios.
 - Add production caveat: real snapshots must be bootstrapped on the deployed server.
 
 ## Recommended Wording
