@@ -2,7 +2,7 @@
 
 Concise guide for developers working on the Projector API, dashboard, sector snapshots and documentation.
 
-Related issues: #1, #3, #4, #7, #8, #44, #47, #48, #49, #50, #52, #54, #73, #74.
+Related issues: #1, #3, #4, #7, #8, #33, #44, #47, #48, #49, #50, #52, #54, #73, #74, #88, #89, #90.
 
 ## Intelligence Design
 
@@ -89,6 +89,9 @@ Cross-Dimension Analysis
 │   └── inferential layer
 ├── Regional Sector Distribution
 │   └── inferential layer
+├── Regional Sectoral Temporal Evolution
+│   [Year / Range] [Region] [Level] [Sectors] [Metric]
+│   └── sector distribution by region through time
 ├── Regional Temporal Analysis
 │   [Keyword] [Date range] [Region] [Granularity]
 │   └── regional demand and top skills through time
@@ -169,6 +172,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |
 | Regional Sector Distribution | region/sector matrix | year, optional region | `POST /projector/regional-sectoral` |
+| Regional Sectoral Evolution | region/sector/time matrix | year, reference year or year range, level, metric | `POST /projector/regional-sectoral` |
 | Skill Explorer | one skill | skill, snapshot/live mode, year or date range, region | `POST /projector/skill-explorer` |
 
 ## Static Sector Snapshots
