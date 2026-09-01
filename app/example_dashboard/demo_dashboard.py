@@ -1264,10 +1264,9 @@ with st.sidebar:
 
     st.header(T['filters_header'])
     dashboard_options = T["dashboard_view_options"]
-    dashboard_view_label = st.radio(
+    dashboard_view_label = st.selectbox(
         T["dashboard_view"],
         list(dashboard_options.values()),
-        horizontal=True,
     )
     dashboard_view = next(key for key, value in dashboard_options.items() if value == dashboard_view_label)
 
