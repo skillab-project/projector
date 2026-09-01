@@ -2,7 +2,7 @@
 
 Concise guide for developers working on the Projector API, dashboard, sector snapshots and documentation.
 
-Related issues: #1, #3, #4, #7, #8, #33, #44, #47, #48, #49, #50, #52, #54, #73, #74, #88, #89, #90.
+Related issues: #1, #3, #4, #7, #8, #33, #44, #47, #48, #49, #50, #52, #54, #73, #74, #88, #89, #90, #94.
 
 ## Intelligence Design
 
@@ -162,18 +162,17 @@ streamlit run app/example_dashboard/demo_dashboard.py
 
 ## Dashboard Views
 
-| View | Start from | Main controls | Main endpoint |
-| --- | --- | --- | --- |
-| Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` |
-| Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` |
-| Regional Temporal Analysis | region/time comparison | keyword, date range, region, granularity | `POST /projector/regional-temporal` |
-| Inferential Layer | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` |
-| Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` |
-| Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` |
-| Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` |
-| Regional Sector Distribution | region/sector matrix | year, optional region | `POST /projector/regional-sectoral` |
-| Regional Sectoral Evolution | region/sector/time matrix | year, reference year or year range, level, metric | `POST /projector/regional-sectoral` |
-| Skill Explorer | one skill | skill, snapshot/live mode, year or date range, region | `POST /projector/skill-explorer` |
+| View | Start from | Main controls | Main endpoint | Data source |
+| --- | --- | --- | --- | --- |
+| Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` | Tracker API/cache |
+| Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` | Tracker API/cache |
+| Regional Temporal Analysis | region/time comparison | keyword, date range, region, granularity | `POST /projector/regional-temporal` | Tracker API/cache |
+| Inferential Layer | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` | derived from active view |
+| Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
+| Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
+| Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` | PostgreSQL snapshots |
+| Regional Sector Distribution | region/sector matrix | mode, year/range, region, level, sectors, metric | `POST /projector/regional-sectoral` | PostgreSQL snapshots |
+| Skill Explorer | one skill | skill, snapshot/live mode, year or date range, region | `POST /projector/skill-explorer` | PostgreSQL snapshots or Tracker API/cache |
 
 ## Static Sector Snapshots
 
@@ -280,6 +279,7 @@ No ISCO/NACE files, ESCO-NACE crosswalk, canonical occupation-skill relations or
 ## Useful Docs
 
 - [API reference](api-reference.md)
+- [Demo dashboard guide](dashboard-demo.md)
 - [Data model](data-model.md)
 - [Statistics](statistic.md)
 - [Sector intelligence](sector-intelligence.md)

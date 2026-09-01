@@ -9,9 +9,11 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | Endpoint | Use it when you need | Returns in one sentence |
 | --- | --- | --- |
 | `POST /projector/analyze-skills` | Job Demand Overview | Composition of a selected job-market slice: skills, sectors, employers, titles, trends and geography |
+| `POST /projector/regional-temporal` | Regional Temporal Analysis | Regional demand by period, with top skills per region |
+| `POST /projector/skill-explorer` | Skill Explorer | One skill distributed across sectors, regions and time |
 | `POST /projector/sectoral-snapshot` | One-sector yearly snapshot or evolution | Static yearly sector rows enriched with skills, job titles and evolution metrics |
 | `POST /projector/sector-skills-comparison` | Multi-sector heatmap | Sectors x skills matrix for count, share, rank or growth |
-| `POST /projector/regional-sectoral` | Regional sector distribution | Static yearly sector distribution grouped by raw and NUTS-like regions |
+| `POST /projector/regional-sectoral` | Regional sector distribution | Static yearly region-sector distribution, plus optional evolution or time series |
 | `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/temporal-projections` | Temporal Analysis | Monthly, quarterly or yearly evolution of the selected job-market slice |
@@ -97,6 +99,58 @@ When `include_sectoral=true`:
 
 Important: sector totals are relationship counts. A job with multiple sectors contributes to each listed sector.
 
+## `POST /projector/regional-temporal`
+
+Use this for Regional Temporal Analysis. It compares regions over a live date range.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-temporal" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "keywords=software" \
+  -d "min_date=2024-01-01" \
+  -d "max_date=2024-12-31" \
+  -d "granularity=monthly"
+```
+
+Main response block:
+
+```json
+{
+  "regional_temporal": {
+    "raw": [],
+    "nuts1": [],
+    "nuts2": [],
+    "nuts3": []
+  }
+}
+```
+
+Each area returns `code`, `total_jobs`, `market_share`, `periods` and `top_skills`.
+
+## `POST /projector/skill-explorer`
+
+Use this when the UI starts from a skill rather than a job keyword or sector.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/skill-explorer" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "skill_label=Python" \
+  -d "mode=snapshot" \
+  -d "start_year=2023" \
+  -d "end_year=2024"
+```
+
+Main response fields:
+
+| Field | Meaning |
+| --- | --- |
+| `skill` | Matched skill id/label |
+| `total_mentions` | Total selected-skill mentions |
+| `sectors` | Sector distribution for the selected skill |
+| `regions` | Regional distribution for the selected skill |
+| `time_series` | Skill mentions by year or live date bucket |
+| `warnings` | Missing snapshot or low-data warnings |
+
 ## `POST /projector/regional-sectoral`
 
 Use this for yearly regional x sector views. It reads PostgreSQL snapshots and does not perform live Tracker aggregation.
@@ -122,6 +176,13 @@ Main response block:
 ```
 
 Each area returns `code`, `total_jobs`, and `top_sectors`. Each sector item returns `sector`, `sector_code`, `count`, `share_in_region`, and `specialization`.
+
+Optional modes:
+
+- `reference_year`: returns `regional_sectoral_evolution`
+- `start_year` / `end_year`: returns `regional_sectoral_time_series`
+- `level`: chooses `raw`, `nuts1`, `nuts2` or `nuts3` for optional blocks
+- `metric`: chooses `count`, `share` or `growth` as displayed value
 
 ## `POST /projector/sectoral-snapshot`
 
