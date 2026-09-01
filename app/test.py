@@ -20,6 +20,7 @@ from app.main import  app
 from app.services.esco_loader import EscoLoader
 from app.services.analytics.occupations import OccupationAnalytics
 from app.services.analytics.sectoral import SectoralAnalytics
+from app.services.analytics.statistics import run_statistical_comparison
 from app.services.projector_service import ProjectorService
 from app.services.sector_snapshot_store import SectorSnapshotStore
 from scripts import backfill_sectoral_snapshots as backfill_script
@@ -4113,6 +4114,24 @@ def test_statistical_comparison_chi_square_baseline():
     assert result["effect_size_label"] in {"small", "medium"}
     assert result["groups"][0]["share"] == 0.3
     assert result["groups"][1]["share"] == 0.1
+    assert result["comparison_question"].startswith("Did the observed share change")
+    assert result["method_description"].startswith("2x2 chi-square test")
+    assert result["observed_table"]["rows"][0]["present"] == 30
+    assert result["observed_table"]["rows"][0]["absent"] == 70
+    assert result["expected_table"]["rows"][0]["expected_present"] == 20.0
+    assert result["expected_table"]["rows"][0]["expected_absent"] == 80.0
+    assert result["group_a_share"] == 0.3
+    assert result["group_b_share"] == 0.1
+    assert result["share_difference"] == 0.2
+    assert result["share_difference_percentage_points"] == 20.0
+    assert result["relative_risk"] == 3.0
+    assert result["odds_ratio"] == 3.8571
+    assert result["degrees_of_freedom"] == 1
+    assert result["minimum_expected_count"] == 20.0
+    assert result["evidence_level"] in {"weak", "moderate", "strong"}
+    assert result["practical_relevance"] == result["effect_size_label"]
+    assert result["assumptions"]
+    assert result["limitations"]
 
 
 def test_statistical_comparison_handles_empty_and_large_effect_cases():
@@ -4138,6 +4157,11 @@ def test_statistical_comparison_handles_empty_and_large_effect_cases():
     assert empty["p_value"] == 1.0
     assert empty["effect_size_label"] == "negligible"
     assert "No observations available" in empty["warnings"][0]
+    assert empty["relative_risk"] is None
+    assert empty["odds_ratio"] is None
+    assert empty["minimum_expected_count"] == 0.0
+    assert any("Relative risk is not computable" in warning for warning in empty["warnings"])
+    assert any("Odds ratio is not computable" in warning for warning in empty["warnings"])
     assert large["effect_size_label"] == "large"
     assert large["significant"] is True
 
@@ -4152,6 +4176,41 @@ def test_statistical_comparison_handles_empty_and_large_effect_cases():
     )
     assert regional_skill["comparison_type"] == "regional_skill"
     assert regional_skill["groups"][0]["share"] == 0.36
+    assert "relative to the comparison group" in regional_skill["comparison_question"]
+
+    imbalanced = service.statistical_comparison(
+        comparison_type="sector_skill",
+        group_a_label="Small sector",
+        group_a_count=1,
+        group_a_total=10,
+        group_b_label="Large sector",
+        group_b_count=60,
+        group_b_total=200,
+    )
+    assert any("expected cell count is below 5" in warning for warning in imbalanced["warnings"])
+    assert any("highly imbalanced" in warning for warning in imbalanced["warnings"])
+
+
+def test_statistics_module_explainability_fields_are_reusable():
+    result = run_statistical_comparison(
+        comparison_type="regional_sector",
+        group_a_label="Region A",
+        group_a_count=25,
+        group_a_total=50,
+        group_b_label="Other regions",
+        group_b_count=25,
+        group_b_total=150,
+    )
+
+    assert result["observed_table"]["columns"] == ["group", "present", "absent", "total", "share"]
+    assert result["expected_table"]["columns"] == ["group", "expected_present", "expected_absent"]
+    assert result["expected_counts"] == [[12.5, 37.5], [37.5, 112.5]]
+    assert result["group_a_share"] == 0.5
+    assert result["group_b_share"] == 0.1667
+    assert result["share_difference_percentage_points"] == 33.33
+    assert result["relative_risk"] == 2.9994
+    assert result["odds_ratio"] == 5.0
+    assert result["comparison_question"].startswith("Is the selected sector over-represented")
 
 
 @pytest.mark.integration
@@ -4175,6 +4234,15 @@ def test_endpoint_statistical_comparison_contract():
     assert "effect_size" in payload
     assert len(payload["expected_counts"]) == 2
     assert payload["groups"][0]["label"] == "ICT"
+    assert payload["comparison_question"].startswith("Is the selected skill more concentrated")
+    assert payload["observed_table"]["rows"][0]["group"] == "ICT"
+    assert payload["expected_table"]["columns"] == ["group", "expected_present", "expected_absent"]
+    assert payload["share_difference_percentage_points"] == 20.0
+    assert payload["relative_risk"] == 2.0
+    assert payload["odds_ratio"] == 2.6667
+    assert payload["degrees_of_freedom"] == 1
+    assert payload["assumptions"]
+    assert payload["limitations"]
 
 
 @pytest.mark.integration

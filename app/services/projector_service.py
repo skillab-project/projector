@@ -1,9 +1,10 @@
 from collections import Counter, defaultdict
-from math import erfc, sqrt
 from typing import Optional, List, Literal
 from datetime import date, timedelta
 
 from fastapi import Form
+
+from app.services.analytics.statistics import run_statistical_comparison
 
 
 class ProjectorService:
@@ -285,92 +286,16 @@ class ProjectorService:
             group_b_total: int,
             alpha: float = 0.05,
     ):
-        a_other = max(group_a_total - group_a_count, 0)
-        b_other = max(group_b_total - group_b_count, 0)
-        observed = [
-            [group_a_count, a_other],
-            [group_b_count, b_other],
-        ]
-        row_totals = [sum(row) for row in observed]
-        col_totals = [observed[0][0] + observed[1][0], observed[0][1] + observed[1][1]]
-        grand_total = sum(row_totals)
-        warnings = []
-
-        if grand_total == 0:
-            expected = [[0.0, 0.0], [0.0, 0.0]]
-            statistic = 0.0
-            p_value = 1.0
-            warnings.append("No observations available for statistical comparison.")
-        else:
-            expected = [
-                [
-                    round(row_total * col_total / grand_total, 4)
-                    for col_total in col_totals
-                ]
-                for row_total in row_totals
-            ]
-            statistic = 0.0
-            for row_idx, row in enumerate(observed):
-                for col_idx, value in enumerate(row):
-                    expected_value = expected[row_idx][col_idx]
-                    if expected_value > 0:
-                        statistic += ((value - expected_value) ** 2) / expected_value
-            statistic = round(statistic, 4)
-            p_value = round(erfc(sqrt(statistic / 2)), 6)
-
-        if any(value < 5 for row in expected for value in row):
-            warnings.append("At least one expected cell count is below 5; interpret the test cautiously.")
-
-        effect_size = round(sqrt(statistic / grand_total), 4) if grand_total else 0.0
-        if effect_size < 0.1:
-            effect_label = "negligible"
-        elif effect_size < 0.3:
-            effect_label = "small"
-        elif effect_size < 0.5:
-            effect_label = "medium"
-        else:
-            effect_label = "large"
-
-        significant = p_value < alpha
-        share_a = round(group_a_count / group_a_total, 4) if group_a_total else 0.0
-        share_b = round(group_b_count / group_b_total, 4) if group_b_total else 0.0
-        direction = group_a_label if share_a >= share_b else group_b_label
-        interpretation = (
-            f"Observed difference is statistically significant at alpha={alpha}; "
-            f"{direction} has the higher observed share. Effect size is {effect_label}."
-            if significant else
-            f"Observed difference is not statistically significant at alpha={alpha}. "
-            f"Effect size is {effect_label}."
+        return run_statistical_comparison(
+            comparison_type=comparison_type,
+            group_a_label=group_a_label,
+            group_a_count=group_a_count,
+            group_a_total=group_a_total,
+            group_b_label=group_b_label,
+            group_b_count=group_b_count,
+            group_b_total=group_b_total,
+            alpha=alpha,
         )
-
-        return {
-            "status": "completed",
-            "comparison_type": comparison_type,
-            "method": "chi_square_2x2",
-            "alpha": alpha,
-            "significant": significant,
-            "statistic": statistic,
-            "p_value": p_value,
-            "effect_size": effect_size,
-            "effect_size_label": effect_label,
-            "interpretation": interpretation,
-            "groups": [
-                {
-                    "label": group_a_label,
-                    "count": group_a_count,
-                    "total": group_a_total,
-                    "share": share_a,
-                },
-                {
-                    "label": group_b_label,
-                    "count": group_b_count,
-                    "total": group_b_total,
-                    "share": share_b,
-                },
-            ],
-            "expected_counts": expected,
-            "warnings": warnings,
-        }
 
     async def sectoral_intelligence(
             self,
