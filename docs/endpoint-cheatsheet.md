@@ -17,7 +17,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | `POST /projector/sectoral-intelligence` | Legacy/drill-down sector detail | Observed sector-skill details from Tracker jobs |
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/temporal-projections` | Temporal Analysis | Monthly, quarterly or yearly evolution of the selected job-market slice |
-| `POST /projector/statistical-comparison` | Inferential evidence layer | 2x2 chi-square p-value, effect size, warnings and interpretation |
+| `POST /projector/statistical-comparison` | Inferential evidence layer | 2x2 chi-square evidence with p-value, effect size, observed/expected tables, ratios and warnings |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
 ## `POST /projector/analyze-skills`
@@ -342,6 +342,14 @@ curl -X POST "http://127.0.0.1:8000/projector/statistical-comparison" \
 | `significant` | Whether `p_value < alpha` |
 | `effect_size` | Phi/Cramer's V for the 2x2 table |
 | `effect_size_label` | `negligible`, `small`, `medium`, or `large` |
+| `comparison_question` | Human-readable question tested by this comparison |
+| `observed_table` | Actual 2x2 table used by the test |
+| `expected_table` | Expected 2x2 table under the independence baseline |
+| `share_difference_percentage_points` | Difference between group shares in percentage points |
+| `relative_risk` | Group A share divided by group B share, when computable |
+| `odds_ratio` | Odds ratio between group A and group B, when computable |
+| `evidence_level` | `none`, `weak`, `moderate`, or `strong` |
+| `practical_relevance` | Same scale as `effect_size_label`, kept explicit for UI copy |
 | `warnings[]` | Sample-size cautions, especially low expected counts |
 
 ## `POST /projector/stop`

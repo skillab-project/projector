@@ -203,19 +203,45 @@ Time point:
 {
   "status": "completed",
   "comparison_type": "sector_skill",
+  "comparison_question": "Is the selected skill more concentrated in one sector than the other? (ICT vs Education)",
   "method": "chi_square_2x2",
+  "method_description": "2x2 chi-square test on observed counts...",
   "alpha": 0.05,
   "significant": true,
   "statistic": 6.06,
   "p_value": 0.0138,
   "effect_size": 0.1741,
   "effect_size_label": "small",
+  "practical_relevance": "small",
+  "evidence_level": "moderate",
   "interpretation": "Observed difference is statistically significant...",
   "groups": [
     { "label": "ICT", "count": 40, "total": 100, "share": 0.4 },
     { "label": "Education", "count": 20, "total": 100, "share": 0.2 }
   ],
+  "group_a_share": 0.4,
+  "group_b_share": 0.2,
+  "share_difference": 0.2,
+  "share_difference_percentage_points": 20.0,
+  "relative_risk": 2.0,
+  "odds_ratio": 2.6667,
+  "degrees_of_freedom": 1,
+  "minimum_expected_count": 30.0,
+  "observed_table": {
+    "rows": [
+      { "group": "ICT", "present": 40, "absent": 60, "total": 100, "share": 0.4 },
+      { "group": "Education", "present": 20, "absent": 80, "total": 100, "share": 0.2 }
+    ]
+  },
   "expected_counts": [[30.0, 70.0], [30.0, 70.0]],
+  "expected_table": {
+    "rows": [
+      { "group": "ICT", "expected_present": 30.0, "expected_absent": 70.0 },
+      { "group": "Education", "expected_present": 30.0, "expected_absent": 70.0 }
+    ]
+  },
+  "assumptions": ["Each observation contributes independently to the compared groups."],
+  "limitations": ["The result does not adjust for multiple comparisons."],
   "warnings": []
 }
 ```

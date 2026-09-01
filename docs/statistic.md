@@ -2,7 +2,7 @@
 
 Concise formulas for current API-only metrics.
 
-Related issues: #3, #7, #8, #33, #47, #48, #52, #88, #89, #90, #94.
+Related issues: #3, #7, #8, #33, #47, #48, #52, #88, #89, #90, #94, #96.
 
 ## Core Source
 
@@ -144,6 +144,20 @@ count(selected skill mentions by year or upload_date bucket)
 
 ## Inferential Layer
 
+Endpoint:
+
+```text
+POST /projector/statistical-comparison
+```
+
+Purpose:
+
+```text
+test whether two observed shares differ under an independence baseline
+```
+
+This is a cross-dimension validation layer. It is attached to comparison views; it is not a standalone intelligence dimension.
+
 `chi_square_2x2`
 
 ```text
@@ -159,6 +173,18 @@ Expected counts:
 expected_cell = row_total * column_total / grand_total
 ```
 
+`observed_table`
+
+```text
+the 2x2 table actually observed in the data
+```
+
+`expected_table`
+
+```text
+the 2x2 table expected if group and outcome were independent
+```
+
 Statistic:
 
 ```text
@@ -171,13 +197,84 @@ sum((observed_cell - expected_cell)^2 / expected_cell)
 chi-square survival probability with df = 1
 ```
 
+Interpretation:
+
+```text
+lower p-value = stronger evidence against the independence baseline
+```
+
 `effect_size`
 
 ```text
 sqrt(chi_square / grand_total)
 ```
 
-This is an inferential evidence layer for observed differences. It does not prove shortage, causality, or future demand.
+For 2x2 comparisons this is phi/Cramer's V.
+
+`effect_size_label` / `practical_relevance`
+
+```text
+< 0.1 = negligible
+< 0.3 = small
+< 0.5 = medium
+>= 0.5 = large
+```
+
+`group_a_share`
+
+```text
+group_a_count / group_a_total
+```
+
+`group_b_share`
+
+```text
+group_b_count / group_b_total
+```
+
+`share_difference`
+
+```text
+group_a_share - group_b_share
+```
+
+`share_difference_percentage_points`
+
+```text
+share_difference * 100
+```
+
+`relative_risk`
+
+```text
+group_a_share / group_b_share
+```
+
+`odds_ratio`
+
+```text
+(group_a_count / group_a_absent) / (group_b_count / group_b_absent)
+```
+
+`evidence_level`
+
+```text
+p >= alpha = none
+p < alpha = weak
+p < 0.01 = moderate
+p < 0.001 = strong
+```
+
+Warnings are emitted when:
+
+```text
+minimum expected count < 5
+total observations < 30
+group totals are very imbalanced
+relative risk or odds ratio cannot be computed
+```
+
+This layer does not prove shortage, causality, or future demand. It also does not apply multiple-comparison correction.
 
 ## Sector Counts
 
