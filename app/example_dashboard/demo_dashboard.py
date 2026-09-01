@@ -170,6 +170,20 @@ translations = {
         'statistical_evidence_help': "Test chi-square 2x2 sui conteggi osservati. Indica evidenza statistica per una differenza, non prova causalità o shortage.",
         'p_value': "p-value",
         'effect_size': "Effect size",
+        'tested_question': "Domanda testata",
+        'method': "Metodo",
+        'evidence_level': "Livello evidenza",
+        'practical_relevance': "Rilevanza pratica",
+        'observed_shares': "Quote osservate",
+        'share_difference': "Differenza quote",
+        'relative_risk': "Relative risk",
+        'odds_ratio': "Odds ratio",
+        'percentage_points': "punti percentuali",
+        'observed_table': "Tabella osservata",
+        'expected_table': "Tabella attesa",
+        'assumptions': "Assunzioni",
+        'limitations': "Limiti",
+        'not_available': "Non disponibile",
         'significant': "Significativo",
         'not_significant': "Non significativo",
         'submit_sectoral': "Lancia Sector Overview",
@@ -446,6 +460,20 @@ translations = {
         'statistical_evidence_help': "2x2 chi-square test on observed counts. It indicates statistical evidence for a difference, not causality or shortage proof.",
         'p_value': "p-value",
         'effect_size': "Effect size",
+        'tested_question': "Tested question",
+        'method': "Method",
+        'evidence_level': "Evidence level",
+        'practical_relevance': "Practical relevance",
+        'observed_shares': "Observed shares",
+        'share_difference': "Share difference",
+        'relative_risk': "Relative risk",
+        'odds_ratio': "Odds ratio",
+        'percentage_points': "percentage points",
+        'observed_table': "Observed table",
+        'expected_table': "Expected table",
+        'assumptions': "Assumptions",
+        'limitations': "Limitations",
+        'not_available': "Not available",
         'significant': "Significant",
         'not_significant': "Not significant",
         'submit_sectoral': "Run Sector Overview",
@@ -976,6 +1004,148 @@ def get_statistical_comparison_data(api_base_url: str, payload: dict, timeout_se
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
 
 
+STAT_TEXT_IT = {
+    (
+        "2x2 chi-square test on observed counts. It checks whether two observed shares differ more "
+        "than expected under an independence baseline. It does not prove causality, shortage, or future demand."
+    ): (
+        "Test chi-square 2x2 sui conteggi osservati. Verifica se due quote osservate differiscono "
+        "piu' di quanto atteso sotto un'ipotesi di indipendenza. Non prova causalita', shortage o domanda futura."
+    ),
+    "Each observation contributes independently to the compared groups.": (
+        "Ogni osservazione contribuisce in modo indipendente ai gruppi confrontati."
+    ),
+    "Counts represent the same event definition in both groups.": (
+        "I conteggi rappresentano la stessa definizione di evento in entrambi i gruppi."
+    ),
+    "The comparison is descriptive/inferential over observed data, not a causal estimate.": (
+        "Il confronto e' descrittivo/inferenziale sui dati osservati, non una stima causale."
+    ),
+    "The test is sensitive to sample size: very large samples can make small differences significant.": (
+        "Il test e' sensibile alla dimensione del campione: campioni molto grandi possono rendere "
+        "significative differenze piccole."
+    ),
+    "Low expected cell counts make chi-square evidence less reliable.": (
+        "Conteggi attesi bassi rendono meno affidabile l'evidenza chi-square."
+    ),
+    "The result does not adjust for multiple comparisons.": (
+        "Il risultato non applica correzioni per confronti multipli."
+    ),
+}
+
+
+STAT_WARNING_IT = {
+    "No observations available": "Nessuna osservazione disponibile per il confronto statistico.",
+    "expected cell count is below 5": (
+        "Almeno una cella attesa e' sotto 5; interpreta il test con cautela."
+    ),
+    "Total observations are below 30": (
+        "Le osservazioni totali sono meno di 30; tratta il risultato come evidenza debole."
+    ),
+    "highly imbalanced": (
+        "I gruppi hanno dimensioni molto sbilanciate; confronta le quote piu' dei conteggi grezzi."
+    ),
+    "Relative risk is not computable": (
+        "Il relative risk non e' calcolabile perche' la quota del gruppo di confronto e' zero."
+    ),
+    "Odds ratio is not computable": (
+        "L'odds ratio non e' calcolabile perche' almeno una cella degli odds e' zero."
+    ),
+}
+
+
+STAT_QUESTION_IT = {
+    "temporal": "La quota osservata e' cambiata tra i due periodi?",
+    "sector_skill": "La skill selezionata e' piu' concentrata in un settore rispetto all'altro?",
+    "regional_skill": "La skill selezionata e' sovra-rappresentata in una regione rispetto al gruppo di confronto?",
+    "regional_sector": "Il settore selezionato e' sovra-rappresentato in una regione rispetto al gruppo di confronto?",
+    "sector_evolution": "La quota osservata del settore e' cambiata tra i due anni?",
+    "generic": "I due gruppi osservati hanno quote diverse?",
+}
+
+
+STAT_VALUE_LABELS = {
+    "IT": {
+        "none": "nessuna",
+        "weak": "debole",
+        "moderate": "moderata",
+        "strong": "forte",
+        "negligible": "trascurabile",
+        "small": "piccola",
+        "medium": "media",
+        "large": "grande",
+    },
+    "EN": {},
+}
+
+
+def localize_stat_text(text: str) -> str:
+    if st.session_state.lang == "EN" or not text:
+        return text
+    return STAT_TEXT_IT.get(text, text)
+
+
+def localize_stat_warning(warning: str) -> str:
+    if st.session_state.lang == "EN" or not warning:
+        return warning
+    for needle, translation in STAT_WARNING_IT.items():
+        if needle in warning:
+            return translation
+    return warning
+
+
+def localize_stat_question(evidence: dict) -> str:
+    question = evidence.get("comparison_question", "")
+    if st.session_state.lang == "EN":
+        return question
+    base = STAT_QUESTION_IT.get(evidence.get("comparison_type"), STAT_QUESTION_IT["generic"])
+    groups = evidence.get("groups") or []
+    if len(groups) >= 2:
+        return f"{base} ({groups[0].get('label')} vs {groups[1].get('label')})"
+    return base
+
+
+def localize_stat_interpretation(evidence: dict) -> str:
+    interpretation = evidence.get("interpretation", "")
+    if st.session_state.lang == "EN":
+        return interpretation
+    alpha = evidence.get("alpha")
+    evidence_level = localize_stat_value(evidence.get("evidence_level"))
+    relevance = localize_stat_value(evidence.get("practical_relevance"))
+    groups = evidence.get("groups") or []
+    higher = None
+    if len(groups) >= 2:
+        higher = (
+            groups[0].get("label")
+            if groups[0].get("share", 0) >= groups[1].get("share", 0)
+            else groups[1].get("label")
+        )
+    if evidence.get("significant"):
+        direction = f" {higher} ha la quota osservata piu' alta." if higher else ""
+        return (
+            f"La differenza osservata e' statisticamente significativa con alpha={alpha}.{direction} "
+            f"Livello evidenza: {evidence_level}; rilevanza pratica: {relevance}."
+        )
+    return (
+        f"La differenza osservata non e' statisticamente significativa con alpha={alpha}. "
+        f"Livello evidenza: {evidence_level}; rilevanza pratica: {relevance}."
+    )
+
+
+def localize_stat_value(value):
+    if value is None:
+        return T["not_available"]
+    return STAT_VALUE_LABELS[st.session_state.lang].get(str(value), value)
+
+
+def format_stat_number(value, suffix: str = ""):
+    if value is None:
+        return T["not_available"]
+    if isinstance(value, float):
+        return f"{value:.4g}{suffix}"
+    return f"{value}{suffix}"
+
+
 def render_statistical_evidence(payload: dict):
     if not payload:
         return
@@ -989,31 +1159,122 @@ def render_statistical_evidence(payload: dict):
             st.info(evidence.get("_error", T["no_data"]) if isinstance(evidence, dict) else T["no_data"])
             return
         status_label = T["significant"] if evidence.get("significant") else T["not_significant"]
-        c1, c2, c3 = st.columns(3)
+        question = localize_stat_question(evidence)
+        if question:
+            st.markdown(f"**{T['tested_question']}**")
+            st.caption(question)
+        method_description = localize_stat_text(evidence.get("method_description", ""))
+        if method_description:
+            st.markdown(f"**{T['method']}**")
+            st.caption(method_description)
+
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric(T["p_value"], evidence.get("p_value"))
-        c2.metric(T["effect_size"], evidence.get("effect_size_label"))
-        c3.metric(T["statistical_evidence"], status_label)
-        st.caption(evidence.get("interpretation", ""))
+        c2.metric(T["evidence_level"], localize_stat_value(evidence.get("evidence_level")))
+        c3.metric(T["practical_relevance"], localize_stat_value(evidence.get("practical_relevance")))
+        c4.metric(T["statistical_evidence"], status_label)
+        st.caption(localize_stat_interpretation(evidence))
+
+        c_share, c_delta, c_rr, c_or = st.columns(4)
+        c_share.metric(
+            T["observed_shares"],
+            (
+                f"{format_stat_number(evidence.get('group_a_share'))} / "
+                f"{format_stat_number(evidence.get('group_b_share'))}"
+            ),
+        )
+        c_delta.metric(
+            T["share_difference"],
+            format_stat_number(evidence.get("share_difference_percentage_points"), " pp"),
+        )
+        c_rr.metric(T["relative_risk"], format_stat_number(evidence.get("relative_risk")))
+        c_or.metric(T["odds_ratio"], format_stat_number(evidence.get("odds_ratio")))
+
+        render_key = abs(hash(json.dumps(payload, sort_keys=True, default=str)))
+        observed_table = evidence.get("observed_table") or {}
+        expected_table = evidence.get("expected_table") or {}
+        if observed_table.get("rows"):
+            st.markdown(f"**{T['observed_table']}**")
+            st.dataframe(
+                pd.DataFrame(observed_table["rows"]),
+                width="stretch",
+                key=f"stat_observed_{render_key}",
+            )
+        if expected_table.get("rows"):
+            st.markdown(f"**{T['expected_table']}**")
+            st.dataframe(
+                pd.DataFrame(expected_table["rows"]),
+                width="stretch",
+                key=f"stat_expected_{render_key}",
+            )
+
+        assumptions = evidence.get("assumptions") or []
+        limitations = evidence.get("limitations") or []
+        if assumptions:
+            with st.expander(T["assumptions"], expanded=False):
+                for assumption in assumptions:
+                    st.markdown(f"- {localize_stat_text(assumption)}")
+        if limitations:
+            with st.expander(T["limitations"], expanded=False):
+                for limitation in limitations:
+                    st.markdown(f"- {localize_stat_text(limitation)}")
+
         warnings = evidence.get("warnings") or []
         for warning in warnings:
-            st.warning(warning)
+            st.warning(localize_stat_warning(warning))
         dev_info(
             "Inferential layer",
             STATISTICAL_COMPARISON_ENDPOINT,
             {
+                "comparison_question": "Did the observed share change between the two periods? (2024 vs 2023)",
                 "method": "chi_square_2x2",
+                "method_description": "2x2 chi-square test on observed counts...",
                 "p_value": 0.013,
                 "effect_size": 0.22,
                 "effect_size_label": "small",
+                "evidence_level": "moderate",
+                "practical_relevance": "small",
                 "significant": True,
+                "group_a_share": 0.3,
+                "group_b_share": 0.1,
+                "share_difference_percentage_points": 20.0,
+                "relative_risk": 3.0,
+                "odds_ratio": 3.8571,
+                "observed_table": {
+                    "rows": [
+                        {"group": "2024", "present": 30, "absent": 70, "total": 100, "share": 0.3},
+                        {"group": "2023", "present": 10, "absent": 90, "total": 100, "share": 0.1},
+                    ]
+                },
+                "expected_table": {
+                    "rows": [
+                        {"group": "2024", "expected_present": 20.0, "expected_absent": 80.0},
+                        {"group": "2023", "expected_present": 20.0, "expected_absent": 80.0},
+                    ]
+                },
+                "assumptions": ["Each observation contributes independently to the compared groups."],
+                "limitations": ["The result does not adjust for multiple comparisons."],
             },
             [
+                "comparison_question",
+                "method_description",
                 "p_value",
                 "statistic",
                 "effect_size",
                 "effect_size_label",
+                "evidence_level",
+                "practical_relevance",
                 "significant",
                 "interpretation",
+                "group_a_share",
+                "group_b_share",
+                "share_difference_percentage_points",
+                "relative_risk",
+                "odds_ratio",
+                "observed_table.rows[]",
+                "expected_table.rows[]",
+                "assumptions[]",
+                "limitations[]",
                 "warnings[]",
             ],
             payload,
