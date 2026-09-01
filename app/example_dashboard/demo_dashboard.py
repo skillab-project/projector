@@ -33,6 +33,12 @@ if 'regional_sectoral_data' not in st.session_state:
 if 'temporal_projection_data' not in st.session_state:
     st.session_state.temporal_projection_data = None
 
+if 'regional_temporal_data' not in st.session_state:
+    st.session_state.regional_temporal_data = None
+
+if 'skill_explorer_data' not in st.session_state:
+    st.session_state.skill_explorer_data = None
+
 if 'api_base_url' not in st.session_state:
     st.session_state.api_base_url = os.getenv("PROJECTOR_API_BASE_URL", "http://127.0.0.1:8000/projector")
 
@@ -43,6 +49,8 @@ if 'sectoral_reference_year' not in st.session_state:
     st.session_state.sectoral_reference_year = 2023
 if 'sector_overview_mode' not in st.session_state:
     st.session_state.sector_overview_mode = "snapshot"
+if 'regional_sectoral_mode' not in st.session_state:
+    st.session_state.regional_sectoral_mode = "snapshot"
 if 'sector_focus_choice' not in st.session_state:
     st.session_state.sector_focus_choice = "Information and communication"
 
@@ -95,9 +103,11 @@ translations = {
         'dashboard_view_options': {
             "skill": "Job Demand Overview",
             "temporal": "Temporal Analysis",
+            "regional_temporal": "Regional Temporal Analysis",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
+            "skill_explorer": "Skill Explorer",
         },
         'keywords': "Keywords",
         'location': "Location Code (es. ITC4C)",
@@ -117,6 +127,45 @@ translations = {
         'period_job_volume': "Volume job per periodo",
         'skill_time_series': "Serie temporale skill",
         'baseline_forecast': "Baseline forecast",
+        'question_answered': "Domanda a cui risponde",
+        'regional_temporal_header': "Analisi regionale temporale",
+        'regional_temporal_help': "Confronta l'andamento della domanda tra regioni nel periodo selezionato.",
+        'regional_temporal_question': "Dove e quando cresce la domanda rispetto ai filtri selezionati?",
+        'submit_regional_temporal': "Lancia analisi regionale temporale",
+        'top_k_regions': "Numero regioni",
+        'regional_temporal_level': "Livello territoriale",
+        'regional_temporal_area_summary': "Aree principali",
+        'regional_temporal_area_detail': "Dettaglio area",
+        'regional_temporal_periods': "Andamento area nel tempo",
+        'regional_temporal_top_skills': "Top skill nell'area",
+        'skill_explorer_header': "Skill Explorer",
+        'skill_explorer_help': "Parte da una skill e mostra in quali settori, regioni e periodi compare.",
+        'skill_explorer_question': "Dove è richiesta questa skill e come evolve nel tempo?",
+        'skill_search_by': "Cerca per",
+        'skill_search_by_options': {
+            "label": "Nome skill",
+            "id": "Skill ID",
+        },
+        'skill_input_label': "Nome skill",
+        'skill_input_id': "Skill ID",
+        'skill_explorer_mode': "Fonte analisi",
+        'skill_explorer_mode_options': {
+            "snapshot": "Snapshot DB",
+            "live": "Tracker live",
+        },
+        'skill_explorer_year_mode': "Finestra anni",
+        'skill_explorer_year_mode_options': {
+            "single": "Anno singolo",
+            "range": "Range anni",
+        },
+        'skill_explorer_start_year': "Anno da",
+        'skill_explorer_end_year': "Anno a",
+        'submit_skill_explorer': "Lancia esplorazione skill",
+        'skill_explorer_sectors': "Settori dove compare",
+        'skill_explorer_regions': "Regioni dove compare",
+        'skill_explorer_time_series': "Andamento della skill",
+        'data_source': "Fonte dati",
+        'match_type': "Tipo match",
         'statistical_evidence': "Evidenza statistica",
         'statistical_evidence_help': "Test chi-square 2x2 sui conteggi osservati. Indica evidenza statistica per una differenza, non prova causalità o shortage.",
         'p_value': "p-value",
@@ -188,6 +237,28 @@ translations = {
         'comparison_help': "Confronta settori e skill con una heatmap annuale.",
         'regional_sectoral_header': "Distribuzione settoriale regionale",
         'regional_sectoral_help': "Mostra i settori più rappresentati per regione usando snapshot annuali PostgreSQL.",
+        'regional_sectoral_mode': "Modalità regionale-settoriale",
+        'regional_sectoral_mode_options': {
+            "snapshot": "Snapshot",
+            "evolution": "Evoluzione",
+            "time_series": "Serie storica",
+        },
+        'regional_sectoral_question_snapshot': "Quali settori pesano di più in ogni regione nell'anno selezionato?",
+        'regional_sectoral_question_evolution': "Come è cambiato il peso dei settori tra due anni?",
+        'regional_sectoral_question_time_series': "Come evolve il peso settore-regione lungo più anni?",
+        'regional_sectoral_reference_year': "Anno confronto",
+        'regional_sectoral_start_year': "Anno iniziale",
+        'regional_sectoral_end_year': "Anno finale",
+        'regional_sectoral_metric': "Metrica",
+        'regional_sectoral_metric_options': {
+            "count": "Conteggio",
+            "share": "Quota nella regione",
+            "growth": "Crescita tra anni",
+        },
+        'regional_sectoral_filter_sectors': "Settori da includere",
+        'regional_sectoral_evolution_table': "Evoluzione settore-regione",
+        'regional_sectoral_time_series_table': "Serie storica settore-regione",
+        'regional_sectoral_time_series_chart': "Trend settore-regione",
         'regional_sectoral_level': "Livello regione",
         'regional_sectoral_area': "Scegli area specifica",
         'regional_sectoral_top_k': "Settori per area",
@@ -308,9 +379,11 @@ translations = {
         'dashboard_view_options': {
             "skill": "Job Demand Overview",
             "temporal": "Temporal Analysis",
+            "regional_temporal": "Regional Temporal Analysis",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
+            "skill_explorer": "Skill Explorer",
         },
         'keywords': "Keywords",
         'location': "Location Code (e.g. ITC4C)",
@@ -330,6 +403,45 @@ translations = {
         'period_job_volume': "Job volume by period",
         'skill_time_series': "Skill time series",
         'baseline_forecast': "Baseline forecast",
+        'question_answered': "Question answered",
+        'regional_temporal_header': "Regional Temporal Analysis",
+        'regional_temporal_help': "Compares demand movement across regions during the selected period.",
+        'regional_temporal_question': "Where and when does demand grow for the selected filters?",
+        'submit_regional_temporal': "Run Regional Temporal Analysis",
+        'top_k_regions': "Number of regions",
+        'regional_temporal_level': "Territorial level",
+        'regional_temporal_area_summary': "Top areas",
+        'regional_temporal_area_detail': "Area detail",
+        'regional_temporal_periods': "Area trend over time",
+        'regional_temporal_top_skills': "Top skills in area",
+        'skill_explorer_header': "Skill Explorer",
+        'skill_explorer_help': "Starts from one skill and shows where and when it appears.",
+        'skill_explorer_question': "Where is this skill requested and how does it evolve over time?",
+        'skill_search_by': "Search by",
+        'skill_search_by_options': {
+            "label": "Skill label",
+            "id": "Skill ID",
+        },
+        'skill_input_label': "Skill label",
+        'skill_input_id': "Skill ID",
+        'skill_explorer_mode': "Analysis source",
+        'skill_explorer_mode_options': {
+            "snapshot": "Snapshot DB",
+            "live": "Tracker live",
+        },
+        'skill_explorer_year_mode': "Year window",
+        'skill_explorer_year_mode_options': {
+            "single": "Single year",
+            "range": "Year range",
+        },
+        'skill_explorer_start_year': "Start year",
+        'skill_explorer_end_year': "End year",
+        'submit_skill_explorer': "Run Skill Explorer",
+        'skill_explorer_sectors': "Sectors where it appears",
+        'skill_explorer_regions': "Regions where it appears",
+        'skill_explorer_time_series': "Skill trend",
+        'data_source': "Data source",
+        'match_type': "Match type",
         'statistical_evidence': "Statistical evidence",
         'statistical_evidence_help': "2x2 chi-square test on observed counts. It indicates statistical evidence for a difference, not causality or shortage proof.",
         'p_value': "p-value",
@@ -401,6 +513,28 @@ translations = {
         'comparison_help': "Compare sectors and skills with a yearly heatmap.",
         'regional_sectoral_header': "Regional sector distribution",
         'regional_sectoral_help': "Shows the most represented sectors by region using yearly PostgreSQL snapshots.",
+        'regional_sectoral_mode': "Regional-sectoral mode",
+        'regional_sectoral_mode_options': {
+            "snapshot": "Snapshot",
+            "evolution": "Evolution",
+            "time_series": "Time series",
+        },
+        'regional_sectoral_question_snapshot': "Which sectors are strongest in each region for the selected year?",
+        'regional_sectoral_question_evolution': "How did sector weight change between two years?",
+        'regional_sectoral_question_time_series': "How does region-sector weight evolve across multiple years?",
+        'regional_sectoral_reference_year': "Comparison year",
+        'regional_sectoral_start_year': "Start year",
+        'regional_sectoral_end_year': "End year",
+        'regional_sectoral_metric': "Metric",
+        'regional_sectoral_metric_options': {
+            "count": "Count",
+            "share": "Share in region",
+            "growth": "Growth between years",
+        },
+        'regional_sectoral_filter_sectors': "Sectors to include",
+        'regional_sectoral_evolution_table': "Region-sector evolution",
+        'regional_sectoral_time_series_table': "Region-sector time series",
+        'regional_sectoral_time_series_chart': "Region-sector trend",
         'regional_sectoral_level': "Region level",
         'regional_sectoral_area': "Choose specific area",
         'regional_sectoral_top_k': "Sectors per area",
@@ -552,6 +686,15 @@ DEV_LABELS = {
         "Skill transversality": "Transversalità skill",
         "Sector skills comparison": "Confronto settori-skill",
         "Selected sector focus": "Focus settore selezionato",
+        "Regional Temporal Analysis": "Analisi regionale-temporale",
+        "Regional temporal area summary": "Sintesi aree nel tempo",
+        "Regional temporal area detail": "Dettaglio area nel tempo",
+        "Skill Explorer": "Esplorazione skill",
+        "Skill explorer sectors": "Settori della skill",
+        "Skill explorer regions": "Regioni della skill",
+        "Skill explorer time series": "Serie temporale skill",
+        "Regional sectoral evolution": "Evoluzione regione-settore",
+        "Regional sectoral time series": "Serie storica regione-settore",
         "Statistical evidence": "Evidenza statistica",
         "Inferential layer": "Layer inferenziale",
     },
@@ -595,6 +738,11 @@ STAT_HELP_BY_LANG = {
         "share_in_region": "Quota del settore nella regione. Formula: sector_jobs_region / total_jobs_region * 100.",
         "regional_sector_specialization": "Concentrazione settore-region rispetto al totale anno. Formula: sector_share_region / sector_share_global.",
         "temporal_forecast": "Proiezione baseline a breve termine. Formula: latest_count + media degli ultimi delta * step.",
+        "regional_temporal_period_jobs": "Numero di job dell'area nel periodo. Formula: count(jobs where area and upload_date in period).",
+        "regional_temporal_skill_total": "Menzioni totali della skill nell'area lungo tutta la finestra selezionata.",
+        "skill_explorer_share": "Quota della skill dentro il gruppo mostrato. Formula: skill_mentions_in_group / all_skill_mentions.",
+        "regional_sectoral_delta": "Differenza tra conteggio corrente e conteggio di confronto. Formula: current_count - reference_count.",
+        "regional_sectoral_growth": "Crescita relativa tra due anni. Formula: (current_count - reference_count) / reference_count.",
     },
     "EN": {
         "jobs_analyzed": "Number of Tracker jobs processed after filters. Formula: count(jobs).",
@@ -632,6 +780,11 @@ STAT_HELP_BY_LANG = {
         "share_in_region": "Sector share inside the region. Formula: sector_jobs_region / total_jobs_region * 100.",
         "regional_sector_specialization": "Region-sector concentration versus the yearly total. Formula: sector_share_region / sector_share_global.",
         "temporal_forecast": "Short-term baseline projection. Formula: latest_count + average recent deltas * step.",
+        "regional_temporal_period_jobs": "Number of area jobs in the period. Formula: count(jobs where area and upload_date in period).",
+        "regional_temporal_skill_total": "Total mentions of the skill in the area across the selected window.",
+        "skill_explorer_share": "Skill share inside the displayed group. Formula: skill_mentions_in_group / all_skill_mentions.",
+        "regional_sectoral_delta": "Difference between current and comparison counts. Formula: current_count - reference_count.",
+        "regional_sectoral_growth": "Relative growth between two years. Formula: (current_count - reference_count) / reference_count.",
     }
 }
 
@@ -755,6 +908,42 @@ def get_temporal_projection_data(api_base_url: str, payload: dict, timeout_secon
     try:
         res = requests.post(
             f"{normalize_api_base_url(api_base_url)}/temporal-projections",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def get_regional_temporal_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/regional-temporal",
+            data=payload,
+            timeout=timeout_seconds
+        )
+    except requests.Timeout as exc:
+        return {"_error": f"{T['server_timeout']} ({exc})"}
+    except RequestException as exc:
+        return {"_error": f"{T['server_error']} ({exc})"}
+
+    if res.status_code == 200:
+        return res.json()
+
+    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+
+
+def get_skill_explorer_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    try:
+        res = requests.post(
+            f"{normalize_api_base_url(api_base_url)}/skill-explorer",
             data=payload,
             timeout=timeout_seconds
         )
@@ -1058,6 +1247,8 @@ SECTORAL_ENDPOINT = "POST /projector/sectoral-intelligence"
 SECTORAL_SNAPSHOT_ENDPOINT = "POST /projector/sectoral-snapshot"
 SECTOR_SKILLS_COMPARISON_ENDPOINT = "POST /projector/sector-skills-comparison"
 REGIONAL_SECTORAL_ENDPOINT = "POST /projector/regional-sectoral"
+REGIONAL_TEMPORAL_ENDPOINT = "POST /projector/regional-temporal"
+SKILL_EXPLORER_ENDPOINT = "POST /projector/skill-explorer"
 EMERGING_ENDPOINT = "POST /projector/emerging-skills"
 TEMPORAL_PROJECTIONS_ENDPOINT = "POST /projector/temporal-projections"
 STATISTICAL_COMPARISON_ENDPOINT = "POST /projector/statistical-comparison"
@@ -1073,10 +1264,9 @@ with st.sidebar:
 
     st.header(T['filters_header'])
     dashboard_options = T["dashboard_view_options"]
-    dashboard_view_label = st.radio(
+    dashboard_view_label = st.selectbox(
         T["dashboard_view"],
         list(dashboard_options.values()),
-        horizontal=True,
     )
     dashboard_view = next(key for key, value in dashboard_options.items() if value == dashboard_view_label)
 
@@ -1095,9 +1285,15 @@ with st.sidebar:
     sectoral_submit_button = False
     comparison_submit_button = False
     regional_sectoral_submit_button = False
+    regional_temporal_submit_button = False
+    skill_explorer_submit_button = False
     comparison_metric = "share"
     comparison_sectors = []
     comparison_skills = []
+    regional_sectoral_mode = st.session_state.get("regional_sectoral_mode", "snapshot")
+    regional_sectoral_metric = "count"
+    regional_sectoral_sectors = []
+    regional_sectoral_location = None
     regional_sectoral_level = "raw"
     regional_sectoral_top_k = 10
     regional_sectoral_visual = "auto"
@@ -1105,6 +1301,19 @@ with st.sidebar:
     temporal_granularity = "monthly"
     temporal_forecast_periods = 1
     temporal_top_k = 10
+    regional_temporal_granularity = "monthly"
+    regional_temporal_top_k_regions = 10
+    regional_temporal_top_k_skills = 10
+    skill_explorer_mode = "snapshot"
+    skill_explorer_search_by = "label"
+    skill_explorer_value = "Python"
+    skill_explorer_year = int(st.session_state.sectoral_snapshot_year)
+    skill_explorer_start_year = SECTOR_SNAPSHOT_YEARS[0]
+    skill_explorer_end_year = SECTOR_SNAPSHOT_YEARS[-1]
+    skill_explorer_date_range = [pd.to_datetime("2024-01-01"), pd.to_datetime("2024-12-31")]
+    skill_explorer_location = ""
+    skill_explorer_granularity = "monthly"
+    skill_explorer_top_k = 20
 
     if dashboard_view == "skill":
         keywords = st.text_input(T['keywords'], "software")
@@ -1139,6 +1348,128 @@ with st.sidebar:
             step=1,
         )
         temporal_submit_button = st.button(T["submit_temporal"], use_container_width=True)
+    elif dashboard_view == "regional_temporal":
+        st.caption(f"{T['question_answered']}: {T['regional_temporal_question']}")
+        keywords = st.text_input(T['keywords'], "software")
+        location = st.text_input(T['location'], "")
+        date_range = normalize_date_range(
+            st.date_input(T['date_range'], date_range, key="regional_temporal_date_range"),
+            date_range,
+        )
+        temporal_label = st.radio(
+            T["temporal_granularity"],
+            list(T["temporal_granularity_options"].values()),
+            horizontal=True,
+            key="regional_temporal_granularity_label",
+        )
+        regional_temporal_granularity = next(
+            key for key, value in T["temporal_granularity_options"].items()
+            if value == temporal_label
+        )
+        regional_temporal_top_k_regions = st.number_input(
+            T["top_k_regions"],
+            min_value=1,
+            max_value=100,
+            value=10,
+            step=1,
+            key="regional_temporal_top_k_regions",
+        )
+        regional_temporal_top_k_skills = st.number_input(
+            T["top_k_skills"],
+            min_value=1,
+            max_value=100,
+            value=10,
+            step=1,
+            key="regional_temporal_top_k_skills",
+        )
+        regional_temporal_submit_button = st.button(T["submit_regional_temporal"], use_container_width=True)
+    elif dashboard_view == "skill_explorer":
+        st.caption(f"{T['question_answered']}: {T['skill_explorer_question']}")
+        search_options = T["skill_search_by_options"]
+        search_label = st.radio(
+            T["skill_search_by"],
+            list(search_options.values()),
+            horizontal=True,
+        )
+        skill_explorer_search_by = next(
+            key for key, value in search_options.items()
+            if value == search_label
+        )
+        skill_explorer_value = st.text_input(
+            T["skill_input_id"] if skill_explorer_search_by == "id" else T["skill_input_label"],
+            "Python" if skill_explorer_search_by == "label" else "skill-python",
+        )
+        mode_options = T["skill_explorer_mode_options"]
+        selected_mode_label = st.radio(
+            T["skill_explorer_mode"],
+            list(mode_options.values()),
+            horizontal=True,
+        )
+        skill_explorer_mode = next(key for key, value in mode_options.items() if value == selected_mode_label)
+        skill_explorer_location = st.text_input(T['location'], "", key="skill_explorer_location")
+        if skill_explorer_mode == "snapshot":
+            year_mode_options = T["skill_explorer_year_mode_options"]
+            year_mode_label = st.radio(
+                T["skill_explorer_year_mode"],
+                list(year_mode_options.values()),
+                horizontal=True,
+            )
+            year_mode = next(key for key, value in year_mode_options.items() if value == year_mode_label)
+            if year_mode == "single":
+                skill_explorer_year = st.selectbox(
+                    T["sectoral_snapshot_year"],
+                    SECTOR_SNAPSHOT_YEARS,
+                    index=SECTOR_SNAPSHOT_YEARS.index(skill_explorer_year)
+                    if skill_explorer_year in SECTOR_SNAPSHOT_YEARS else len(SECTOR_SNAPSHOT_YEARS) - 1,
+                )
+                skill_explorer_start_year = None
+                skill_explorer_end_year = None
+            else:
+                c_start, c_end = st.columns(2)
+                with c_start:
+                    skill_explorer_start_year = st.selectbox(
+                        T["skill_explorer_start_year"],
+                        SECTOR_SNAPSHOT_YEARS,
+                        index=0,
+                    )
+                with c_end:
+                    skill_explorer_end_year = st.selectbox(
+                        T["skill_explorer_end_year"],
+                        SECTOR_SNAPSHOT_YEARS,
+                        index=len(SECTOR_SNAPSHOT_YEARS) - 1,
+                    )
+                skill_explorer_year = None
+        else:
+            skill_explorer_year = None
+            skill_explorer_start_year = None
+            skill_explorer_end_year = None
+            skill_explorer_date_range = normalize_date_range(
+                st.date_input(
+                    T['date_range'],
+                    skill_explorer_date_range,
+                    key="skill_explorer_date_range",
+                ),
+                skill_explorer_date_range,
+            )
+            temporal_label = st.radio(
+                T["temporal_granularity"],
+                list(T["temporal_granularity_options"].values()),
+                horizontal=True,
+                key="skill_explorer_granularity_label",
+            )
+            skill_explorer_granularity = next(
+                key for key, value in T["temporal_granularity_options"].items()
+                if value == temporal_label
+            )
+        skill_explorer_top_k = st.number_input(
+            T["top_k_skills"],
+            min_value=1,
+            max_value=100,
+            value=20,
+            step=1,
+            key="skill_explorer_top_k",
+        )
+        skill_explorer_submit_button = st.button(T["submit_skill_explorer"], use_container_width=True)
 
     st.markdown("---")
     st.text_input(T["backend_url"], key="api_base_url")
@@ -1246,6 +1577,31 @@ temporal_payload = {
     "granularity": temporal_granularity,
     "forecast_periods": int(temporal_forecast_periods),
     "top_k": int(temporal_top_k),
+}
+
+regional_temporal_payload = {
+    "keywords": [keywords] if keywords else None,
+    "locations": [location] if location else None,
+    "min_date": date_range[0].strftime("%Y-%m-%d"),
+    "max_date": date_range[1].strftime("%Y-%m-%d"),
+    "granularity": regional_temporal_granularity,
+    "top_k_regions": int(regional_temporal_top_k_regions),
+    "top_k_skills": int(regional_temporal_top_k_skills),
+    "demo": demo_mode,
+}
+
+skill_explorer_payload = {
+    "skill_id": skill_explorer_value if skill_explorer_search_by == "id" else None,
+    "skill_label": skill_explorer_value if skill_explorer_search_by == "label" else None,
+    "mode": skill_explorer_mode,
+    "year": int(skill_explorer_year) if skill_explorer_year is not None else None,
+    "start_year": int(skill_explorer_start_year) if skill_explorer_start_year is not None else None,
+    "end_year": int(skill_explorer_end_year) if skill_explorer_end_year is not None else None,
+    "min_date": skill_explorer_date_range[0].strftime("%Y-%m-%d") if skill_explorer_mode == "live" else None,
+    "max_date": skill_explorer_date_range[1].strftime("%Y-%m-%d") if skill_explorer_mode == "live" else None,
+    "locations": [skill_explorer_location] if skill_explorer_location else None,
+    "granularity": skill_explorer_granularity,
+    "top_k": int(skill_explorer_top_k),
 }
 
 if dashboard_view == "sector":
@@ -1367,7 +1723,7 @@ elif dashboard_view == "comparison":
                 help=T["region_filter_help"],
             )
     else:
-        c_year, c_ref, c_region = st.columns([2, 1, 1])
+        c_year, c_region = st.columns([2, 1])
         with c_year:
             selected_year = st.select_slider(
                 T["sectoral_snapshot_year"],
@@ -1375,23 +1731,19 @@ elif dashboard_view == "comparison":
                 value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
                 help=T["sectoral_year_bar_help"],
             )
-        with c_ref:
-            selected_reference_year = st.selectbox(
-                T["sectoral_reference_year"],
-                SECTOR_SNAPSHOT_YEARS,
-                index=SECTOR_SNAPSHOT_YEARS.index(default_reference),
-            )
         with c_region:
             selected_region = st.selectbox(
                 T["region_filter"],
                 list(SECTOR_REGION_OPTIONS.keys()),
                 help=T["region_filter_help"],
             )
+        selected_reference_year = None
     sectoral_location = SECTOR_REGION_OPTIONS[selected_region]
     st.session_state.sectoral_snapshot_year = int(selected_year)
-    st.session_state.sectoral_reference_year = int(selected_reference_year)
+    if selected_reference_year is not None:
+        st.session_state.sectoral_reference_year = int(selected_reference_year)
     sectoral_snapshot_year = int(selected_year)
-    sectoral_reference_year = int(selected_reference_year)
+    sectoral_reference_year = int(selected_reference_year) if selected_reference_year is not None else None
     comparison_sectors = st.multiselect(
         T["comparison_sectors"],
         SECTOR_FOCUS_OPTIONS,
@@ -1414,16 +1766,89 @@ elif dashboard_view == "comparison":
     comparison_submit_button = st.button(T["submit_comparison"], use_container_width=True)
 elif dashboard_view == "regional_sectoral":
     current_year = int(st.session_state.sectoral_snapshot_year)
-    selected_year = st.select_slider(
-        T["sectoral_snapshot_year"],
-        options=SECTOR_SNAPSHOT_YEARS,
-        value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
-        help=T["sectoral_year_bar_help"],
+    default_reference = current_year - 1 if current_year - 1 in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[0]
+    mode_options = T["regional_sectoral_mode_options"]
+    regional_sectoral_mode_label = st.radio(
+        T["regional_sectoral_mode"],
+        list(mode_options.values()),
+        index=list(mode_options.keys()).index(regional_sectoral_mode) if regional_sectoral_mode in mode_options else 0,
+        horizontal=True,
     )
+    regional_sectoral_mode = next(key for key, value in mode_options.items() if value == regional_sectoral_mode_label)
+    st.session_state.regional_sectoral_mode = regional_sectoral_mode
+    question_key = f"regional_sectoral_question_{regional_sectoral_mode}"
+    st.caption(f"{T['question_answered']}: {T[question_key]}")
+
+    if regional_sectoral_mode == "snapshot":
+        selected_year = st.select_slider(
+            T["sectoral_snapshot_year"],
+            options=SECTOR_SNAPSHOT_YEARS,
+            value=current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1],
+            help=T["sectoral_year_bar_help"],
+        )
+        selected_reference_year = None
+        regional_sectoral_start_year = None
+        regional_sectoral_end_year = None
+    elif regional_sectoral_mode == "evolution":
+        st.caption(T["comparison_years_prompt"])
+        c_from, c_to = st.columns(2)
+        with c_from:
+            selected_reference_year = st.selectbox(
+                T["comparison_from_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=SECTOR_SNAPSHOT_YEARS.index(default_reference),
+                key="regional_sectoral_reference_year",
+            )
+        with c_to:
+            selected_year = st.selectbox(
+                T["comparison_to_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=SECTOR_SNAPSHOT_YEARS.index(current_year if current_year in SECTOR_SNAPSHOT_YEARS else SECTOR_SNAPSHOT_YEARS[-1]),
+                key="regional_sectoral_current_year",
+            )
+        regional_sectoral_start_year = None
+        regional_sectoral_end_year = None
+    else:
+        c_start, c_end = st.columns(2)
+        with c_start:
+            regional_sectoral_start_year = st.selectbox(
+                T["regional_sectoral_start_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=0,
+            )
+        with c_end:
+            regional_sectoral_end_year = st.selectbox(
+                T["regional_sectoral_end_year"],
+                SECTOR_SNAPSHOT_YEARS,
+                index=len(SECTOR_SNAPSHOT_YEARS) - 1,
+            )
+        selected_year = int(regional_sectoral_end_year)
+        selected_reference_year = None
+
+    selected_region = st.selectbox(
+        T["regional_sectoral_country_filter"],
+        list(REGIONAL_SECTORAL_REGION_OPTIONS.keys()),
+        help=T["regional_sectoral_region_help"],
+        key="regional_sectoral_sidebar_region_filter",
+    )
+    regional_sectoral_location = REGIONAL_SECTORAL_REGION_OPTIONS[selected_region]
     regional_sectoral_level = st.radio(
         T["regional_sectoral_level"],
         ["raw", "nuts1", "nuts2", "nuts3"],
         horizontal=True,
+    )
+    metric_options = T["regional_sectoral_metric_options"]
+    regional_sectoral_metric_label = st.radio(
+        T["regional_sectoral_metric"],
+        list(metric_options.values()),
+        horizontal=True,
+        key="regional_sectoral_metric_label",
+    )
+    regional_sectoral_metric = next(key for key, value in metric_options.items() if value == regional_sectoral_metric_label)
+    regional_sectoral_sectors = st.multiselect(
+        T["regional_sectoral_filter_sectors"],
+        SECTOR_FOCUS_OPTIONS,
+        default=[],
     )
     visual_options = T["regional_sectoral_visual_options"]
     visual_label = st.radio(
@@ -1443,7 +1868,13 @@ elif dashboard_view == "regional_sectoral":
     sectoral_snapshot_year = int(selected_year)
     regional_sectoral_payload = {
         "year": int(sectoral_snapshot_year),
-        "locations": None,
+        "reference_year": int(selected_reference_year) if selected_reference_year is not None else None,
+        "start_year": int(regional_sectoral_start_year) if regional_sectoral_start_year is not None else None,
+        "end_year": int(regional_sectoral_end_year) if regional_sectoral_end_year is not None else None,
+        "locations": [regional_sectoral_location] if regional_sectoral_location else None,
+        "level": regional_sectoral_level,
+        "sectors": regional_sectoral_sectors or None,
+        "metric": regional_sectoral_metric,
         "top_k": int(regional_sectoral_top_k),
     }
     st.caption(T["sectoral_year_bar_caption"].format(year=sectoral_snapshot_year))
@@ -1464,6 +1895,8 @@ if submit_button:
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
             st.session_state.temporal_projection_data = None
+            st.session_state.regional_temporal_data = None
+            st.session_state.skill_explorer_data = None
         else:
             error_msg = data.get("_error", T['server_error']) if isinstance(data, dict) else T['server_error']
             st.error(error_msg)
@@ -1482,6 +1915,8 @@ if temporal_submit_button:
             st.session_state.sectoral_data = None
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
+            st.session_state.regional_temporal_data = None
+            st.session_state.skill_explorer_data = None
         else:
             error_msg = temporal_response.get("_error", T['server_error']) if isinstance(temporal_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1500,6 +1935,8 @@ if sectoral_submit_button:
             st.session_state.sector_skills_comparison_data = None
             st.session_state.regional_sectoral_data = None
             st.session_state.temporal_projection_data = None
+            st.session_state.regional_temporal_data = None
+            st.session_state.skill_explorer_data = None
         else:
             error_msg = sectoral_response.get("_error", T['server_error']) if isinstance(sectoral_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1518,6 +1955,8 @@ if comparison_submit_button:
             st.session_state.sectoral_data = None
             st.session_state.regional_sectoral_data = None
             st.session_state.temporal_projection_data = None
+            st.session_state.regional_temporal_data = None
+            st.session_state.skill_explorer_data = None
         else:
             error_msg = comparison_response.get("_error", T['server_error']) if isinstance(comparison_response, dict) else T['server_error']
             st.error(error_msg)
@@ -1536,13 +1975,55 @@ if regional_sectoral_submit_button:
             st.session_state.all_data = None
             st.session_state.sectoral_data = None
             st.session_state.temporal_projection_data = None
+            st.session_state.regional_temporal_data = None
+            st.session_state.skill_explorer_data = None
         else:
             error_msg = regional_sectoral_response.get("_error", T['server_error']) if isinstance(regional_sectoral_response, dict) else T['server_error']
             st.error(error_msg)
 
+if regional_temporal_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        regional_temporal_response = get_regional_temporal_data(
+            st.session_state.api_base_url,
+            regional_temporal_payload,
+            st.session_state.backend_timeout
+        )
+        if regional_temporal_response and "_error" not in regional_temporal_response:
+            st.session_state.regional_temporal_data = regional_temporal_response
+            st.session_state.all_data = None
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.sectoral_data = None
+            st.session_state.sector_skills_comparison_data = None
+            st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
+            st.session_state.skill_explorer_data = None
+        else:
+            error_msg = regional_temporal_response.get("_error", T['server_error']) if isinstance(regional_temporal_response, dict) else T['server_error']
+            st.error(error_msg)
+
+if skill_explorer_submit_button:
+    with st.spinner(f"🚀 {T['loading']}"):
+        skill_explorer_response = get_skill_explorer_data(
+            st.session_state.api_base_url,
+            skill_explorer_payload,
+            st.session_state.backend_timeout
+        )
+        if skill_explorer_response and "_error" not in skill_explorer_response:
+            st.session_state.skill_explorer_data = skill_explorer_response
+            st.session_state.all_data = None
+            st.session_state.sectoral_snapshot_data = None
+            st.session_state.sectoral_data = None
+            st.session_state.sector_skills_comparison_data = None
+            st.session_state.regional_sectoral_data = None
+            st.session_state.temporal_projection_data = None
+            st.session_state.regional_temporal_data = None
+        else:
+            error_msg = skill_explorer_response.get("_error", T['server_error']) if isinstance(skill_explorer_response, dict) else T['server_error']
+            st.error(error_msg)
+
 # --- LOGICA DI RENDERING ---
 # Mostriamo i risultati se almeno una analisi è presente nello stato della sessione
-if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data or st.session_state.temporal_projection_data:
+if st.session_state.all_data or st.session_state.sectoral_data or st.session_state.sectoral_snapshot_data or st.session_state.sector_skills_comparison_data or st.session_state.regional_sectoral_data or st.session_state.temporal_projection_data or st.session_state.regional_temporal_data or st.session_state.skill_explorer_data:
     all_data = st.session_state.all_data or {
         "insights": {
             "ranking": [],
@@ -1562,10 +2043,12 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
     sector_skills_comparison_response = st.session_state.sector_skills_comparison_data or {}
     regional_sectoral_response = st.session_state.regional_sectoral_data or {}
     temporal_projection_response = st.session_state.temporal_projection_data or {}
+    regional_temporal_response = st.session_state.regional_temporal_data or {}
+    skill_explorer_response = st.session_state.skill_explorer_data or {}
     ins = all_data["insights"]
     summary = all_data["dimension_summary"]
 
-    if dashboard_view in {"sector", "comparison", "regional_sectoral", "temporal"}:
+    if dashboard_view in {"sector", "comparison", "regional_sectoral", "temporal", "regional_temporal", "skill_explorer"}:
         tab4 = st.container()
     else:
         tab1, tab2, tab3, tab4 = st.tabs(T['tabs'])
@@ -1870,33 +2353,422 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
 
     # --- TAB 4: SETTORI, JOBS & EMPLOYERS ---
     with tab4:
-        h_main, h_info = st.columns([8, 1])
-        with h_main:
-            st.header(
-                T['jobs_emp_header'],
-                help=f"{STAT_HELP['sector_mentions']} {STAT_HELP['title_count']} {STAT_HELP['employer_count']}"
+        if dashboard_view == "skill":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(
+                    T['jobs_emp_header'],
+                    help=f"{STAT_HELP['sector_mentions']} {STAT_HELP['title_count']} {STAT_HELP['employer_count']}"
+                )
+            with h_info:
+                dev_info(
+                    "Sectors, titles, employers",
+                    ANALYZE_ENDPOINT,
+                    {
+                        "insights": {
+                            "sectors": [{"name": "Education", "count": 42}],
+                            "job_titles": [{"name": "Logistics Coordinator", "count": 8}],
+                            "employers": [{"name": "Example Ltd", "count": 5}]
+                        }
+                    },
+                    [
+                        "insights.sectors[].name",
+                        "insights.sectors[].count",
+                        "insights.job_titles[].name",
+                        "insights.job_titles[].count",
+                        "insights.employers[].name",
+                        "insights.employers[].count"
+                    ],
+                    payload
+                )
+
+        if dashboard_view == "regional_temporal":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["regional_temporal_header"], help=T["regional_temporal_help"])
+                st.caption(f"{T['question_answered']}: {T['regional_temporal_question']}")
+            with h_info:
+                dev_info(
+                    "Regional Temporal Analysis",
+                    REGIONAL_TEMPORAL_ENDPOINT,
+                    {
+                        "status": "completed",
+                        "total_jobs": 240,
+                        "window": {"min_date": "2024-01-01", "max_date": "2024-12-31"},
+                        "granularity": "quarterly",
+                        "regional_temporal": {
+                            "raw": [
+                                {
+                                    "code": "IT",
+                                    "total_jobs": 120,
+                                    "market_share": 50.0,
+                                    "periods": [
+                                        {"period": "2024-Q1", "job_count": 30, "growth_vs_previous": None},
+                                        {"period": "2024-Q2", "job_count": 42, "growth_vs_previous": 40.0}
+                                    ],
+                                    "top_skills": [
+                                        {
+                                            "skill_id": "skill-python",
+                                            "label": "Python",
+                                            "total_count": 36,
+                                            "latest_count": 14,
+                                            "growth_rate": 27.3,
+                                            "trend_type": "emerging",
+                                            "specialization": 1.35,
+                                            "series": [
+                                                {"period": "2024-Q1", "count": 8, "growth_vs_previous": None},
+                                                {"period": "2024-Q2", "count": 14, "growth_vs_previous": 75.0}
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "nuts1": [],
+                            "nuts2": [],
+                            "nuts3": []
+                        },
+                        "message": None
+                    },
+                    [
+                        "total_jobs",
+                        "window.min_date",
+                        "window.max_date",
+                        "granularity",
+                        "regional_temporal.raw[]",
+                        "regional_temporal.nuts1[]",
+                        "regional_temporal.nuts2[]",
+                        "regional_temporal.nuts3[]",
+                        "area.code",
+                        "area.total_jobs",
+                        "area.market_share",
+                        "area.periods[].period",
+                        "area.periods[].job_count",
+                        "area.periods[].growth_vs_previous",
+                        "area.top_skills[].skill_id",
+                        "area.top_skills[].label",
+                        "area.top_skills[].total_count",
+                        "area.top_skills[].latest_count",
+                        "area.top_skills[].growth_rate",
+                        "area.top_skills[].trend_type",
+                        "area.top_skills[].specialization",
+                        "area.top_skills[].series[]",
+                    ],
+                    regional_temporal_payload,
+                )
+
+            metric_with_info(
+                T["jobs_analyzed"],
+                regional_temporal_response.get("total_jobs", 0),
+                STAT_HELP["jobs_analyzed"],
             )
-        with h_info:
-            dev_info(
-                "Sectors, titles, employers",
-                ANALYZE_ENDPOINT,
-                {
-                    "insights": {
-                        "sectors": [{"name": "Education", "count": 42}],
-                        "job_titles": [{"name": "Logistics Coordinator", "count": 8}],
-                        "employers": [{"name": "Example Ltd", "count": 5}]
+            regional_temporal_payload_data = regional_temporal_response.get("regional_temporal", {})
+            level = st.radio(
+                T["regional_temporal_level"],
+                ["raw", "nuts1", "nuts2", "nuts3"],
+                horizontal=True,
+            )
+            areas = regional_temporal_payload_data.get(level, [])
+            if areas:
+                summary_rows = [
+                    {
+                        "code": area.get("code"),
+                        "total_jobs": area.get("total_jobs", 0),
+                        "market_share": area.get("market_share", 0),
                     }
-                },
-                [
-                    "insights.sectors[].name",
-                    "insights.sectors[].count",
-                    "insights.job_titles[].name",
-                    "insights.job_titles[].count",
-                    "insights.employers[].name",
-                    "insights.employers[].count"
-                ],
-                payload
-            )
+                    for area in areas
+                ]
+                df_areas = pd.DataFrame(summary_rows)
+                st.subheader(T["regional_temporal_area_summary"], help=STAT_HELP["market_share"])
+                st.dataframe(
+                    df_areas,
+                    width="stretch",
+                    column_config={
+                        "total_jobs": st.column_config.NumberColumn(T["jobs_analyzed"], help=STAT_HELP["jobs_analyzed"]),
+                        "market_share": st.column_config.NumberColumn(T["market_share"], help=STAT_HELP["market_share"]),
+                    },
+                )
+
+                selected_area_code = st.selectbox(
+                    T["regional_temporal_area_detail"],
+                    [area.get("code") for area in areas],
+                )
+                selected_area = next(area for area in areas if area.get("code") == selected_area_code)
+                periods = selected_area.get("periods", [])
+                top_skills = selected_area.get("top_skills", [])
+
+                c_periods, c_skills = st.columns(2)
+                with c_periods:
+                    st.subheader(T["regional_temporal_periods"], help=STAT_HELP["regional_temporal_period_jobs"])
+                    if periods:
+                        df_periods = pd.DataFrame(periods)
+                        fig_area_periods = px.line(
+                            df_periods,
+                            x="period",
+                            y="job_count",
+                            markers=True,
+                            title=f"{T['regional_temporal_periods']}: {selected_area_code}",
+                        )
+                        st.plotly_chart(
+                            fig_area_periods,
+                            width="stretch",
+                            key=f"regional_temporal_periods_{level}_{selected_area_code}",
+                        )
+                        st.dataframe(
+                            df_periods,
+                            width="stretch",
+                            column_config={
+                                "job_count": st.column_config.NumberColumn(T["jobs_analyzed"], help=STAT_HELP["regional_temporal_period_jobs"]),
+                                "growth_vs_previous": st.column_config.TextColumn("growth", help=STAT_HELP["skill_growth"]),
+                            },
+                        )
+                    else:
+                        st.info(T["no_data"])
+
+                with c_skills:
+                    st.subheader(T["regional_temporal_top_skills"], help=STAT_HELP["regional_temporal_skill_total"])
+                    if top_skills:
+                        df_top = pd.DataFrame(top_skills)
+                        fig_area_skills = px.bar(
+                            df_top,
+                            x="total_count",
+                            y="label",
+                            orientation="h",
+                            color="specialization",
+                            color_continuous_scale="RdYlGn",
+                            labels={
+                                "label": T["skill_label"],
+                                "total_count": T["total_mentions"],
+                                "specialization": T["specialization_label"],
+                            },
+                            title=f"{T['regional_temporal_top_skills']}: {selected_area_code}",
+                        )
+                        fig_area_skills.update_layout(yaxis={"categoryorder": "total ascending"}, height=420)
+                        st.plotly_chart(
+                            fig_area_skills,
+                            width="stretch",
+                            key=f"regional_temporal_skills_{level}_{selected_area_code}",
+                        )
+                        st.dataframe(
+                            df_top[[
+                                col for col in [
+                                    "skill_id",
+                                    "label",
+                                    "total_count",
+                                    "latest_count",
+                                    "growth_rate",
+                                    "trend_type",
+                                    "specialization",
+                                ]
+                                if col in df_top.columns
+                            ]],
+                            width="stretch",
+                            column_config={
+                                "total_count": st.column_config.NumberColumn(T["total_mentions"], help=STAT_HELP["regional_temporal_skill_total"]),
+                                "latest_count": st.column_config.NumberColumn("latest", help=STAT_HELP["regional_temporal_period_jobs"]),
+                                "growth_rate": st.column_config.TextColumn("growth", help=STAT_HELP["skill_growth"]),
+                                "specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["specialization"]),
+                            },
+                        )
+
+                        first_skill = top_skills[0]
+                        other_total = 0
+                        other_skill_count = 0
+                        for area in areas:
+                            if area.get("code") == selected_area_code:
+                                continue
+                            other_total += _safe_int(area.get("total_jobs"))
+                            match = next(
+                                (
+                                    skill for skill in area.get("top_skills", [])
+                                    if skill.get("skill_id") == first_skill.get("skill_id")
+                                    or skill.get("label") == first_skill.get("label")
+                                ),
+                                {},
+                            )
+                            other_skill_count += _safe_int(match.get("total_count"))
+                        if selected_area.get("total_jobs") and other_total:
+                            render_statistical_evidence({
+                                "comparison_type": "regional_skill",
+                                "group_a_label": f"{first_skill.get('label')} in {selected_area_code}",
+                                "group_a_count": _safe_int(first_skill.get("total_count")),
+                                "group_a_total": _safe_int(selected_area.get("total_jobs")),
+                                "group_b_label": f"{first_skill.get('label')} in other regions",
+                                "group_b_count": other_skill_count,
+                                "group_b_total": other_total,
+                                "alpha": 0.05,
+                            })
+                    else:
+                        st.info(T["no_data"])
+            elif regional_temporal_response.get("message"):
+                st.info(regional_temporal_response["message"])
+            else:
+                st.info(T["no_data"])
+            st.stop()
+
+        if dashboard_view == "skill_explorer":
+            h_main, h_info = st.columns([8, 1])
+            with h_main:
+                st.header(T["skill_explorer_header"], help=T["skill_explorer_help"])
+                st.caption(f"{T['question_answered']}: {T['skill_explorer_question']}")
+            with h_info:
+                dev_info(
+                    "Skill Explorer",
+                    SKILL_EXPLORER_ENDPOINT,
+                    {
+                        "status": "completed",
+                        "mode": "snapshot",
+                        "data_source": "postgres",
+                        "skill": {
+                            "skill_id": "skill-python",
+                            "label": "Python",
+                            "match_type": "skill_label"
+                        },
+                        "total_mentions": 260,
+                        "sectors": [
+                            {
+                                "sector": "Information and communication",
+                                "sector_label": "Information and communication",
+                                "count": 188,
+                                "share": 0.7231
+                            }
+                        ],
+                        "regions": [
+                            {
+                                "code": "IT",
+                                "count": 88,
+                                "share": 0.3385,
+                                "specialization": 1.2
+                            }
+                        ],
+                        "time_series": [
+                            {"period": "2023", "count": 120, "growth_vs_previous": None},
+                            {"period": "2024", "count": 140, "growth_vs_previous": 16.67}
+                        ],
+                        "warnings": [],
+                        "message": None
+                    },
+                    [
+                        "mode",
+                        "data_source",
+                        "skill.skill_id",
+                        "skill.label",
+                        "skill.match_type",
+                        "total_mentions",
+                        "sectors[].sector",
+                        "sectors[].sector_label",
+                        "sectors[].count",
+                        "sectors[].share",
+                        "regions[].code",
+                        "regions[].count",
+                        "regions[].share",
+                        "regions[].specialization",
+                        "time_series[].period",
+                        "time_series[].count",
+                        "time_series[].growth_vs_previous",
+                        "warnings[]",
+                        "message",
+                    ],
+                    skill_explorer_payload,
+                )
+
+            warnings = skill_explorer_response.get("warnings") or []
+            for warning in warnings:
+                st.warning(warning)
+            skill = skill_explorer_response.get("skill") or {}
+            c_mentions, c_source, c_match = st.columns(3)
+            with c_mentions:
+                metric_with_info(T["total_mentions"], skill_explorer_response.get("total_mentions", 0), STAT_HELP["skill_frequency"])
+            with c_source:
+                metric_with_info(T["data_source"], skill_explorer_response.get("data_source", "-"), T["skill_explorer_help"])
+            with c_match:
+                metric_with_info(T["match_type"], skill.get("match_type", "-"), T["skill_search_by"])
+
+            sectors = skill_explorer_response.get("sectors", [])
+            regions = skill_explorer_response.get("regions", [])
+            time_series = skill_explorer_response.get("time_series", [])
+            if sectors or regions or time_series:
+                c_sectors, c_regions = st.columns(2)
+                with c_sectors:
+                    st.subheader(T["skill_explorer_sectors"], help=STAT_HELP["skill_explorer_share"])
+                    if sectors:
+                        df_skill_sectors = pd.DataFrame(sectors)
+                        fig_skill_sectors = px.bar(
+                            df_skill_sectors,
+                            x="count",
+                            y="sector_label",
+                            orientation="h",
+                            labels={"sector_label": T["agg_level"], "count": T["total_mentions"]},
+                        )
+                        fig_skill_sectors.update_layout(yaxis={"categoryorder": "total ascending"}, height=420)
+                        st.plotly_chart(fig_skill_sectors, width="stretch", key="skill_explorer_sectors")
+                        st.dataframe(
+                            df_skill_sectors,
+                            width="stretch",
+                            column_config={
+                                "count": st.column_config.NumberColumn(T["total_mentions"], help=STAT_HELP["observed_skill_count"]),
+                                "share": st.column_config.NumberColumn("share", help=STAT_HELP["skill_explorer_share"]),
+                            },
+                        )
+                    else:
+                        st.info(T["no_data"])
+
+                with c_regions:
+                    st.subheader(T["skill_explorer_regions"], help=STAT_HELP["skill_explorer_share"])
+                    if regions:
+                        df_skill_regions = pd.DataFrame(regions)
+                        fig_skill_regions = px.bar(
+                            df_skill_regions,
+                            x="count",
+                            y="code",
+                            orientation="h",
+                            color="specialization" if "specialization" in df_skill_regions.columns else None,
+                            color_continuous_scale="RdYlGn",
+                            labels={
+                                "code": T["regional_sectoral_level"],
+                                "count": T["total_mentions"],
+                                "specialization": T["specialization_label"],
+                            },
+                        )
+                        fig_skill_regions.update_layout(yaxis={"categoryorder": "total ascending"}, height=420)
+                        st.plotly_chart(fig_skill_regions, width="stretch", key="skill_explorer_regions")
+                        st.dataframe(
+                            df_skill_regions,
+                            width="stretch",
+                            column_config={
+                                "count": st.column_config.NumberColumn(T["total_mentions"], help=STAT_HELP["observed_skill_count"]),
+                                "share": st.column_config.NumberColumn("share", help=STAT_HELP["skill_explorer_share"]),
+                                "specialization": st.column_config.NumberColumn(T["specialization_label"], help=STAT_HELP["specialization"]),
+                            },
+                        )
+                    else:
+                        st.info(T["no_data"])
+
+                st.subheader(T["skill_explorer_time_series"], help=STAT_HELP["skill_growth"])
+                if time_series:
+                    df_skill_time = pd.DataFrame(time_series)
+                    fig_skill_time = px.line(
+                        df_skill_time,
+                        x="period",
+                        y="count",
+                        markers=True,
+                        title=f"{T['skill_explorer_time_series']}: {skill.get('label', skill_explorer_value)}",
+                    )
+                    st.plotly_chart(fig_skill_time, width="stretch", key="skill_explorer_time_series")
+                    st.dataframe(
+                        df_skill_time,
+                        width="stretch",
+                        column_config={
+                            "count": st.column_config.NumberColumn(T["total_mentions"], help=STAT_HELP["skill_frequency"]),
+                            "growth_vs_previous": st.column_config.TextColumn("growth", help=STAT_HELP["skill_growth"]),
+                        },
+                    )
+                else:
+                    st.info(T["no_data"])
+            elif skill_explorer_response.get("message"):
+                st.info(skill_explorer_response["message"])
+            else:
+                st.info(T["no_data"])
+            st.stop()
 
         if dashboard_view == "regional_sectoral":
             h_main, h_info = st.columns([8, 1])
@@ -1909,12 +2781,15 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                     {
                         "status": "completed",
                         "year": 2024,
+                        "reference_year": 2023,
                         "data_source": "postgres",
                         "window": {
                             "label": "2024 snapshot",
                             "min_date": "2024-01-01",
                             "max_date": "2024-12-31"
                         },
+                        "level": "raw",
+                        "metric": "count",
                         "regional_sectoral": {
                             "raw": [
                                 {
@@ -1934,13 +2809,58 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                             "nuts1": [],
                             "nuts2": [],
                             "nuts3": []
-                        }
+                        },
+                        "regional_sectoral_evolution": [
+                            {
+                                "code": "IT",
+                                "sector": "Manufacturing",
+                                "sector_label": "Manufacturing",
+                                "current_count": 34,
+                                "reference_count": 28,
+                                "current_share_in_region": 28.33,
+                                "reference_share_in_region": 24.35,
+                                "delta": 6,
+                                "growth": 21.43,
+                                "value": 6,
+                                "display_value": "+6"
+                            }
+                        ],
+                        "regional_sectoral_time_series": [
+                            {
+                                "code": "IT",
+                                "sector": "Manufacturing",
+                                "sector_label": "Manufacturing",
+                                "delta": 6,
+                                "growth": 21.43,
+                                "series": [
+                                    {
+                                        "year": 2023,
+                                        "count": 28,
+                                        "share_in_region": 24.35,
+                                        "growth_vs_previous": None,
+                                        "value": 28,
+                                        "display_value": "28"
+                                    },
+                                    {
+                                        "year": 2024,
+                                        "count": 34,
+                                        "share_in_region": 28.33,
+                                        "growth_vs_previous": 21.43,
+                                        "value": 34,
+                                        "display_value": "34"
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     [
                         "status",
                         "year",
+                        "reference_year",
                         "data_source",
                         "window.label",
+                        "level",
+                        "metric",
                         "regional_sectoral.raw[]",
                         "regional_sectoral.nuts1[]",
                         "regional_sectoral.nuts2[]",
@@ -1951,12 +2871,118 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                         "area.top_sectors[].sector_code",
                         "area.top_sectors[].count",
                         "area.top_sectors[].share_in_region",
-                        "area.top_sectors[].specialization"
+                        "area.top_sectors[].specialization",
+                        "regional_sectoral_evolution[].code",
+                        "regional_sectoral_evolution[].sector_label",
+                        "regional_sectoral_evolution[].current_count",
+                        "regional_sectoral_evolution[].reference_count",
+                        "regional_sectoral_evolution[].delta",
+                        "regional_sectoral_evolution[].growth",
+                        "regional_sectoral_evolution[].value",
+                        "regional_sectoral_time_series[].code",
+                        "regional_sectoral_time_series[].sector_label",
+                        "regional_sectoral_time_series[].series[].year",
+                        "regional_sectoral_time_series[].series[].count",
+                        "regional_sectoral_time_series[].series[].share_in_region",
+                        "regional_sectoral_time_series[].series[].growth_vs_previous",
+                        "regional_sectoral_time_series[].series[].value"
                     ],
                     regional_sectoral_payload
                 )
 
             render_refresh_status_notice(regional_sectoral_response)
+            if regional_sectoral_mode == "evolution":
+                evolution_rows = regional_sectoral_response.get("regional_sectoral_evolution", [])
+                if evolution_rows:
+                    df_evolution = pd.DataFrame(evolution_rows)
+                    st.subheader(T["regional_sectoral_evolution_table"], help=STAT_HELP["regional_sectoral_delta"])
+                    fig_evolution = px.bar(
+                        df_evolution,
+                        x="value",
+                        y="sector_label",
+                        color="code",
+                        orientation="h",
+                        hover_data=[
+                            "current_count",
+                            "reference_count",
+                            "current_share_in_region",
+                            "reference_share_in_region",
+                            "delta",
+                            "growth",
+                        ],
+                        labels={
+                            "sector_label": T["agg_level"],
+                            "value": T["regional_sectoral_metric"],
+                            "code": T["regional_sectoral_level"],
+                        },
+                    )
+                    fig_evolution.update_layout(yaxis={"categoryorder": "total ascending"}, height=480)
+                    st.plotly_chart(fig_evolution, width="stretch", key="regional_sectoral_evolution_chart")
+                    st.dataframe(
+                        df_evolution,
+                        width="stretch",
+                        column_config={
+                            "current_count": st.column_config.NumberColumn(T["sector_count"], help=STAT_HELP["regional_sector_count"]),
+                            "reference_count": st.column_config.NumberColumn(T["evolution_reference_count"], help=STAT_HELP["regional_sector_count"]),
+                            "current_share_in_region": st.column_config.NumberColumn(T["share_in_region"], help=STAT_HELP["share_in_region"]),
+                            "reference_share_in_region": st.column_config.NumberColumn(T["evolution_reference_count"], help=STAT_HELP["share_in_region"]),
+                            "delta": st.column_config.NumberColumn(T["evolution_delta"], help=STAT_HELP["regional_sectoral_delta"]),
+                            "growth": st.column_config.TextColumn("growth", help=STAT_HELP["regional_sectoral_growth"]),
+                            "value": st.column_config.NumberColumn(T["regional_sectoral_metric"], help=STAT_HELP["regional_sectoral_delta"]),
+                        },
+                    )
+                elif regional_sectoral_response.get("message"):
+                    st.info(regional_sectoral_response["message"])
+                else:
+                    st.info(T["no_data"])
+                st.stop()
+
+            if regional_sectoral_mode == "time_series":
+                series_rows = regional_sectoral_response.get("regional_sectoral_time_series", [])
+                if series_rows:
+                    flat_rows = []
+                    for row in series_rows:
+                        for point in row.get("series", []):
+                            flat_rows.append({
+                                "code": row.get("code"),
+                                "sector": row.get("sector"),
+                                "sector_label": row.get("sector_label"),
+                                "year": point.get("year"),
+                                "count": point.get("count"),
+                                "share_in_region": point.get("share_in_region"),
+                                "growth_vs_previous": point.get("growth_vs_previous"),
+                                "value": point.get("value"),
+                                "display_value": point.get("display_value"),
+                            })
+                    df_time_series = pd.DataFrame(flat_rows)
+                    st.subheader(T["regional_sectoral_time_series_chart"], help=STAT_HELP["regional_sectoral_growth"])
+                    fig_time_series = px.line(
+                        df_time_series,
+                        x="year",
+                        y="value",
+                        color="sector_label",
+                        line_dash="code",
+                        markers=True,
+                        hover_data=["count", "share_in_region", "growth_vs_previous", "display_value"],
+                    )
+                    st.plotly_chart(fig_time_series, width="stretch", key="regional_sectoral_time_series_chart")
+                    st.subheader(T["regional_sectoral_time_series_table"], help=STAT_HELP["regional_sectoral_growth"])
+                    st.dataframe(
+                        df_time_series,
+                        width="stretch",
+                        column_config={
+                            "count": st.column_config.NumberColumn(T["sector_count"], help=STAT_HELP["regional_sector_count"]),
+                            "share_in_region": st.column_config.NumberColumn(T["share_in_region"], help=STAT_HELP["share_in_region"]),
+                            "growth_vs_previous": st.column_config.TextColumn("growth", help=STAT_HELP["regional_sectoral_growth"]),
+                            "value": st.column_config.NumberColumn(T["regional_sectoral_metric"], help=STAT_HELP["regional_sector_count"]),
+                        },
+                    )
+                elif regional_sectoral_response.get("message"):
+                    st.info(regional_sectoral_response["message"])
+                else:
+                    st.info(T["no_data"])
+                st.stop()
+
             regional_payload = regional_sectoral_response.get("regional_sectoral", {})
             regions_for_level = regional_payload.get(regional_sectoral_level, [])
             if regions_for_level:
@@ -1973,21 +2999,7 @@ if st.session_state.all_data or st.session_state.sectoral_data or st.session_sta
                 ])
 
                 with region_first_tab:
-                    selected_region_filter = st.selectbox(
-                        T["regional_sectoral_country_filter"],
-                        list(REGIONAL_SECTORAL_REGION_OPTIONS.keys()),
-                        help=T["regional_sectoral_region_help"],
-                        key=f"regional_sectoral_region_filter_{regional_sectoral_level}",
-                    )
-                    selected_location = REGIONAL_SECTORAL_REGION_OPTIONS[selected_region_filter]
-                    selected_regions = [
-                        area for area in regions_for_level
-                        if (
-                            not selected_location
-                            or str(area.get("code", "")).upper() == selected_location
-                            or str(area.get("code", "")).upper().startswith(selected_location)
-                        )
-                    ]
+                    selected_regions = regions_for_level
                     summary_rows = []
                     for area in selected_regions:
                         top_sectors = area.get("top_sectors", [])

@@ -470,11 +470,36 @@ Use it for yearly regional sector distribution. It does not perform live Tracker
 
 ### Example Request
 
+Snapshot:
+
 ```bash
 curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "year=2024" \
   -d "locations=IT"
+```
+
+Evolution:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "reference_year=2023" \
+  -d "level=raw" \
+  -d "metric=growth"
+```
+
+Time series:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/regional-sectoral" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "year=2024" \
+  -d "start_year=2020" \
+  -d "end_year=2024" \
+  -d "level=nuts1" \
+  -d "metric=share"
 ```
 
 ### Response Shape

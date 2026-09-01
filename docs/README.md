@@ -5,23 +5,24 @@ This folder contains the maintained documentation for the current `app/` impleme
 ## Reading Order
 
 1. [Quick start](quick-start.md) gives the short operational guide, intelligence design and final navigation.
-2. [Overview](overview.md) explains what the service does and who it is for.
-3. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
-4. [API reference](api-reference.md) documents current public endpoints and form fields.
-5. [Data model](data-model.md) explains response fields.
-6. [Statistics](statistic.md) explains metric formulas.
-7. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
-8. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
-9. [Database](database.md) documents PostgreSQL sector snapshot storage.
-10. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
-11. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
-12. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
-13. [Data sources](data-sources.md) explains Tracker API data usage.
-14. [Architecture](architecture.md) maps the runtime flow to the current code.
-15. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
-16. [Examples](examples.md) provides request examples and frontend integration patterns.
-17. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-18. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+2. [Demo dashboard guide](dashboard-demo.md) maps each demo view to parameters, endpoints, fields and data sources.
+3. [Overview](overview.md) explains what the service does and who it is for.
+4. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
+5. [API reference](api-reference.md) documents current public endpoints and form fields.
+6. [Data model](data-model.md) explains response fields.
+7. [Statistics](statistic.md) explains metric formulas.
+8. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
+9. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
+10. [Database](database.md) documents PostgreSQL sector snapshot storage.
+11. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
+12. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
+13. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
+14. [Data sources](data-sources.md) explains Tracker API data usage.
+15. [Architecture](architecture.md) maps the runtime flow to the current code.
+16. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
+17. [Examples](examples.md) provides request examples and frontend integration patterns.
+18. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+19. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 
@@ -34,6 +35,7 @@ This folder contains the maintained documentation for the current `app/` impleme
 - #44, #54: PostgreSQL sector snapshot storage and refresh pipeline.
 - #47, #48, #49, #52: sector-first yearly views, detailed skills, redesign and comparison heatmap.
 - #62: D3.3 scope alignment, gap analysis and deliverable edit plan.
+- #94: demo dashboard endpoint wiring and view documentation.
 
 ## Current Code Layout
 

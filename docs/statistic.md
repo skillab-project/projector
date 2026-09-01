@@ -2,7 +2,7 @@
 
 Concise formulas for current API-only metrics.
 
-Related issues: #3, #7, #8, #33, #47, #48, #52, #88, #89, #90.
+Related issues: #3, #7, #8, #33, #47, #48, #52, #88, #89, #90, #94.
 
 ## Core Source
 
@@ -411,6 +411,19 @@ jobs in area / all jobs
 ```
 
 Above `1` means the skill is more concentrated in that area than in the full analyzed market.
+
+## Dashboard Label Map
+
+| Dashboard label | Metric |
+| --- | --- |
+| Job volume by period | `period_job_count` |
+| Area trend over time | `regional_period_job_count` |
+| Top skills in area | `regional_skill_count`, `regional_skill_specialization` |
+| Sectors where it appears | `sector_count`, `skill_explorer_share` |
+| Regions where it appears | `region_count`, `skill_explorer_share` |
+| Skill trend | `skill_time_series`, `growth_vs_previous` |
+| Region-sector evolution | `regional_sector_delta`, `regional_sector_growth` |
+| Region-sector time series | `regional_sector_count`, `share_in_region`, `growth_vs_previous` |
 
 ## Trends
 
