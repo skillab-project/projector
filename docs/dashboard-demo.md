@@ -2,7 +2,7 @@
 
 Developer handoff guide for `app/example_dashboard/demo_dashboard.py`.
 
-Related issues: #33, #88, #89, #90, #94.
+Related issues: #33, #88, #89, #90, #94, #96.
 
 ## Purpose
 
@@ -12,6 +12,7 @@ Each view includes:
 
 - an `API` marker with endpoint, example request, example response and fields used
 - metric help on charts, tables and KPIs
+- collapsible inferential evidence boxes where the view compares two groups
 - Italian and English labels
 
 ## Navigation
@@ -71,6 +72,12 @@ Uses:
 
 The user chooses the territorial level inside the view.
 
+Inferential layer:
+
+- endpoint: `POST /projector/statistical-comparison`
+- comparison type: `regional_skill`
+- shown when a regional skill can be compared with the remaining regions
+
 ### Sector Overview
 
 Parameters: `sector`, `region`, mode `Snapshot` or `Sector Evolution`.
@@ -92,6 +99,12 @@ Uses:
 
 The bubble chart uses `all_skills` when available.
 
+Inferential layer:
+
+- endpoint: `POST /projector/statistical-comparison`
+- comparison type: `sector_evolution`
+- shown in Sector Evolution mode to validate the observed sector change between two years
+
 ### Sector Skills Comparison
 
 Parameters: `year`, optional `region`, selected `sectors`, selected `skills`, `metric`.
@@ -108,6 +121,12 @@ Uses:
 - `matrix[].growth_value`
 - `matrix[].value`
 - `matrix[].display_value`
+
+Inferential layer:
+
+- endpoint: `POST /projector/statistical-comparison`
+- comparison type: `sector_skill`
+- shown for a selected skill/sector pair when enough counts are available
 
 ### Regional Sector Distribution
 
@@ -129,6 +148,12 @@ Uses:
 - `regional_sectoral_evolution[].delta`
 - `regional_sectoral_evolution[].growth`
 - `regional_sectoral_time_series[].series`
+
+Inferential layer:
+
+- endpoint: `POST /projector/statistical-comparison`
+- comparison type: `regional_sector`
+- shown when one region-sector relationship can be compared with the rest of the market
 
 ### Skill Explorer
 
@@ -153,3 +178,21 @@ Uses:
 - Live/date-range views read Tracker API through the cache layer.
 - Backfill, refresh and scheduler scripts are the components that populate PostgreSQL snapshots from Tracker.
 - No dashboard control asks users to choose cache/static/live internals except Skill Explorer, where `snapshot` and `live` are part of the analytical question.
+
+## Statistical Evidence Box
+
+The box is always collapsed by default and appears inside comparison views only.
+
+It shows:
+
+- the tested question
+- method description
+- p-value, evidence level and practical relevance
+- observed group shares
+- share difference in percentage points
+- relative risk and odds ratio when computable
+- observed 2x2 table
+- expected 2x2 table
+- assumptions, limitations and warnings
+
+Use it as validation context, not as a primary navigation area.

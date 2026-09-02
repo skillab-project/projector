@@ -210,6 +210,30 @@ class StatisticalComparisonGroup(BaseModel):
     share: float
 
 
+class StatisticalObservedTableRow(BaseModel):
+    group: str
+    present: int
+    absent: int
+    total: int
+    share: float
+
+
+class StatisticalExpectedTableRow(BaseModel):
+    group: str
+    expected_present: float
+    expected_absent: float
+
+
+class StatisticalObservedTable(BaseModel):
+    columns: List[str]
+    rows: List[StatisticalObservedTableRow]
+
+
+class StatisticalExpectedTable(BaseModel):
+    columns: List[str]
+    rows: List[StatisticalExpectedTableRow]
+
+
 class StatisticalComparisonResponse(BaseModel):
     status: str
     comparison_type: Literal[
@@ -230,6 +254,22 @@ class StatisticalComparisonResponse(BaseModel):
     interpretation: str
     groups: List[StatisticalComparisonGroup]
     expected_counts: List[List[float]]
+    comparison_question: Optional[str] = None
+    method_description: Optional[str] = None
+    observed_table: Optional[StatisticalObservedTable] = None
+    expected_table: Optional[StatisticalExpectedTable] = None
+    group_a_share: Optional[float] = None
+    group_b_share: Optional[float] = None
+    share_difference: Optional[float] = None
+    share_difference_percentage_points: Optional[float] = None
+    relative_risk: Optional[float] = None
+    odds_ratio: Optional[float] = None
+    degrees_of_freedom: Optional[int] = None
+    minimum_expected_count: Optional[float] = None
+    evidence_level: Optional[Literal["none", "weak", "moderate", "strong"]] = None
+    practical_relevance: Optional[Literal["negligible", "small", "medium", "large"]] = None
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
 
 

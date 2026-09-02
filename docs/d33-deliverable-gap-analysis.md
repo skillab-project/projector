@@ -64,7 +64,7 @@ The main remaining gap is not core descriptive analytics. It is scope alignment:
 | 4.1.4.2 Regional Dimension within Skill Demand Analysis | Implemented | Regional distribution and regional skill evidence. | Keep with NUTS caveat. |
 | 4.1.4.3 Sectoral Dimension within Skill Demand Analysis | Implemented | Sector distribution and sector intelligence. | Keep with Tracker-sector source caveat. |
 | 4.1.4.4 Combined Interpretation of Skills, Regions, Sectors and Time | Implemented | Regional x Sectoral, Sector x Skill, Sector x Temporal, Skill x Temporal, Skill x Regional, Regional x Temporal, and Regional x Sectoral x Temporal are implemented through focused endpoints. | Keep the implemented combinations explicit. |
-| Dimension 4: Statistical Inferential Mechanisms | Implemented | `POST /projector/statistical-comparison`, chi-square, p-value, effect size. | Describe as inferential layer attached to comparison views, not standalone dashboard area. |
+| Dimension 4: Statistical Inferential Mechanisms | Implemented | `POST /projector/statistical-comparison`, chi-square, p-value, effect size, observed/expected 2x2 tables, share difference, relative risk, odds ratio, assumptions and warnings. | Describe as explainable inferential layer attached to comparison views, not standalone dashboard area. |
 | 4.2 Skills Forecasting | Implemented | Trend monitoring and baseline projection exist; the D3.3 source explicitly excludes predictive forecasting engines from the current runtime. | Keep current wording honest: forecasting means trend-based monitoring and period comparison here. |
 | 4.2.1 Current Scope: Trend-Based Skill Monitoring | Implemented | Period job counts, skill time series, baseline projection. | Keep as implemented. |
 | 4.2.2 Emerging-Skills Endpoint and Period Comparison | Implemented | `POST /projector/emerging-skills` and temporal endpoints. | Keep as observed period comparison. |
@@ -117,7 +117,7 @@ The main remaining gap is not core descriptive analytics. It is scope alignment:
 - Describe sector data source as Tracker `job["sectors"]`.
 - Explain sector counts as relationship counts when jobs contain multiple sectors.
 - Describe statistical inference as an inferential layer, not as a standalone dimension view.
-- State that p-values/effect sizes validate observed differences; they do not prove shortage, causality or future demand.
+- State that p-values, effect sizes and observed/expected tables validate observed differences; they do not prove shortage, causality or future demand.
 - Do not implement real case-study outputs/figures in Projector; label any examples as demonstration scenarios.
 - Add production caveat: real snapshots must be bootstrapped on the deployed server.
 

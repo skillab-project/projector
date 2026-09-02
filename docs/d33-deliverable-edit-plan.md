@@ -71,7 +71,7 @@ NUTS-like outputs depend on source-code quality and should not be described as o
 Use:
 
 ```text
-The statistical inferential mechanisms are implemented as an inferential layer attached to comparison views. The current endpoint runs a baseline 2x2 chi-square comparison and reports p-value, effect size, significance flag, interpretation and warnings.
+The statistical inferential mechanisms are implemented as an explainable inferential layer attached to comparison views. The current endpoint runs a baseline 2x2 chi-square comparison and reports p-value, effect size, observed and expected 2x2 tables, share difference, relative risk, odds ratio, interpretation, assumptions, limitations and warnings.
 ```
 
 Add caveat:

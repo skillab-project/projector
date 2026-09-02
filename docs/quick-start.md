@@ -167,12 +167,14 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` | Tracker API/cache |
 | Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` | Tracker API/cache |
 | Regional Temporal Analysis | region/time comparison | keyword, date range, region, granularity | `POST /projector/regional-temporal` | Tracker API/cache |
-| Inferential Layer | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` | derived from active view |
+| Statistical evidence boxes | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` | derived from active view |
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
 | Sector Skills Comparison | many sectors x skills | year or from/to, region, sectors, skills, metric | `POST /projector/sector-skills-comparison` | PostgreSQL snapshots |
 | Regional Sector Distribution | region/sector matrix | mode, year/range, region, level, sectors, metric | `POST /projector/regional-sectoral` | PostgreSQL snapshots |
 | Skill Explorer | one skill | skill, snapshot/live mode, year or date range, region | `POST /projector/skill-explorer` | PostgreSQL snapshots or Tracker API/cache |
+
+Statistical evidence boxes are collapsed by default inside comparison views. They are not a standalone navigation area.
 
 ## Static Sector Snapshots
 
