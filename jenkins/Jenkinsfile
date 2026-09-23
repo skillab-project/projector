@@ -33,7 +33,7 @@ pipeline {
         passwordVariable: 'TRACKER_PASSWORD'
     )
 ]) {
-    sh '''
+    sh """
         test -n "$TRACKER_USERNAME" || {
             echo "TRACKER_USERNAME vuoto"
             exit 1
@@ -54,7 +54,7 @@ pipeline {
 
         docker compose exec -T projector-api python -c \
           'import os; print("username:", "SET" if os.getenv("TRACKER_USERNAME") else "MISSING"); print("password:", "SET" if os.getenv("TRACKER_PASSWORD") else "MISSING")'
-    '''
+    """
 }
             }
         }
