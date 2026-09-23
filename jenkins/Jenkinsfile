@@ -23,12 +23,19 @@ pipeline {
         // *** IMAGE BUILD STAGE ***
         // *************************
 
-        stage("Build and Test in Docker") {
-			steps {
-                echo "***** Building and Testing Docker Image for ${APP_NAME}:${DOCKER_TAG} *****"
-                sh 'DOCKER_TAG=test docker compose build'
-			}
-		}
+        stage("Build_Docker_Images"){
+            steps {
+                echo "***** Building Docker Image *****"
+                withCredentials([usernamePassword(credentialsId: 'tracker-api-creds', usernameVariable: 'TRACKER_USER', passwordVariable: 'TRACKER_PASS')]) {
+                    sh '''
+                        echo "TRACKER_USERNAME=${TRACKER_USER}" >> .env
+                        echo "TRACKER_PASSWORD=${TRACKER_PASS}" >> .env
+                        DOCKER_TAG=test docker compose build
+                    '''
+                }
+            }
+        }
+
 
 
         // ****************************
