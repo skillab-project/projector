@@ -5,6 +5,9 @@
 /app/.env
 /.venv/
 /.idea/
+/.ai/
+/.github/
+./tmp/
 
 # Python/test artifacts
 __pycache__/
@@ -21,3 +24,4 @@ test-report/
 mutants/
 mutation-report/
 quality-dashboard/
+tmp/
