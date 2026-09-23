@@ -2,6 +2,7 @@ import logging
 
 
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from dotenv import load_dotenv
 
@@ -17,7 +18,42 @@ logger = logging.getLogger("SKILLAB-Projector")
 
 load_dotenv()
 app = FastAPI(title="SKILLAB Projector Microservice")
-app.include_router(projector_router)
+# Percorsi normali usati direttamente dal container:
+# /projector/health, /projector/analyze-skills, ecc.
+app.include_router(
+    projector_router,
+    prefix="/projector",
+)
+
+# Alias per Nginx, che rimuove il prefisso /projector.
+# Non vengono duplicati nella documentazione OpenAPI.
+app.include_router(
+    projector_router,
+    include_in_schema=False,
+)
+
+
+# Documentazione disponibile anche quando Nginx inoltra il prefisso /projector
+# senza rimuoverlo.
+@app.get("/projector/openapi.json", include_in_schema=False)
+def projector_openapi():
+    return app.openapi()
+
+
+@app.get("/projector/docs", include_in_schema=False)
+def projector_swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/projector/openapi.json",
+        title=f"{app.title} - Swagger UI",
+    )
+
+
+@app.get("/projector/redoc", include_in_schema=False)
+def projector_redoc():
+    return get_redoc_html(
+        openapi_url="/projector/openapi.json",
+        title=f"{app.title} - ReDoc",
+    )
 
 
 
