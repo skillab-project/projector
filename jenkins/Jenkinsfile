@@ -26,14 +26,36 @@ pipeline {
         stage("Build_Docker_Images"){
             steps {
                 echo "***** Building Docker Image *****"
-                withCredentials([usernamePassword(credentialsId: 'tracker-api-creds', usernameVariable: 'TRACKER_USER', passwordVariable: 'TRACKER_PASS')]) {
-                    sh '''
-                        echo "TRACKER_USERNAME=${TRACKER_USER}" >> .env
-                        echo "TRACKER_PASSWORD=${TRACKER_PASS}" >> .env
-                        DOCKER_TAG=test docker compose build
-                        cat .env
-                    '''
-                }
+                withCredentials([
+    usernamePassword(
+        credentialsId: 'tracker-api-creds',
+        usernameVariable: 'TRACKER_USERNAME',
+        passwordVariable: 'TRACKER_PASSWORD'
+    )
+]) {
+    sh '''
+        test -n "$TRACKER_USERNAME" || {
+            echo "TRACKER_USERNAME vuoto"
+            exit 1
+        }
+
+        test -n "$TRACKER_PASSWORD" || {
+            echo "TRACKER_PASSWORD vuoto"
+            exit 1
+        }
+
+        sed -i '/^TRACKER_USERNAME=/d' .env
+        sed -i '/^TRACKER_PASSWORD=/d' .env
+
+        printf 'TRACKER_USERNAME=%s\n' "$TRACKER_USERNAME" >> .env
+        printf 'TRACKER_PASSWORD=%s\n' "$TRACKER_PASSWORD" >> .env
+
+        docker compose up -d --force-recreate projector-api
+
+        docker compose exec -T projector-api python -c \
+          'import os; print("username:", "SET" if os.getenv("TRACKER_USERNAME") else "MISSING"); print("password:", "SET" if os.getenv("TRACKER_PASSWORD") else "MISSING")'
+    '''
+}
             }
         }
 
