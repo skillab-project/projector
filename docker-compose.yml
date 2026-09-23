@@ -41,34 +41,34 @@ services:
       timeout: 5s
       retries: 12
 
-  projector-snapshot-refresh:
-    build:
-      context: .
-      dockerfile: Dockerfile.snapshot
-    container_name: skillab-projector-snapshot-refresh
-    depends_on:
-      projector-db:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql://skillab:skillab@projector-db:5432/skillab_projector
-      SNAPSHOT_INTERVAL_MONTHS: ${SNAPSHOT_INTERVAL_MONTHS:-3}
-      SNAPSHOT_CHECK_INTERVAL_DAYS: ${SNAPSHOT_CHECK_INTERVAL_DAYS:-1}
-      SNAPSHOT_START_YEAR: ${SNAPSHOT_START_YEAR:-}
-      SNAPSHOT_END_YEAR: ${SNAPSHOT_END_YEAR:-}
-      SNAPSHOT_REGIONS: ${SNAPSHOT_REGIONS:-}
-      SNAPSHOT_SKIP_GLOBAL: ${SNAPSHOT_SKIP_GLOBAL:-false}
-      SNAPSHOT_RUN_IMMEDIATELY: ${SNAPSHOT_RUN_IMMEDIATELY:-true}
-      SNAPSHOT_PAGE_SIZE: ${SNAPSHOT_PAGE_SIZE:-500}
-      SNAPSHOT_PAGE_CONCURRENCY: ${SNAPSHOT_PAGE_CONCURRENCY:-4}
-      SNAPSHOT_MAX_RETRIES: ${SNAPSHOT_MAX_RETRIES:-5}
-      SNAPSHOT_SCHEDULER_LOG_FILE: ${SNAPSHOT_SCHEDULER_LOG_FILE:-logs/sector_snapshot_scheduler.log}
-      SNAPSHOT_DEBUG: ${SNAPSHOT_DEBUG:-false}
-    volumes:
-      - projector-snapshot-cache:/workspace/cache_data
-      - projector-snapshot-logs:/workspace/logs
-    restart: always
+  # projector-snapshot-refresh:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.snapshot
+  #   container_name: skillab-projector-snapshot-refresh
+  #   depends_on:
+  #     projector-db:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DATABASE_URL: postgresql://skillab:skillab@projector-db:5432/skillab_projector
+  #     SNAPSHOT_INTERVAL_MONTHS: ${SNAPSHOT_INTERVAL_MONTHS:-3}
+  #     SNAPSHOT_CHECK_INTERVAL_DAYS: ${SNAPSHOT_CHECK_INTERVAL_DAYS:-1}
+  #     SNAPSHOT_START_YEAR: ${SNAPSHOT_START_YEAR:-}
+  #     SNAPSHOT_END_YEAR: ${SNAPSHOT_END_YEAR:-}
+  #     SNAPSHOT_REGIONS: ${SNAPSHOT_REGIONS:-}
+  #     SNAPSHOT_SKIP_GLOBAL: ${SNAPSHOT_SKIP_GLOBAL:-false}
+  #     SNAPSHOT_RUN_IMMEDIATELY: ${SNAPSHOT_RUN_IMMEDIATELY:-true}
+  #     SNAPSHOT_PAGE_SIZE: ${SNAPSHOT_PAGE_SIZE:-500}
+  #     SNAPSHOT_PAGE_CONCURRENCY: ${SNAPSHOT_PAGE_CONCURRENCY:-4}
+  #     SNAPSHOT_MAX_RETRIES: ${SNAPSHOT_MAX_RETRIES:-5}
+  #     SNAPSHOT_SCHEDULER_LOG_FILE: ${SNAPSHOT_SCHEDULER_LOG_FILE:-logs/sector_snapshot_scheduler.log}
+  #     SNAPSHOT_DEBUG: ${SNAPSHOT_DEBUG:-false}
+  #   volumes:
+  #     - projector-snapshot-cache:/workspace/cache_data
+  #     - projector-snapshot-logs:/workspace/logs
+  #   restart: always
 
 volumes:
   projector-db-data:
