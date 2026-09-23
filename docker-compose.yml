@@ -30,6 +30,8 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://skillab:skillab@projector-db:5432/skillab_projector
+    labels:
+      io.portainer.accesscontrol.teams: skillab-all
     ports:
       - "8013:8000"
     volumes:
