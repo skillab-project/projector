@@ -8,6 +8,14 @@
 /.ai/
 /.github/
 ./tmp/
+artifacts/
+scripts/align_deliverable_toc_and_headings.py
+scripts/capture_dashboard_usecase_screenshots.mjs
+scripts/insert_usecase_screenshots_odt.py
+scripts/move_api_section_to_chapter6.py
+scripts/run_dashboard_usecase_screenshots.sh
+scripts/update_odt_toc_api_chapter6.py
+scripts/update_odt_toc_pages.py
 
 # Python/test artifacts
 __pycache__/
