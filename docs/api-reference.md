@@ -134,6 +134,128 @@ When `include_sectoral=true`, sectoral intelligence uses its own time window:
 
 When no jobs are found, the service returns a completed response with `jobs_analyzed=0` and empty insight lists.
 
+## POST `/projector/compare-regions`
+
+Compares two different regions at the same NUTS level using the Projector's existing market metrics over live Tracker/cache jobs.
+
+Without `keyword`, the endpoint returns a general comparison of the two regional job-market slices. With `keyword`, the same comparison is computed only on postings matching that keyword, so the returned skill rankings describe the skills associated with the selected keyword in each region.
+
+If `min_date` and `max_date` are both omitted, the endpoint uses the last 12 months. The two date fields must either both be provided or both be omitted.
+
+### Request Fields
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `region_a` | string | yes | none | First NUTS1, NUTS2, or NUTS3 region code |
+| `region_b` | string | yes | none | Second NUTS1, NUTS2, or NUTS3 region code |
+| `min_date` | string | no | last 12 months | Start date, `YYYY-MM-DD`; must be provided together with `max_date` |
+| `max_date` | string | no | last 12 months | End date, `YYYY-MM-DD`; must be provided together with `min_date` |
+| `keyword` | string | no | `null` | Optional single keyword forwarded to Tracker before the regional comparison |
+
+`region_a` and `region_b` must be different regions at the same NUTS level. The level is inferred from the code length: NUTS1 uses 3 characters, NUTS2 uses 4, and NUTS3 uses 5. Codes are normalized to uppercase.
+
+### Example Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/compare-regions" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "region_a=DK03" \
+  -d "region_b=ITF4" \
+  -d "min_date=2025-01-01" \
+  -d "max_date=2025-12-31" \
+  -d "keyword=data"
+```
+
+### Response Shape
+
+```json
+{
+  "status": "completed",
+  "scope": "keyword",
+  "keyword": "data",
+  "nuts_level": "nuts2",
+  "window": {
+    "min_date": "2025-01-01",
+    "max_date": "2025-12-31"
+  },
+  "region_a": {
+    "code": "DK03",
+    "total_jobs": 100,
+    "top_skills": [
+      {
+        "skill_id": "skill-python",
+        "name": "Python",
+        "count": 40,
+        "share": 40.0,
+        "specialization": 1.33,
+        "is_green": false,
+        "is_digital": true,
+        "sector_spread": 4,
+        "primary_sector": "Information and communication"
+      }
+    ],
+    "top_sectors": [],
+    "top_job_titles": [],
+    "top_employers": []
+  },
+  "region_b": {
+    "code": "ITF4",
+    "total_jobs": 100,
+    "top_skills": [
+      {
+        "skill_id": "skill-python",
+        "name": "Python",
+        "count": 20,
+        "share": 20.0,
+        "specialization": 0.67,
+        "is_green": false,
+        "is_digital": true,
+        "sector_spread": 3,
+        "primary_sector": "Information and communication"
+      }
+    ],
+    "top_sectors": [],
+    "top_job_titles": [],
+    "top_employers": []
+  },
+  "comparison": {
+    "total_jobs_difference": 0,
+    "total_jobs_difference_percentage": 0.0,
+    "skills": [
+      {
+        "skill_id": "skill-python",
+        "name": "Python",
+        "region_a_count": 40,
+        "region_b_count": 20,
+        "count_difference": -20,
+        "region_a_share": 40.0,
+        "region_b_share": 20.0,
+        "share_difference_percentage_points": -20.0,
+        "region_a_specialization": 1.33,
+        "region_b_specialization": 0.67,
+        "region_a_rank": 1,
+        "region_b_rank": 1
+      }
+    ],
+    "sectors": [],
+    "job_titles": [],
+    "employers": []
+  }
+}
+```
+
+`scope` is `general` when no keyword is supplied and `keyword` when the comparison is keyword-filtered.
+
+Regional skill `share` is the skill count divided by the number of postings in that region, expressed as a percentage. `specialization` is a location-quotient-like concentration comparing the regional skill share with the combined two-region comparison set.
+
+All comparison deltas use **Region B minus Region A**. This applies to `total_jobs_difference`, skill `count_difference`, `share_difference_percentage_points`, and count deltas for sectors, job titles, and employers. `total_jobs_difference_percentage` is the Region B job-count difference relative to Region A; it is returned as `"new_entry"` when Region A has zero jobs and Region B has jobs.
+
+The endpoint returns up to 10 top skills, sectors, job titles, and employers per region. The `comparison.skills` block is built from the union of the regional top-skill lists and returns up to 20 rows; the other comparison lists return up to 10 rows.
+
+NUTS filtering uses Tracker `nuts1`, `nuts2`, or `nuts3` fields according to the inferred level. `location_code` is used only as a compatibility fallback for older Tracker payloads without dedicated NUTS fields.
+
+When both regions contain no matching jobs, the endpoint returns a completed structured response with empty rankings and `message="No jobs found for the selected regions and filters."`.
+
 ## POST `/projector/regional-temporal`
 
 Builds a regional x temporal view from live Tracker/cache jobs.
@@ -724,6 +846,8 @@ Current validation covers:
 - date format: `YYYY-MM-DD`
 - date ordering for all explicit date ranges
 - snapshot/reference years in the supported range `2000..2100`
+- paired optional `min_date` / `max_date` values for `/projector/compare-regions`
+- valid, different, same-level NUTS1/NUTS2/NUTS3 codes for `/projector/compare-regions`
 
 ## POST `/projector/emerging-skills`
 

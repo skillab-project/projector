@@ -32,6 +32,7 @@ Predictive forecasting, ML models and XAI forecast explanations are not implemen
 
 - `GET /projector/health`
 - `POST /projector/analyze-skills`
+- `POST /projector/compare-regions`
 - `POST /projector/emerging-skills`
 - `POST /projector/stop`
 

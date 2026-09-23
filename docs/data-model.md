@@ -93,6 +93,87 @@ Skill row:
 }
 ```
 
+## Regional Comparison Response
+
+`POST /projector/compare-regions`
+
+```json
+{
+  "status": "completed",
+  "scope": "keyword",
+  "keyword": "data",
+  "nuts_level": "nuts2",
+  "window": {
+    "min_date": "2025-01-01",
+    "max_date": "2025-12-31"
+  },
+  "region_a": {},
+  "region_b": {},
+  "comparison": {}
+}
+```
+
+Regional comparison area:
+
+```json
+{
+  "code": "DK03",
+  "total_jobs": 100,
+  "top_skills": [],
+  "top_sectors": [],
+  "top_job_titles": [],
+  "top_employers": []
+}
+```
+
+Regional comparison skill:
+
+```json
+{
+  "skill_id": "skill-python",
+  "name": "Python",
+  "count": 40,
+  "share": 40.0,
+  "specialization": 1.33,
+  "is_green": false,
+  "is_digital": true,
+  "sector_spread": 4,
+  "primary_sector": "Information and communication"
+}
+```
+
+Skill comparison row:
+
+```json
+{
+  "skill_id": "skill-python",
+  "name": "Python",
+  "region_a_count": 40,
+  "region_b_count": 20,
+  "count_difference": -20,
+  "region_a_share": 40.0,
+  "region_b_share": 20.0,
+  "share_difference_percentage_points": -20.0,
+  "region_a_specialization": 1.33,
+  "region_b_specialization": 0.67,
+  "region_a_rank": 1,
+  "region_b_rank": 1
+}
+```
+
+Count comparison row used by `comparison.sectors`, `comparison.job_titles`, and `comparison.employers`:
+
+```json
+{
+  "name": "Information and communication",
+  "region_a_count": 68,
+  "region_b_count": 51,
+  "count_difference": -17
+}
+```
+
+All comparison difference fields are Region B minus Region A. Skill `share` is expressed as a percentage of postings in the corresponding region. Skill `specialization` compares the regional skill share with the combined two-region comparison set. `message` is included only when both selected regional slices contain no matching jobs.
+
 ## Regional Temporal Analysis Response
 
 `POST /projector/regional-temporal`

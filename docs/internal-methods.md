@@ -47,6 +47,7 @@ Public methods:
 | Method | Role |
 | --- | --- |
 | `analyze_skills` | Live keyword/date/region analysis from Tracker jobs. Builds skill, trend, regional and optional sector distributions. |
+| `compare_regions` | Live comparison of two same-level NUTS regions, with optional date range and keyword filter. Reuses market rankings and returns regional metrics plus B-A deltas. |
 | `emerging_skills` | Trend-only analysis over a date window. |
 | `sectoral_intelligence` | Live sector drill-down for the current sector-skill model. |
 | `sectoral_snapshot` | Yearly sector overview from PostgreSQL snapshots. |
@@ -61,6 +62,7 @@ Internal method groups:
 | Snapshot store reads | `_read_sector_snapshot_store`, `_read_sector_refresh_status`, `_sector_snapshot_store_enabled` | Isolate optional DB access and fallback behavior. |
 | Snapshot enrichment | `_enrich_sector_snapshot_payload`, `_enrich_sector_skill_metrics`, `_build_sector_evolution` | Add growth and evolution metrics using a reference year. |
 | Comparison data | `_select_comparison_sectors`, `_select_comparison_skills`, `_index_snapshot_skill_counts`, `_build_sector_skill_comparison_matrix` | Build heatmap rows for selected sectors, skills and metrics. |
+| Regional comparison | `_normalize_nuts_code`, `_infer_nuts_level`, `_job_nuts_code`, `_job_matches_nuts`, `_build_region_comparison_region`, `_compare_count_rankings`, `_build_region_comparison_summary` | Validate/filter NUTS regions and shape side-by-side market metrics and B-A deltas. |
 | Fetch windows | `_today`, `_latest_window`, `_year_window`, `_fetch_jobs_for_window` | Normalize date windows and Tracker fetch calls. |
 | Sector extraction | `_normalize_sector_filter`, `_job_sector_labels`, `_filter_jobs_by_sector`, `_build_sector_snapshot_rows` | Build observed sector-skill rows from `job["sectors"]` and `job["skills"]`. |
 | Label enrichment | `_skill_meta`, `_ensure_skill_labels` | Resolve skill labels and metadata through Tracker-backed state. |
