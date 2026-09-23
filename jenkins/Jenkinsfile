@@ -47,8 +47,9 @@ pipeline {
         sed -i "/^TRACKER_USERNAME=/d" .env
         sed -i "/^TRACKER_PASSWORD=/d" .env
 
-        printf "TRACKER_USERNAME=%s\n" "$TRACKER_USERNAME" >> .env
         printf "TRACKER_PASSWORD=%s\n" "$TRACKER_PASSWORD" >> .env
+        printf "TRACKER_USERNAME=%s\n" "$TRACKER_USERNAME" >> .env
+
 
         docker compose up -d --force-recreate projector-api
 
