@@ -19,9 +19,7 @@ from app.schemas.responses import (
 )
 from app.core.container import service
 
-router = APIRouter(prefix="/projector", tags=["Projector"])
-
-
+router = APIRouter(tags=["Projector"])
 def error_detail(code: str, message: str, field: Optional[str] = None):
     return {
         "error": {
