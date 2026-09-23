@@ -3,7 +3,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(".env")
+load_dotenv("dev.env")
 
 res = requests.post(
     f"{os.environ['TRACKER_API']}/login",

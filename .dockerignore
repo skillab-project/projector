@@ -1,4 +1,4 @@
-.env
+dev.env
 .git
 .idea
 .pytest_cache
