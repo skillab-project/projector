@@ -14,6 +14,8 @@ The project also includes a Streamlit dashboard for exploring the API output.
 
 Start from [docs/quick-start.md](docs/quick-start.md) for the current intelligence design, local run commands and dashboard navigation.
 
+For frontend handoff, see the [demo dashboard guide](docs/dashboard-demo.md).
+
 ## Current Runtime Entry Points
 
 Start the API from the repository root:

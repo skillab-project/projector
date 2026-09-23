@@ -8,6 +8,7 @@ from app.schemas.responses import (
     EmergingSkillsResponse,
     ProjectorResponse,
     RegionalTemporalResponse,
+    RegionalComparisonResponse,
     RegionalSectoralResponse,
     SectoralIntelligenceResponse,
     SectorSkillsComparisonResponse,
@@ -196,6 +197,48 @@ async def temporal_projections(
         forecast_periods=forecast_periods,
         top_k=top_k,
     )
+
+
+@router.post("/compare-regions", response_model=RegionalComparisonResponse, response_model_exclude_none=True)
+async def compare_regions(
+        region_a: str = Form(...),
+        region_b: str = Form(...),
+        min_date: Optional[str] = Form(None),
+        max_date: Optional[str] = Form(None),
+        keyword: Optional[str] = Form(None),
+):
+    """
+    Compares two regions at the same NUTS level using the Projector's existing market metrics.
+
+    If no date range is supplied, the endpoint analyzes the last 12 months.
+    When ``keyword`` is supplied, the same comparison is computed only on postings
+    matching that keyword, so the returned skill rankings describe the skills associated
+    with that keyword in each region.
+    """
+    if (min_date in (None, "")) != (max_date in (None, "")):
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "incomplete_date_range",
+                "min_date and max_date must either both be provided or both be omitted",
+                "min_date",
+            ),
+        )
+    validate_date_range(min_date, max_date, "min_date", "max_date")
+
+    try:
+        return await service.compare_regions(
+            region_a=region_a,
+            region_b=region_b,
+            min_date=min_date,
+            max_date=max_date,
+            keyword=keyword,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail("invalid_region_comparison", str(exc)),
+        ) from exc
 
 
 @router.post("/regional-temporal", response_model=RegionalTemporalResponse, response_model_exclude_none=True)

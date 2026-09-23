@@ -191,6 +191,225 @@ class ProjectorService:
             "insights": insights,
         }
 
+    async def compare_regions(
+            self,
+            region_a: str,
+            region_b: str,
+            min_date: Optional[str] = None,
+            max_date: Optional[str] = None,
+            keyword: Optional[str] = None,
+    ):
+        self.engine.stop_requested = False
+
+        region_a = self._normalize_nuts_code(region_a)
+        region_b = self._normalize_nuts_code(region_b)
+        if region_a == region_b:
+            raise ValueError("region_a and region_b must be different NUTS regions")
+
+        level_a = self._infer_nuts_level(region_a)
+        level_b = self._infer_nuts_level(region_b)
+        if level_a != level_b:
+            raise ValueError("region_a and region_b must use the same NUTS level")
+
+        if bool(min_date) != bool(max_date):
+            raise ValueError("min_date and max_date must either both be provided or both be omitted")
+        if not min_date and not max_date:
+            end = self._today()
+            start = end - timedelta(days=365)
+            min_date, max_date = start.isoformat(), end.isoformat()
+
+        normalized_keyword = str(keyword or "").strip() or None
+        # Tracker location_code is often country-level while the actual NUTS values
+        # are exposed in nuts1/nuts2/nuts3. Restrict the remote query to the two
+        # countries, then perform the authoritative NUTS filter locally.
+        countries = list(dict.fromkeys([region_a[:2], region_b[:2]]))
+        payload = {
+            "location_code": countries,
+            "min_upload_date": min_date,
+            "max_upload_date": max_date,
+        }
+        if normalized_keyword:
+            payload["keywords"] = [normalized_keyword]
+
+        jobs = await self.tracker.fetch_all_jobs(payload)
+        jobs_a = [job for job in jobs if self._job_matches_nuts(job, level_a, region_a)]
+        jobs_b = [job for job in jobs if self._job_matches_nuts(job, level_a, region_b)]
+        combined_jobs = jobs_a + jobs_b
+        await self._ensure_skill_labels(combined_jobs)
+
+        analysis_a = await self.market.analyze_market_data(jobs_a)
+        analysis_b = await self.market.analyze_market_data(jobs_b)
+
+        combined_skill_counts = Counter(
+            str(skill_id).strip()
+            for job in combined_jobs
+            for skill_id in (job.get("skills") or [])
+            if str(skill_id).strip()
+        )
+        combined_total_jobs = len(combined_jobs)
+
+        region_payload_a = self._build_region_comparison_region(
+            code=region_a,
+            analysis=analysis_a,
+            combined_skill_counts=combined_skill_counts,
+            combined_total_jobs=combined_total_jobs,
+        )
+        region_payload_b = self._build_region_comparison_region(
+            code=region_b,
+            analysis=analysis_b,
+            combined_skill_counts=combined_skill_counts,
+            combined_total_jobs=combined_total_jobs,
+        )
+
+        comparison = self._build_region_comparison_summary(region_payload_a, region_payload_b)
+        no_data = not jobs_a and not jobs_b
+        return {
+            "status": "completed" if not self.engine.stop_requested else "stopped",
+            "scope": "keyword" if normalized_keyword else "general",
+            "keyword": normalized_keyword,
+            "nuts_level": level_a,
+            "window": {"min_date": min_date, "max_date": max_date},
+            "region_a": region_payload_a,
+            "region_b": region_payload_b,
+            "comparison": comparison,
+            "message": "No jobs found for the selected regions and filters." if no_data else None,
+        }
+
+    @staticmethod
+    def _normalize_nuts_code(value: str):
+        code = str(value or "").strip().upper()
+        if len(code) not in {3, 4, 5}:
+            raise ValueError("NUTS region codes must be NUTS1, NUTS2, or NUTS3 codes (3 to 5 characters)")
+        if not code[:2].isalpha() or not code.isalnum():
+            raise ValueError("Invalid NUTS region code format")
+        return code
+
+    @staticmethod
+    def _infer_nuts_level(code: str):
+        return {3: "nuts1", 4: "nuts2", 5: "nuts3"}[len(code)]
+
+    @staticmethod
+    def _job_nuts_code(job: dict, level: str):
+        explicit = str(job.get(level) or "").strip().upper()
+        if explicit:
+            return explicit
+
+        # Compatibility fallback for older Tracker payloads where location_code
+        # itself contained a NUTS code instead of dedicated nuts* fields.
+        raw = str(job.get("location_code") or "").strip().upper()
+        target_length = {"nuts1": 3, "nuts2": 4, "nuts3": 5}[level]
+        if len(raw) >= target_length:
+            return raw[:target_length]
+        return None
+
+    def _job_matches_nuts(self, job: dict, level: str, code: str):
+        return self._job_nuts_code(job, level) == code
+
+    def _build_region_comparison_region(
+            self,
+            code: str,
+            analysis: dict,
+            combined_skill_counts: Counter,
+            combined_total_jobs: int,
+    ):
+        total_jobs = int(analysis.get("total_jobs", 0) or 0)
+        top_skills = []
+        for item in (analysis.get("rankings", {}).get("skills", []) or [])[:10]:
+            skill_id = str(item.get("skill_id") or item.get("id") or "").strip()
+            count = int(item.get("frequency", item.get("count", 0)) or 0)
+            local_share = count / total_jobs if total_jobs else 0.0
+            combined_count = int(combined_skill_counts.get(skill_id, 0) or 0)
+            combined_share = combined_count / combined_total_jobs if combined_total_jobs else 0.0
+            specialization = local_share / combined_share if combined_share else 0.0
+            top_skills.append({
+                "skill_id": skill_id,
+                "name": item.get("name") or self._skill_meta(skill_id)["label"],
+                "count": count,
+                "share": round(local_share * 100, 2),
+                "specialization": round(specialization, 2),
+                "is_green": bool(item.get("is_green", False)),
+                "is_digital": bool(item.get("is_digital", False)),
+                "sector_spread": int(item.get("sector_spread", 0) or 0),
+                "primary_sector": item.get("primary_sector") or "N/D",
+            })
+
+        rankings = analysis.get("rankings", {}) or {}
+        return {
+            "code": code,
+            "total_jobs": total_jobs,
+            "top_skills": top_skills,
+            "top_sectors": list(rankings.get("sectors", []) or [])[:10],
+            "top_job_titles": list(rankings.get("job_titles", []) or [])[:10],
+            "top_employers": list(rankings.get("employers", []) or [])[:10],
+        }
+
+    @staticmethod
+    def _compare_count_rankings(items_a: List[dict], items_b: List[dict]):
+        counts_a = {str(item.get("name")): int(item.get("count", 0) or 0) for item in items_a}
+        counts_b = {str(item.get("name")): int(item.get("count", 0) or 0) for item in items_b}
+        names = set(counts_a) | set(counts_b)
+        rows = [
+            {
+                "name": name,
+                "region_a_count": counts_a.get(name, 0),
+                "region_b_count": counts_b.get(name, 0),
+                "count_difference": counts_b.get(name, 0) - counts_a.get(name, 0),
+            }
+            for name in names
+        ]
+        rows.sort(key=lambda row: max(row["region_a_count"], row["region_b_count"]), reverse=True)
+        return rows[:10]
+
+    def _build_region_comparison_summary(self, region_a: dict, region_b: dict):
+        total_a = int(region_a.get("total_jobs", 0) or 0)
+        total_b = int(region_b.get("total_jobs", 0) or 0)
+        if total_a == 0 and total_b > 0:
+            total_difference_percentage = "new_entry"
+        elif total_a == 0:
+            total_difference_percentage = 0.0
+        else:
+            total_difference_percentage = round(((total_b - total_a) / total_a) * 100, 2)
+
+        skills_a = {item["skill_id"]: (idx + 1, item) for idx, item in enumerate(region_a.get("top_skills", []))}
+        skills_b = {item["skill_id"]: (idx + 1, item) for idx, item in enumerate(region_b.get("top_skills", []))}
+        skill_ids = set(skills_a) | set(skills_b)
+        skill_rows = []
+        for skill_id in skill_ids:
+            rank_a, item_a = skills_a.get(skill_id, (None, None))
+            rank_b, item_b = skills_b.get(skill_id, (None, None))
+            item_a = item_a or {"count": 0, "share": 0.0, "specialization": 0.0, "name": None}
+            item_b = item_b or {"count": 0, "share": 0.0, "specialization": 0.0, "name": None}
+            skill_rows.append({
+                "skill_id": skill_id,
+                "name": item_a.get("name") or item_b.get("name") or skill_id,
+                "region_a_count": int(item_a.get("count", 0) or 0),
+                "region_b_count": int(item_b.get("count", 0) or 0),
+                "count_difference": int(item_b.get("count", 0) or 0) - int(item_a.get("count", 0) or 0),
+                "region_a_share": float(item_a.get("share", 0.0) or 0.0),
+                "region_b_share": float(item_b.get("share", 0.0) or 0.0),
+                "share_difference_percentage_points": round(
+                    float(item_b.get("share", 0.0) or 0.0) - float(item_a.get("share", 0.0) or 0.0),
+                    2,
+                ),
+                "region_a_specialization": float(item_a.get("specialization", 0.0) or 0.0),
+                "region_b_specialization": float(item_b.get("specialization", 0.0) or 0.0),
+                "region_a_rank": rank_a,
+                "region_b_rank": rank_b,
+            })
+        skill_rows.sort(
+            key=lambda row: max(row["region_a_count"], row["region_b_count"]),
+            reverse=True,
+        )
+
+        return {
+            "total_jobs_difference": total_b - total_a,
+            "total_jobs_difference_percentage": total_difference_percentage,
+            "skills": skill_rows[:20],
+            "sectors": self._compare_count_rankings(region_a.get("top_sectors", []), region_b.get("top_sectors", [])),
+            "job_titles": self._compare_count_rankings(region_a.get("top_job_titles", []), region_b.get("top_job_titles", [])),
+            "employers": self._compare_count_rankings(region_a.get("top_employers", []), region_b.get("top_employers", [])),
+        }
+
     async def regional_temporal(
             self,
             min_date: str,
