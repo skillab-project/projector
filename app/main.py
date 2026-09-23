@@ -17,7 +17,11 @@ logging.basicConfig(
 logger = logging.getLogger("SKILLAB-Projector")
 
 load_dotenv()
-app = FastAPI(title="SKILLAB Projector Microservice")
+app = FastAPI(
+    title="SKILLAB Projector Microservice",
+    docs_url=None,
+    redoc_url=None,
+)
 # Percorsi normali usati direttamente dal container:
 # /projector/health, /projector/analyze-skills, ecc.
 app.include_router(
@@ -40,18 +44,20 @@ def projector_openapi():
     return app.openapi()
 
 
+@app.get("/docs", include_in_schema=False)
 @app.get("/projector/docs", include_in_schema=False)
 def projector_swagger_ui():
     return get_swagger_ui_html(
-        openapi_url="/projector/openapi.json",
+        openapi_url="openapi.json",
         title=f"{app.title} - Swagger UI",
     )
 
 
+@app.get("/redoc", include_in_schema=False)
 @app.get("/projector/redoc", include_in_schema=False)
 def projector_redoc():
     return get_redoc_html(
-        openapi_url="/projector/openapi.json",
+        openapi_url="openapi.json",
         title=f"{app.title} - ReDoc",
     )
 
