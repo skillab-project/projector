@@ -31,6 +31,7 @@ pipeline {
                         echo "TRACKER_USERNAME=${TRACKER_USER}" >> .env
                         echo "TRACKER_PASSWORD=${TRACKER_PASS}" >> .env
                         DOCKER_TAG=test docker compose build
+                        cat .env
                     '''
                 }
             }
