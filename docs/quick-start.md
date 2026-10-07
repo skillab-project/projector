@@ -113,6 +113,10 @@ Temporal Analysis
 = evolution of the same job-market slice
 = maps to D3.3 4.1.1.4, 4.2.1 and 4.2.2
 
+Region Comparison
+= compare two same-level NUTS regions in a shared period
+= skills, sectors, job titles and employers (Refs #101)
+
 Sector Overview
 = start from one sector
 = inspect snapshot or evolution
@@ -132,10 +136,14 @@ Skill Explorer
 
 ## Run Locally
 
+See [Configuration and Docker Compose](configuration.md) for all services,
+ports, environment files and flags.
+
 Full Docker stack:
 
 ```bash
-docker compose up -d projector-db projector-api projector-dashboard
+docker compose -f docker-compose.dev.yml up -d \
+  projector-db projector-api projector-dashboard
 ```
 
 Open:
@@ -148,7 +156,7 @@ Dashboard: http://127.0.0.1:8501
 Python local stack:
 
 ```bash
-docker compose up -d projector-db
+docker compose -f docker-compose.dev.yml up -d projector-db
 ```
 
 ```bash
@@ -167,6 +175,7 @@ streamlit run app/example_dashboard/demo_dashboard.py
 | Job Demand Overview | keyword/job search | keyword, date range, region | `POST /projector/analyze-skills` | Tracker API/cache |
 | Temporal Analysis | same job-market slice | keyword, date range, region, granularity | `POST /projector/temporal-projections` | Tracker API/cache |
 | Regional Temporal Analysis | region/time comparison | keyword, date range, region, granularity | `POST /projector/regional-temporal` | Tracker API/cache |
+| Region Comparison | two-region comparison | two NUTS codes, shared date range, optional keyword | `POST /projector/compare-regions` | Tracker API/cache |
 | Statistical evidence boxes | comparison views | two groups with count/total values | `POST /projector/statistical-comparison` | derived from active view |
 | Sector Overview / Snapshot | one sector | sector, region, year | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
 | Sector Overview / Evolution | one sector | sector, region, from year, to year | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
@@ -181,7 +190,7 @@ Statistical evidence boxes are collapsed by default inside comparison views. The
 Start only the database:
 
 ```bash
-docker compose up -d projector-db
+docker compose -f docker-compose.dev.yml up -d projector-db
 ```
 
 The local DB is seeded with demo sector snapshots for 2020-2024 and demo regions.

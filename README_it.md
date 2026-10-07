@@ -32,6 +32,9 @@ http://127.0.0.1:8000/docs
 
 ## Configurazione
 
+La guida completa a servizi, porte, file di ambiente e flag Docker Compose è in
+[docs/configuration.md](docs/configuration.md).
+
 Crea un file `.env` nella root del progetto:
 
 ```env

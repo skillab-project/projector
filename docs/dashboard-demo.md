@@ -2,7 +2,7 @@
 
 Developer handoff guide for `app/example_dashboard/demo_dashboard.py`.
 
-Related issues: #33, #88, #89, #90, #94, #96.
+Related issues: #33, #88, #89, #90, #94, #96, #101.
 
 ## Purpose
 
@@ -22,12 +22,25 @@ Each view includes:
 | Job Demand Overview | What does this selected job-market slice look like? | `POST /projector/analyze-skills` | Tracker API/cache |
 | Temporal Analysis | How does this job-market slice evolve over time? | `POST /projector/temporal-projections` | Tracker API/cache |
 | Regional Temporal Analysis | Where and when does demand grow for selected filters? | `POST /projector/regional-temporal` | Tracker API/cache |
+| Region Comparison | How do two same-level NUTS regions differ within one period? | `POST /projector/compare-regions` | Tracker API/cache |
 | Sector Overview | What does one sector look like in one year or between years? | `POST /projector/sectoral-snapshot` | PostgreSQL snapshots |
 | Sector Skills Comparison | How do sectors compare on selected skills? | `POST /projector/sector-skills-comparison` | PostgreSQL snapshots |
 | Regional Sector Distribution | Which sectors are strongest by region, and how do they evolve? | `POST /projector/regional-sectoral` | PostgreSQL snapshots |
 | Skill Explorer | Where is one skill requested and how does it evolve? | `POST /projector/skill-explorer` | PostgreSQL snapshots or Tracker API/cache |
 
 ## View Details
+
+### Region Comparison
+
+Parameters: two distinct same-level NUTS codes (`region_a`, `region_b`), a shared date range (default: last 365 days), optional job-search `keyword`.
+
+- Posting totals: `region_a.total_jobs`, `region_b.total_jobs`, `comparison.total_jobs_difference`.
+- Four tabs: `comparison.skills`, `.sectors`, `.job_titles`, `.employers`, with grouped bars and tables.
+- Skills can be plotted by count or share. Tables also show rank, specialization and share difference in percentage points.
+- Differences are **B minus A in the same period**, not growth over time. Share = skill occurrences / regional postings x 100. Specialization compares regional share with the combined two-region share.
+- Regional overviews contain top-10 items. Comparison counts use the full underlying distributions, including items outside the other region's top-10.
+- Each section has an API marker with the submitted request, full returned response and fields used. Labels and metric help support IT/EN.
+- Invalid inputs, empty results, a region with no postings, connection errors and changed filters are handled explicitly. This view uses real NUTS fields; the synthetic NUTS toggle does not apply.
 
 ### Job Demand Overview
 

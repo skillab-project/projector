@@ -5,24 +5,25 @@ This folder contains the maintained documentation for the current `app/` impleme
 ## Reading Order
 
 1. [Quick start](quick-start.md) gives the short operational guide, intelligence design and final navigation.
-2. [Demo dashboard guide](dashboard-demo.md) maps each demo view to parameters, endpoints, fields and data sources.
-3. [Overview](overview.md) explains what the service does and who it is for.
-4. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
-5. [API reference](api-reference.md) documents current public endpoints and form fields.
-6. [Data model](data-model.md) explains response fields.
-7. [Statistics](statistic.md) explains metric formulas.
-8. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
-9. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
-10. [Database](database.md) documents PostgreSQL sector snapshot storage.
-11. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
-12. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
-13. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
-14. [Data sources](data-sources.md) explains Tracker API data usage.
-15. [Architecture](architecture.md) maps the runtime flow to the current code.
-16. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
-17. [Examples](examples.md) provides request examples and frontend integration patterns.
-18. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-19. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+2. [Configuration and Docker Compose](configuration.md) documents services, ports, environment files and runtime flags.
+3. [Demo dashboard guide](dashboard-demo.md) maps each demo view to parameters, endpoints, fields and data sources.
+4. [Overview](overview.md) explains what the service does and who it is for.
+5. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
+6. [API reference](api-reference.md) documents current public endpoints and form fields.
+7. [Data model](data-model.md) explains response fields.
+8. [Statistics](statistic.md) explains metric formulas.
+9. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
+10. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
+11. [Database](database.md) documents PostgreSQL sector snapshot storage.
+12. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
+13. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
+14. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
+15. [Data sources](data-sources.md) explains Tracker API data usage.
+16. [Architecture](architecture.md) maps the runtime flow to the current code.
+17. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
+18. [Examples](examples.md) provides request examples and frontend integration patterns.
+19. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+20. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
 
 ## Issue Coverage
 

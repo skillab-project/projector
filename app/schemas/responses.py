@@ -296,6 +296,70 @@ class RegionalProjections(BaseModel):
     nuts3: List[RegionalArea] = Field(..., description="Projected aggregation at NUTS3-like level.")
 
 
+class RegionalComparisonSkillMetric(BaseModel):
+    skill_id: str
+    name: str
+    count: int
+    share: float = Field(..., description="Skill mentions divided by postings in the region, expressed as a percentage.")
+    specialization: float = Field(..., description="Location-quotient-like concentration versus the combined two-region comparison set.")
+    is_green: bool
+    is_digital: bool
+    sector_spread: int
+    primary_sector: str
+
+
+class RegionalComparisonRegion(BaseModel):
+    code: str
+    total_jobs: int
+    top_skills: List[RegionalComparisonSkillMetric]
+    top_sectors: List[CountItem]
+    top_job_titles: List[CountItem]
+    top_employers: List[CountItem]
+
+
+class RegionalComparisonSkillDelta(BaseModel):
+    skill_id: str
+    name: str
+    region_a_count: int
+    region_b_count: int
+    count_difference: int = Field(..., description="Region B count minus Region A count.")
+    region_a_share: float
+    region_b_share: float
+    share_difference_percentage_points: float = Field(..., description="Region B share minus Region A share, in percentage points.")
+    region_a_specialization: float
+    region_b_specialization: float
+    region_a_rank: Optional[int] = None
+    region_b_rank: Optional[int] = None
+
+
+class RegionalComparisonCountDelta(BaseModel):
+    name: str
+    region_a_count: int
+    region_b_count: int
+    count_difference: int = Field(..., description="Region B count minus Region A count.")
+
+
+class RegionalComparisonSummary(BaseModel):
+    total_jobs_difference: int = Field(..., description="Region B jobs minus Region A jobs.")
+    total_jobs_difference_percentage: Union[float, Literal["new_entry"]]
+    skills: List[RegionalComparisonSkillDelta]
+    sectors: List[RegionalComparisonCountDelta]
+    job_titles: List[RegionalComparisonCountDelta]
+    employers: List[RegionalComparisonCountDelta]
+
+
+class RegionalComparisonResponse(BaseModel):
+    status: str
+    scope: Literal["general", "keyword"]
+    keyword: Optional[str] = None
+    nuts_level: Literal["nuts1", "nuts2", "nuts3"]
+    window: dict[str, str]
+    region_a: RegionalComparisonRegion
+    region_b: RegionalComparisonRegion
+    comparison: RegionalComparisonSummary
+    message: Optional[str] = None
+
+
 class RegionalSectorItem(BaseModel):
     sector: str = Field(..., description="Human-readable sector label.")
     sector_code: str = Field(..., description="Sector code or Tracker sector key used by the sectoral dimension.")

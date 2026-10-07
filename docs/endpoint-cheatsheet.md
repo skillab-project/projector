@@ -9,6 +9,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | Endpoint | Use it when you need | Returns in one sentence |
 | --- | --- | --- |
 | `POST /projector/analyze-skills` | Job Demand Overview | Composition of a selected job-market slice: skills, sectors, employers, titles, trends and geography |
+| `POST /projector/compare-regions` | Direct comparison of two NUTS regions | Side-by-side job volume, top skills, sectors, job titles, employers and Region B minus Region A deltas |
 | `POST /projector/regional-temporal` | Regional Temporal Analysis | Regional demand by period, with top skills per region |
 | `POST /projector/skill-explorer` | Skill Explorer | One skill distributed across sectors, regions and time |
 | `POST /projector/sectoral-snapshot` | One-sector yearly snapshot or evolution | Static yearly sector rows enriched with skills, job titles and evolution metrics |
@@ -98,6 +99,90 @@ When `include_sectoral=true`:
 - no ISCO, canonical, matrix, or ESCO-NACE crosswalk data is used.
 
 Important: sector totals are relationship counts. A job with multiple sectors contributes to each listed sector.
+
+## `POST /projector/compare-regions`
+
+Use this when the user wants to compare two specific NUTS regions directly. Both regions must use the same NUTS level.
+
+Without a keyword, it compares the general regional job-market composition. With a keyword, it first restricts the jobs to that keyword and then compares the associated skills and the other existing market rankings.
+
+### Minimal Request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/compare-regions" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "region_a=DK03" \
+  -d "region_b=ITF4"
+```
+
+If dates are omitted, the endpoint uses the last 12 months. Optional filters:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/projector/compare-regions" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "region_a=DK03" \
+  -d "region_b=ITF4" \
+  -d "min_date=2025-01-01" \
+  -d "max_date=2025-12-31" \
+  -d "keyword=data"
+```
+
+### What It Returns
+
+```json
+{
+  "status": "completed",
+  "scope": "general",
+  "keyword": null,
+  "nuts_level": "nuts2",
+  "window": {
+    "min_date": "2025-09-23",
+    "max_date": "2026-09-23"
+  },
+  "region_a": {
+    "code": "DK03",
+    "total_jobs": 12,
+    "top_skills": [],
+    "top_sectors": [],
+    "top_job_titles": [],
+    "top_employers": []
+  },
+  "region_b": {
+    "code": "ITF4",
+    "total_jobs": 9,
+    "top_skills": [],
+    "top_sectors": [],
+    "top_job_titles": [],
+    "top_employers": []
+  },
+  "comparison": {
+    "total_jobs_difference": -3,
+    "total_jobs_difference_percentage": -25.0,
+    "skills": [],
+    "sectors": [],
+    "job_titles": [],
+    "employers": []
+  }
+}
+```
+
+### How To Read It
+
+| Field | Meaning | Typical UI use |
+| --- | --- | --- |
+| `scope` | `general` or `keyword` according to the selected analysis | Context label |
+| `nuts_level` | NUTS level inferred from both region codes | Region selector state |
+| `window` | Effective analysis dates, including the default last-12-month window | Filter summary |
+| `region_a.total_jobs`, `region_b.total_jobs` | Matching postings in each region | Side-by-side KPI cards |
+| `region_*.top_skills` | Top regional skills with count, share and specialization | Skill comparison table/chart |
+| `region_*.top_sectors` | Top sector counts | Sector comparison |
+| `region_*.top_job_titles` | Top job-title counts | Job-title comparison |
+| `region_*.top_employers` | Top employer counts | Employer comparison |
+| `comparison.total_jobs_difference` | Region B jobs minus Region A jobs | Delta KPI |
+| `comparison.skills` | Skill counts, shares, specialization, ranks and B-A deltas | Main regional skill comparison |
+| `comparison.sectors`, `job_titles`, `employers` | Count deltas across the two top-ranking sets | Difference tables |
+
+Skill `specialization` is a location-quotient-like concentration against the combined two-region comparison set. All comparison differences use Region B minus Region A.
 
 ## `POST /projector/regional-temporal`
 

@@ -14,6 +14,11 @@ The project also includes a Streamlit dashboard for exploring the API output.
 
 Start from [docs/quick-start.md](docs/quick-start.md) for the current intelligence design, local run commands and dashboard navigation.
 
+For environment variables, service ports and Docker Compose flags, see the
+[configuration guide](docs/configuration.md).
+
+For frontend handoff, see the [demo dashboard guide](docs/dashboard-demo.md).
+
 ## Current Runtime Entry Points
 
 Start the API from the repository root:
@@ -31,7 +36,8 @@ streamlit run app/example_dashboard/demo_dashboard.py
 Run API, dashboard and PostgreSQL with Docker:
 
 ```bash
-docker compose up -d projector-db projector-api projector-dashboard
+docker compose -f docker-compose.dev.yml up -d \
+  projector-db projector-api projector-dashboard
 ```
 
 The API is available at:
@@ -56,7 +62,8 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the repository root:
+Create a `.env` file for direct Python execution, or `dev.env` for the local
+Docker stack:
 
 ```env
 TRACKER_API=https://your-tracker-url
@@ -66,12 +73,15 @@ TRACKER_CACHE_TTL_DAYS=30
 DATABASE_URL=postgresql://skillab:skillab@localhost:5433/skillab_projector
 ```
 
+The complete variable reference and the distinction between the two files are
+documented in [docs/configuration.md](docs/configuration.md).
+
 ## Local Database
 
 Start only PostgreSQL:
 
 ```bash
-docker compose up -d projector-db
+docker compose -f docker-compose.dev.yml up -d projector-db
 ```
 
 The container applies `migrations/*.sql` on first boot and seeds demo sector snapshots for 2020-2024, including demo/regional data.
@@ -79,8 +89,8 @@ The container applies `migrations/*.sql` on first boot and seeds demo sector sna
 To reseed from scratch:
 
 ```bash
-docker compose down -v
-docker compose up -d projector-db
+docker compose -f docker-compose.dev.yml down -v
+docker compose -f docker-compose.dev.yml up -d projector-db
 ```
 
 ## Repository Layout

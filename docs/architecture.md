@@ -102,6 +102,8 @@ Regional analytics use:
 
 When `demo=true`, country-level location codes can be expanded into synthetic NUTS-like codes to demonstrate regional drill-down behavior.
 
+`POST /projector/compare-regions` uses a stricter regional path: both requested codes must be different and at the same inferred NUTS level, and jobs are matched against Tracker `nuts1`, `nuts2`, or `nuts3` fields. `location_code` is only a compatibility fallback for older payloads without dedicated NUTS fields. The endpoint fetches the two countries involved, applies the authoritative NUTS filter locally, then reuses market analytics for each regional slice.
+
 ## Sector Strategy
 
 Sector analytics use only Tracker job fields:
