@@ -8,6 +8,18 @@ class RegionalAnalytics:
     def _resolve_region_codes(self, job: dict, idx: int, demo: bool = False):
         loc_original = str(job.get("location_code", "EU")).strip()
 
+        explicit_nuts1 = str(job.get("nuts1") or "").strip().upper() or None
+        explicit_nuts2 = str(job.get("nuts2") or "").strip().upper() or None
+        explicit_nuts3 = str(job.get("nuts3") or "").strip().upper() or None
+
+        if explicit_nuts1 or explicit_nuts2 or explicit_nuts3:
+            return {
+                "raw": loc_original,
+                "nuts1": explicit_nuts1,
+                "nuts2": explicit_nuts2,
+                "nuts3": explicit_nuts3,
+            }
+
         if demo and len(loc_original) <= 2:
             country_prefix = loc_original[:2].upper() if len(loc_original) >= 2 else "EU"
             l1 = (idx % 3) + 1

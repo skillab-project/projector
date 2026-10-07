@@ -6,24 +6,58 @@ This folder contains the maintained documentation for the current `app/` impleme
 
 1. [Quick start](quick-start.md) gives the short operational guide, intelligence design and final navigation.
 2. [Configuration and Docker Compose](configuration.md) documents services, ports, environment files and runtime flags.
-3. [Demo dashboard guide](dashboard-demo.md) maps each demo view to parameters, endpoints, fields and data sources.
-4. [Overview](overview.md) explains what the service does and who it is for.
-5. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
-6. [API reference](api-reference.md) documents current public endpoints and form fields.
-7. [Data model](data-model.md) explains response fields.
-8. [Statistics](statistic.md) explains metric formulas.
-9. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
-10. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
-11. [Database](database.md) documents PostgreSQL sector snapshot storage.
-12. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
-13. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
-14. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
-15. [Data sources](data-sources.md) explains Tracker API data usage.
-16. [Architecture](architecture.md) maps the runtime flow to the current code.
-17. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
-18. [Examples](examples.md) provides request examples and frontend integration patterns.
-19. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
-20. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+3. [Self-contained demo query guide](DEMO_QUERY_GUIDE_EN.md) provides ready-to-run queries, filters and expected results for the synthetic demo.
+4. [Demo dashboard guide](dashboard-demo.md) maps each demo view to parameters, endpoints, fields and data sources.
+5. [Overview](overview.md) explains what the service does and who it is for.
+6. [Endpoint cheatsheet](endpoint-cheatsheet.md) gives a compact consumer-facing schema of what each endpoint returns.
+7. [API reference](api-reference.md) documents current public endpoints and form fields.
+8. [Data model](data-model.md) explains response fields.
+9. [Statistics](statistic.md) explains metric formulas.
+10. [Forecasting scope](forecasting-scope.md) defines current trend monitoring vs deferred predictive forecasting.
+11. [Sector intelligence](sector-intelligence.md) explains Tracker API sector analytics and yearly snapshots.
+12. [Database](database.md) documents PostgreSQL sector snapshot storage.
+13. [Production snapshots](production-snapshots.md) explains bootstrap, scheduled refresh, validation and recovery.
+14. [D3.3 gap analysis](d33-deliverable-gap-analysis.md) maps deliverable sections to implemented runtime evidence.
+15. [D3.3 edit plan](d33-deliverable-edit-plan.md) gives concise wording changes for the `.docx`.
+16. [Data sources](data-sources.md) explains Tracker API data usage.
+17. [Architecture](architecture.md) maps the runtime flow to the current code.
+18. [Internal method map](internal-methods.md) maps service methods, helper groups and maintenance rules.
+19. [Examples](examples.md) provides request examples and frontend integration patterns.
+20. [Issue management](issue-management.md) defines issue labels, Project statuses and decision/implementation flows.
+21. [Contributing and quality workflow](../CONTRIBUTING.md) explains Jenkins, quality gates and generated reports.
+
+## Self-Contained Synthetic Demo
+
+Use the standalone demo when production Tracker access or credentials are not available. The stack contains PostgreSQL, the Projector API, the Streamlit dashboard, a Tracker-compatible mock API and the snapshot refresh service.
+
+Start all demo services from the repository root:
+
+```bash
+docker compose -f demo-docker-compose.yml up --build -d
+```
+
+Open:
+
+- Dashboard: `http://localhost:8501`
+- Projector API documentation: `http://localhost:8000/projector/docs`
+- Mock Tracker API documentation: `http://localhost:8001/docs`
+
+The synthetic dataset is generated automatically and contains a complete country/NUTS1/NUTS2/NUTS3 hierarchy. Use the [English demo query guide](DEMO_QUERY_GUIDE_EN.md) for recommended scenarios, exact filters and expected results. An [Italian version](DEMO_QUERY_GUIDE_IT.md) is also available.
+
+Stop the stack:
+
+```bash
+docker compose -f demo-docker-compose.yml down
+```
+
+Reset all demo-only data and rebuild it:
+
+```bash
+docker compose -f demo-docker-compose.yml down -v
+docker compose -f demo-docker-compose.yml up --build -d
+```
+
+The demo stack does not replace production Tracker configuration. The mock Tracker is selected only by `demo-docker-compose.yml`.
 
 ## Issue Coverage
 

@@ -47,6 +47,93 @@ The API is available at:
 
 `uvicorn main:app --reload` still exists as a legacy root entrypoint, but `app.main:app` is the package entrypoint aligned with the current code layout.
 
+## Self-Contained Synthetic Demo
+
+The repository includes a standalone demo stack that does not require access to the production SKILLAB Tracker. It runs the complete Projector workflow against a local Tracker-compatible mock API and a deterministic synthetic dataset.
+
+The demo architecture is:
+
+```text
+Streamlit dashboard
+        |
+        v
+Projector API --------> PostgreSQL sector snapshots
+        |
+        v
+Mock Tracker API -----> synthetic_jobs.json
+```
+
+The synthetic dataset contains 8,000 postings from 2020 through October 7, 2026. It covers six NUTS2 regions, preserves the full country/NUTS1/NUTS2/NUTS3 hierarchy, includes every sector in every region, and uses controlled regional and temporal distributions.
+
+### Start the demo
+
+From the repository root, build and start the complete stack:
+
+```bash
+docker compose -f demo-docker-compose.yml up --build -d
+```
+
+This starts:
+
+| Service | Address | Purpose |
+|---|---|---|
+| Demo dashboard | `http://localhost:8501` | Interactive Streamlit interface |
+| Projector API | `http://localhost:8000/projector/docs` | Projector endpoints and Swagger UI |
+| Mock Tracker API | `http://localhost:8001/docs` | Tracker-compatible demo API |
+| PostgreSQL | `localhost:5433` | Sector snapshot storage |
+| Snapshot refresh | background service | Builds yearly and regional sector snapshots |
+
+The mock Tracker generates the synthetic dataset automatically on first startup. Snapshot-backed views may take longer to become available because `projector-snapshot-refresh` populates PostgreSQL after the database and mock Tracker are ready.
+
+To follow startup and snapshot population:
+
+```bash
+docker compose -f demo-docker-compose.yml logs -f \
+  mock-tracker projector-api projector-snapshot-refresh
+```
+
+### Use the demo
+
+1. Open `http://localhost:8501`.
+2. Select a dashboard view.
+3. Use exact dates, keywords and NUTS codes from the [English demo query guide](docs/DEMO_QUERY_GUIDE_EN.md).
+4. Use live views first: Job Demand Overview, Temporal Analysis, Regional Temporal Analysis and Region Comparison.
+5. Use snapshot views after the snapshot refresh has populated PostgreSQL: Sector Overview, Sector Skills Comparison, Regional Sector Distribution and snapshot-mode Skill Explorer.
+
+The available regional hierarchy includes:
+
+```text
+IT -> ITF -> ITF4 -> ITF47 / ITF45 / ITF43
+IT -> ITC -> ITC4 -> ITC4C / ITC46 / ITC47
+DE -> DE3 -> DE30 -> DE300
+DE -> DE2 -> DE21 -> DE212 / DE211 / DE213
+FR -> FR1 -> FR10 -> FR101 / FR105
+FR -> FRK -> FRK2 -> FRK26 / FRK24 / FRK25
+```
+
+For ready-to-run scenarios and expected results, see:
+
+- [English demo query guide](docs/DEMO_QUERY_GUIDE_EN.md)
+- [Italian demo query guide](docs/DEMO_QUERY_GUIDE_IT.md)
+- [Dashboard implementation guide](docs/dashboard-demo.md)
+
+### Stop or reset the demo
+
+Stop the demo while preserving generated data and snapshots:
+
+```bash
+docker compose -f demo-docker-compose.yml down
+```
+
+Delete the demo-only volumes and regenerate the dataset, caches and snapshots from scratch:
+
+```bash
+docker compose -f demo-docker-compose.yml down -v
+docker compose -f demo-docker-compose.yml up --build -d
+```
+
+The demo stack is isolated from production configuration. Only `demo-docker-compose.yml` points `TRACKER_API` to the local mock Tracker; the regular Compose files and production Tracker settings are unchanged.
+
 ## Installation
 
 Create and activate a virtual environment:
@@ -197,6 +284,7 @@ See [Sector intelligence](docs/sector-intelligence.md) and [Statistics](docs/sta
 Start here:
 - [Contributing and quality workflow](CONTRIBUTING.md)
 - [Documentation index](docs/README.md)
+- [Self-contained demo query guide](docs/DEMO_QUERY_GUIDE_EN.md)
 - [Overview](docs/overview.md)
 - [Endpoint cheatsheet](docs/endpoint-cheatsheet.md)
 - [API reference](docs/api-reference.md)
