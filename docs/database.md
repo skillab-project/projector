@@ -6,11 +6,13 @@ Related issues: #44, #54.
 
 Production bootstrap and scheduler operations are summarized in
 [Production snapshots](production-snapshots.md).
+Environment variables and Compose service settings are defined centrally in
+[Configuration and Docker Compose](configuration.md).
 
 ## Local DB
 
 ```bash
-docker compose up -d projector-db
+docker compose -f docker-compose.dev.yml up -d projector-db
 ```
 
 ```text
@@ -194,7 +196,8 @@ This checks the DB repeatedly and runs the backfill only when the latest complet
 Docker scheduler service:
 
 ```bash
-docker compose up -d projector-db projector-snapshot-refresh
+docker compose -f docker-compose.dev.yml up -d \
+  projector-db projector-snapshot-refresh
 ```
 
 It runs the scheduler as a long-running container. Defaults:
@@ -207,22 +210,8 @@ It runs the scheduler as a long-running container. Defaults:
 - resumable cache in `/workspace/cache_data`
 - rotating logs in `/workspace/logs`
 
-Configure with environment variables:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `SNAPSHOT_INTERVAL_MONTHS` | `3` | refresh interval |
-| `SNAPSHOT_CHECK_INTERVAL_DAYS` | `1` | how often scheduler checks if refresh is due |
-| `SNAPSHOT_START_YEAR` | current year | first year |
-| `SNAPSHOT_END_YEAR` | current year | last year |
-| `SNAPSHOT_REGIONS` | auto | comma-separated location codes |
-| `SNAPSHOT_SKIP_GLOBAL` | `false` | skip global snapshot |
-| `SNAPSHOT_RUN_IMMEDIATELY` | `true` | run at startup |
-| `SNAPSHOT_PAGE_SIZE` | `500` | Tracker page size |
-| `SNAPSHOT_PAGE_CONCURRENCY` | `4` | parallel Tracker pages |
-| `SNAPSHOT_MAX_RETRIES` | `5` | retries per page |
-| `SNAPSHOT_SCHEDULER_LOG_FILE` | `logs/sector_snapshot_scheduler.log` | rotating scheduler log |
-| `SNAPSHOT_DEBUG` | `false` | verbose scheduler console logs |
+The complete scheduler variable table, defaults and accepted boolean values are
+maintained in [Configuration and Docker Compose](configuration.md#snapshot-scheduler-variables).
 
 Example:
 
@@ -231,19 +220,19 @@ SNAPSHOT_START_YEAR=2024 \
 SNAPSHOT_END_YEAR=2024 \
 SNAPSHOT_CHECK_INTERVAL_DAYS=1 \
 SNAPSHOT_PAGE_CONCURRENCY=8 \
-docker compose up -d projector-snapshot-refresh
+docker compose -f docker-compose.dev.yml up -d projector-snapshot-refresh
 ```
 
 Logs:
 
 ```bash
-docker compose logs -f projector-snapshot-refresh
+docker compose -f docker-compose.dev.yml logs -f projector-snapshot-refresh
 ```
 
 Stop scheduler only:
 
 ```bash
-docker compose stop projector-snapshot-refresh
+docker compose -f docker-compose.dev.yml stop projector-snapshot-refresh
 ```
 
 Each refresh/write:
@@ -265,6 +254,6 @@ Migrations seed demo data for:
 Reset demo DB:
 
 ```bash
-docker compose down -v
-docker compose up -d projector-db
+docker compose -f docker-compose.dev.yml down -v
+docker compose -f docker-compose.dev.yml up -d projector-db
 ```

@@ -240,6 +240,19 @@ class ProjectorService:
         analysis_a = await self.market.analyze_market_data(jobs_a)
         analysis_b = await self.market.analyze_market_data(jobs_b)
 
+        # Compare full distributions before trimming the per-region overview.
+        for analysis, region_jobs in ((analysis_a, jobs_a), (analysis_b, jobs_b)):
+            rankings = analysis["rankings"]
+            for key, field in (("employers", "organization_name"), ("job_titles", "title")):
+                counts = Counter(job.get(field) or "N/D" for job in region_jobs)
+                rankings[key] = [{"name": name, "count": count} for name, count in counts.most_common()]
+            sectors = Counter(
+                sector for job in region_jobs
+                for sector in (self.occupations.get_sector_keys_from_job(job, level="nace_section")
+                               or ["Sector not specified"])
+            )
+            rankings["sectors"] = [{"name": name, "count": count} for name, count in sectors.most_common()]
+
         combined_skill_counts = Counter(
             str(skill_id).strip()
             for job in combined_jobs
@@ -262,6 +275,9 @@ class ProjectorService:
         )
 
         comparison = self._build_region_comparison_summary(region_payload_a, region_payload_b)
+        for region_payload in (region_payload_a, region_payload_b):
+            for key in ("top_skills", "top_sectors", "top_job_titles", "top_employers"):
+                region_payload[key] = region_payload[key][:10]
         no_data = not jobs_a and not jobs_b
         return {
             "status": "completed" if not self.engine.stop_requested else "stopped",
@@ -314,7 +330,7 @@ class ProjectorService:
     ):
         total_jobs = int(analysis.get("total_jobs", 0) or 0)
         top_skills = []
-        for item in (analysis.get("rankings", {}).get("skills", []) or [])[:10]:
+        for item in (analysis.get("rankings", {}).get("skills", []) or []):
             skill_id = str(item.get("skill_id") or item.get("id") or "").strip()
             count = int(item.get("frequency", item.get("count", 0)) or 0)
             local_share = count / total_jobs if total_jobs else 0.0
@@ -338,9 +354,9 @@ class ProjectorService:
             "code": code,
             "total_jobs": total_jobs,
             "top_skills": top_skills,
-            "top_sectors": list(rankings.get("sectors", []) or [])[:10],
-            "top_job_titles": list(rankings.get("job_titles", []) or [])[:10],
-            "top_employers": list(rankings.get("employers", []) or [])[:10],
+            "top_sectors": list(rankings.get("sectors", []) or []),
+            "top_job_titles": list(rankings.get("job_titles", []) or []),
+            "top_employers": list(rankings.get("employers", []) or []),
         }
 
     @staticmethod
@@ -357,7 +373,7 @@ class ProjectorService:
             }
             for name in names
         ]
-        rows.sort(key=lambda row: max(row["region_a_count"], row["region_b_count"]), reverse=True)
+        rows.sort(key=lambda row: (-max(row["region_a_count"], row["region_b_count"]), row["name"]))
         return rows[:10]
 
     def _build_region_comparison_summary(self, region_a: dict, region_b: dict):
@@ -397,8 +413,7 @@ class ProjectorService:
                 "region_b_rank": rank_b,
             })
         skill_rows.sort(
-            key=lambda row: max(row["region_a_count"], row["region_b_count"]),
-            reverse=True,
+            key=lambda row: (-max(row["region_a_count"], row["region_b_count"]), row["skill_id"]),
         )
 
         return {

@@ -1,0 +1,1296 @@
+[   48211ms] [WARNING] `preventOverflow` modifier is required by `hide` modifier in order to work, be sure to include it before `hide`! @ http://127.0.0.1:8511/static/js/utils.CU17Veq9.js:2
+[  304035ms] [WARNING] WebSocket onclose @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:20
+[  304084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  304084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  304186ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  304187ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  304432ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  304432ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  304804ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  304804ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  305751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  305751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  307057ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  307057ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  307057ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  307057ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  309060ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  309060ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  309060ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  309060ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  311063ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  311063ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  311063ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  311063ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  313068ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  313068ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  313069ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  313070ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  315072ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  315073ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  315073ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  315073ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  317077ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  317077ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  317077ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  317095ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  319085ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  319085ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  319085ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  319086ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  321089ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  321089ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  321090ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  321090ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  323095ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  323095ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  323095ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  323096ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  325153ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  325154ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  325154ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  325154ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  327158ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  327159ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  327159ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  327173ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  329164ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  329164ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  329164ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  329181ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  331168ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  331169ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  331169ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  331169ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  333173ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  333173ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  333173ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  333173ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  335179ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  335179ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  335179ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  335179ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  337184ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  337184ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  337185ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  337199ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  339191ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  339191ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  339191ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  339191ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  341197ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  341197ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  341197ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  341209ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  343201ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  343202ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  343202ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  343202ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  345206ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  345206ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  345206ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  345206ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  347212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  347212ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  347212ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  347228ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  349220ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  349220ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  349220ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  349220ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  351224ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  351224ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  351224ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  351225ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  353228ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  353228ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  353229ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  353229ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  355240ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  355240ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  355240ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  355240ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  357245ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  357245ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  357245ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  357245ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  359251ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  359251ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  359251ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  359271ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  361261ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  361261ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  361261ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  361261ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  363266ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  363266ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  363266ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  363267ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  365269ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  365269ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  365269ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  365269ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  367285ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  367285ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  367285ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  367285ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  369290ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  369290ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  369290ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  369303ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  371298ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  371298ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  371298ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  371298ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  373300ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  373300ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  373300ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  373300ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  375307ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  375307ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  375307ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  375307ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  377311ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  377311ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  377311ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  377326ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  379320ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  379320ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  379320ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  379320ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  381324ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  381324ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  381325ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  381340ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  383332ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  383332ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  383332ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  383351ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  385337ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  385337ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  385337ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  385348ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  387344ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  387345ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  387345ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  387345ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  389351ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  389351ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  389351ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  389362ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  391357ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  391357ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  391357ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  391358ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  393361ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  393361ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  393361ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  393373ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  395367ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  395367ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  395368ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  395368ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  397376ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  397376ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  397376ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  397376ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  399383ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  399383ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  399383ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  399383ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  401391ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  401391ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  401391ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  401391ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  403399ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  403399ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  403399ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  403399ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  405407ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  405407ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  405407ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  405407ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  407416ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  407416ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  407416ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  407416ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  409426ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  409426ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  409426ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  409426ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  411431ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  411431ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  411431ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  411433ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  413442ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  413442ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  413442ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  413442ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  415450ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  415450ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  415450ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  415450ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  417456ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  417456ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  417456ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  417456ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  419463ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  419463ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  419464ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  419464ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  421472ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  421472ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  421472ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  421472ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  423479ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  423479ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  423479ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  423479ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  425483ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  425483ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  425483ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  425484ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  427488ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  427488ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  427488ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  427488ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  429493ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  429493ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  429493ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  429509ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  431498ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  431498ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  431498ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  431498ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  433504ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  433504ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  433504ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  433516ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  435509ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  435509ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  435509ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  435509ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  437514ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  437514ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  437515ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  437516ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  439521ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  439521ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  439521ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  439535ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  441526ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  441526ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  441526ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  441527ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  443530ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  443530ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  443530ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  443532ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  445538ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  445538ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  445538ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  445538ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  447544ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  447544ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  447545ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  447545ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  449552ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  449552ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  449552ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  449552ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  451557ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  451557ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  451557ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  451574ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  453562ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  453562ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  453563ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  453574ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  455568ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  455568ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  455568ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  455570ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  457573ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  457573ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  457573ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  457575ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  459579ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  459579ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  459579ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  459579ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  461584ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  461584ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  461584ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  461597ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  463591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  463591ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  463591ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  463607ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  465598ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  465598ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  465598ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  465598ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  467606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  467606ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  467606ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  467606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  469611ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  469611ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  469612ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  469613ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  471616ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  471616ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  471616ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  471616ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  473621ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  473621ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  473621ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  473633ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  475627ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  475627ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  475627ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  475639ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  477634ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  477634ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  477634ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  477635ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  479640ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  479640ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  479641ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  479651ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  481651ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  481651ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  481651ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  481651ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  483657ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  483657ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  483657ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  483658ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  485663ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  485664ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  485664ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  485664ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  487671ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  487671ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  487671ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  487671ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  489677ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  489677ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  489677ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  489678ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  491685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  491685ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  491685ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  491685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  493692ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  493692ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  493692ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  493692ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  495697ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  495697ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  495697ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  495698ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  497704ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  497704ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  497704ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  497704ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  499709ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  499709ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  499709ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  499723ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  501714ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  501714ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  501714ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  501714ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  503723ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  503723ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  503723ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  503723ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  505730ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  505730ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  505730ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  505731ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  507737ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  507737ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  507738ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  507738ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  509744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  509744ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  509744ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  509744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  511749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  511750ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  511750ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  511761ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  513758ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  513759ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  513759ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  513759ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  515764ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  515765ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  515765ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  515765ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  517771ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  517771ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  517771ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  517771ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  519776ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  519777ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  519777ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  519777ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  521781ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  521781ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  521781ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  521793ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  523789ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  523789ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  523789ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  523789ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  525794ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  525794ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  525794ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  525795ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  527801ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  527801ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  527802ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  527802ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  529811ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  529811ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  529811ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  529811ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  531818ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  531818ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  531818ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  531818ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  533828ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  533828ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  533828ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  533828ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  535835ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  535835ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  535835ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  535835ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  537842ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  537842ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  537842ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  537842ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  539846ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  539846ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  539846ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  539859ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  541854ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  541854ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  541854ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  541854ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  543862ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  543863ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  543863ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  543863ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  545870ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  545870ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  545870ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  545870ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  547875ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  547875ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  547875ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  547891ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  549880ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  549880ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  549880ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  549894ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  551888ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  551888ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  551888ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  551888ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  553893ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  553894ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  553894ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  553905ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  555902ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  555902ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  555903ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  555903ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  557908ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  557908ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  557908ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  557920ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  559913ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  559913ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  559914ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  559914ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  561919ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  561920ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  561920ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  561920ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  563927ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  563927ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  563927ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  563927ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  565932ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  565932ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  565932ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  565932ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  567947ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  567947ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  567947ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  567947ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  569954ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  569954ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  569954ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  569955ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  571961ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  571961ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  571961ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  571961ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  573969ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  573969ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  573969ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  573969ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  575977ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  575977ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  575977ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  575977ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  577982ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  577983ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  577983ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  577983ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  579994ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  579994ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  579994ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  579994ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  582001ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  582001ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  582001ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  582002ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  584008ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  584008ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  584008ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  584008ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  586012ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  586012ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  586012ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  586024ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  588017ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  588017ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  588017ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  588028ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  590025ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  590025ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  590025ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  590026ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  592030ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  592030ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  592030ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  592031ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  594035ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  594035ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  594035ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  594046ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  596043ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  596043ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  596043ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  596044ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  598048ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  598048ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  598049ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  598049ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  600056ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  600056ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  600056ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  600057ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  602063ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  602063ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  602063ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  602064ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  604069ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  604069ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  604069ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  604070ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  606073ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  606074ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  606074ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  606074ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  608079ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  608079ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  608079ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  608094ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  610085ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  610085ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  610085ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  610085ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  612093ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  612093ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  612093ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  612094ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  614101ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  614101ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  614101ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  614101ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  616108ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  616108ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  616109ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  616109ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  618116ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  618116ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  618116ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  618117ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  620124ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  620124ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  620125ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  620125ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  622132ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  622132ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  622132ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  622133ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  624140ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  624140ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  624140ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  624141ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  626149ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  626150ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  626150ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  626150ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  628158ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  628158ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  628158ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  628158ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  630166ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  630166ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  630166ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  630166ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  632173ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  632173ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  632173ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  632174ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  634182ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  634182ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  634182ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  634182ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  636191ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  636191ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  636192ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  636192ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  638196ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  638196ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  638196ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  638212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  640204ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  640204ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  640204ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  640204ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  642212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  642212ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  642212ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  642212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  644216ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  644217ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  644217ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  644217ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  646224ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  646224ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  646224ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  646224ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  648229ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  648229ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  648230ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  648230ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  650235ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  650235ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  650235ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  650246ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  652242ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  652242ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  652242ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  652242ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  654248ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  654249ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  654249ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  654249ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  656257ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  656257ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  656257ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  656258ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  658265ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  658265ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  658265ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  658265ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  660274ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  660274ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  660274ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  660274ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  662283ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  662283ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  662283ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  662283ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  664288ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  664288ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  664288ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  664289ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  666293ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  666293ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  666293ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  666293ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  668299ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  668299ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  668299ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  668300ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  670305ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  670305ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  670305ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  670305ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  672312ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  672313ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  672313ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  672313ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  674320ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  674320ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  674320ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  674320ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  676326ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  676327ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  676327ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  676327ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  678332ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  678332ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  678332ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  678333ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  680340ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  680340ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  680340ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  680340ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  682347ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  682348ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  682348ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  682348ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  684355ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  684355ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  684355ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  684355ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  686359ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  686359ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  686359ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  686360ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  688367ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  688368ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  688368ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  688368ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  690376ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  690376ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  690377ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  690377ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  692381ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  692382ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  692382ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  692383ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  694390ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  694390ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  694390ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  694390ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  696395ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  696396ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  696396ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  696397ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  698400ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  698401ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  698401ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  698402ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  700406ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  700406ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  700406ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  700418ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  702411ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  702411ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  702411ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  702413ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  704417ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  704418ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  704418ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  704418ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  706422ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  706422ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  706422ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  706435ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  708429ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  708429ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  708429ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  708430ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  710436ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  710436ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  710436ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  710436ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  712443ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  712443ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  712444ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  712464ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  714447ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  714447ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  714447ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  714448ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  716454ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  716455ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  716455ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  716455ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  718464ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  718464ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  718464ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  718464ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  720470ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  720471ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  720471ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  720471ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  722481ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  722481ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  722481ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  722481ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  724485ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  724485ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  724485ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  724503ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  726490ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  726490ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  726490ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  726502ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  728498ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  728498ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  728498ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  728498ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  730505ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  730505ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  730506ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  730506ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  732510ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  732510ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  732510ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  732512ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  734514ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  734514ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  734514ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  734525ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  736520ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  736520ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  736520ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  736531ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  738527ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  738528ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  738528ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  738528ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  740536ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  740536ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  740536ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  740537ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  742542ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  742542ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  742542ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  742542ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  744546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  744546ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  744546ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  744546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  746554ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  746554ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  746554ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  746554ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  748562ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  748562ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  748562ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  748562ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  750567ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  750567ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  750568ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  750579ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  752578ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  752579ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  752579ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  752579ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  754584ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  754584ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  754584ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  754595ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  756591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  756591ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  756591ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  756592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  758597ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  758597ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  758598ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  758598ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  760602ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  760602ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  760602ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  760614ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  762609ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  762609ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  762609ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  762610ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  764614ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  764614ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  764614ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  764616ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  766622ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  766622ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  766622ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  766623ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  768628ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  768628ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  768629ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  768630ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  770636ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  770636ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  770636ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  770636ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  772643ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  772643ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  772643ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  772643ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  774651ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  774651ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  774651ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  774651ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  776656ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  776656ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  776657ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  776658ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  778665ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  778665ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  778666ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  778666ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  780670ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  780670ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  780670ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  780672ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  782675ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  782675ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  782675ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  782687ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  784680ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  784680ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  784680ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  784691ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  786687ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  786687ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  786688ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  786688ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  788695ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  788695ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  788695ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  788695ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  790702ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  790703ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  790703ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  790703ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  792710ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  792710ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  792711ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  792711ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  794716ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  794716ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  794717ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  794717ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  796723ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  796723ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  796723ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  796723ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  798729ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  798729ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  798729ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  798730ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  800734ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  800734ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  800735ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  800735ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  802740ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  802740ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  802740ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  802741ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  804746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  804746ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  804746ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  804757ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  806752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  806752ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  806753ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  806753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  808757ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  808757ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  808758ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  808768ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  810764ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  810764ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  810764ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  810776ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  812768ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  812768ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  812768ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  812781ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  814773ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  814773ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  814773ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  814784ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  816778ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  816778ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  816778ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  816790ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  818783ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  818783ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  818784ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  818784ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  820788ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  820788ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  820789ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  820801ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  822793ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  822793ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  822793ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  822794ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  824799ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  824799ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  824800ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  824811ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  826803ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  826803ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  826804ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  826804ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  828810ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  828810ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  828810ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  828810ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  830815ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  830815ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  830816ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  830816ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  832822ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  832822ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  832822ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  832822ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  834828ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  834828ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  834829ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  834842ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  836834ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  836835ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  836835ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  836835ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  838838ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  838839ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  838839ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  838839ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  840843ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  840843ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  840844ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  840857ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  842848ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  842848ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  842848ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  842848ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  844854ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  844854ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  844854ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  844855ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  846861ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  846861ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  846861ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  846861ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  848869ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  848869ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  848869ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  848880ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  850876ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  850876ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  850876ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  850876ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  852880ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  852880ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  852880ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  852893ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  854885ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  854885ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  854885ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  854887ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  856892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  856892ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  856892ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  856892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  858902ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  858902ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  858902ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  858902ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  860909ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  860909ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  860909ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  860910ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  862917ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  862917ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  862918ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  862918ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  864924ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  864924ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  864924ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  864925ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  866930ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  866931ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  866931ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  866931ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  868935ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  868935ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  868935ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  868948ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  870941ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  870941ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/host-config @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  870941ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  870941ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  872946ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  872946ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  872946ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  872960ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  874953ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  874953ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  874954ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  874954ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  876960ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  876960ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  876960ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  876960ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  878965ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  878965ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  878965ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  878966ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  880974ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  880974ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  880974ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  880974ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  882983ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  882983ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  882983ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  882983ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  884994ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  884994ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  884994ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  884994ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  887002ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  887002ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  887002ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  887002ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  889007ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  889007ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  889007ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  889007ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  891014ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  891014ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  891014ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  891014ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  893021ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  893021ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  893021ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  893021ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  895028ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  895028ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  895028ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  895029ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  897034ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  897034ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  897034ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  897035ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  899041ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  899041ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  899041ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  899041ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  901048ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  901048ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  901049ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  901049ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  903053ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  903053ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  903054ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  903055ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  905058ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  905058ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  905058ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  905070ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  907066ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  907066ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  907066ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  907067ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  909070ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  909071ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  909071ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  909071ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  911078ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  911078ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  911078ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  911079ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  913085ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  913085ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  913085ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  913085ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  915094ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  915094ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  915094ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  915094ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  917099ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  917099ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  917099ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  917115ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  919104ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  919105ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  919105ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  919117ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  921110ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  921111ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  921111ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  921130ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  923115ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  923116ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  923116ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  923134ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  925124ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  925124ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  925124ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  925125ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  927130ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  927130ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  927130ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  927130ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  929136ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  929136ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  929136ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  929136ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  931138ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  931138ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  931138ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  931138ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  933143ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  933143ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  933143ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  933143ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  935154ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  935154ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  935154ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  935155ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  937160ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  937160ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  937160ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  937172ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  939166ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  939166ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  939166ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  939166ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  941173ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  941173ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  941173ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  941174ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  943180ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  943180ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  943180ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  943180ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  945183ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  945183ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  945184ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  945184ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  947190ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  947190ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  947190ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  947190ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0
+[  949195ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/health:0
+[  949196ms] [ERROR] Client Error in reaching server endpoint - No response received when attempting to reach /_stcore/health @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:19
+[  949196ms] [ERROR] Streamlit server is not responding. Are you connected to the internet? @ http://127.0.0.1:8511/static/js/index.k-9rUdPI.js:24
+[  949197ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8511/_stcore/host-config:0

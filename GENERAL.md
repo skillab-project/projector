@@ -47,6 +47,9 @@ Legacy root files are still present for historical compatibility, but the mainta
 
 ## Environment Configuration
 
+The canonical reference for environment variables and Docker Compose services
+is [docs/configuration.md](docs/configuration.md).
+
 Create `.env` in the repository root:
 
 ```env

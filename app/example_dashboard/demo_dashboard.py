@@ -7,6 +7,7 @@ import os
 import json
 from collections import Counter
 from requests import RequestException
+from app.example_dashboard.region_comparison import render_region_comparison
 
 # 1. Configurazione Pagina
 st.set_page_config(page_title="SKILLAB Projector Intelligence", layout="wide")
@@ -104,6 +105,7 @@ translations = {
             "skill": "Job Demand Overview",
             "temporal": "Temporal Analysis",
             "regional_temporal": "Regional Temporal Analysis",
+            "region_comparison": "Confronto tra regioni",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
@@ -394,6 +396,7 @@ translations = {
             "skill": "Job Demand Overview",
             "temporal": "Temporal Analysis",
             "regional_temporal": "Regional Temporal Analysis",
+            "region_comparison": "Region Comparison",
             "sector": "Sector Overview",
             "comparison": "Sector Skills Comparison",
             "regional_sectoral": "Regional Sector Distribution",
@@ -1777,8 +1780,18 @@ with st.sidebar:
             st.error(f"{T['server_error']} ({exc})")
 
     st.markdown("---")
-    st.subheader(f"🛠️ {T['demo_settings']}")
-    demo_mode = st.checkbox(T["demo_mode"], value=False, help=T["demo_mode_help"])
+    demo_mode = False
+    if dashboard_view != "region_comparison":
+        st.subheader(f"🛠️ {T['demo_settings']}")
+        demo_mode = st.checkbox(T["demo_mode"], value=False, help=T["demo_mode_help"])
+
+if dashboard_view == "region_comparison":
+    render_region_comparison(
+        normalize_api_base_url(st.session_state.api_base_url),
+        st.session_state.backend_timeout,
+        st.session_state.lang,
+    )
+    st.stop()
 
 # Costruzione Payload
 payload = {

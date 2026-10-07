@@ -35,6 +35,7 @@ source = ["app"]
 omit = [
     "app/test.py",
     "app/example_dashboard/*",
+    "app/test_*.py",
 ]
 
 [tool.coverage.report]

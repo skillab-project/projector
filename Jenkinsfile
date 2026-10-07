@@ -88,7 +88,7 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c '
-                            pytest app/test.py -v \
+                            pytest app/test.py app/test_region_comparison.py -v \
                                 --tb=short \
                                 --junitxml=test-results.xml \
                                 --cov=app \
@@ -114,7 +114,7 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c "
-                            pytest app/test.py -v \
+                            pytest app/test.py app/test_region_comparison.py -v \
                                 -m 'integration' \
                                 --tb=short \
                                 --junitxml=integration-test-results.xml
