@@ -8,6 +8,8 @@
 /.ai/
 /.github/
 ./tmp/
+.playwright-cli/
+./playwright-cli/
 artifacts/
 scripts/align_deliverable_toc_and_headings.py
 scripts/capture_dashboard_usecase_screenshots.mjs
