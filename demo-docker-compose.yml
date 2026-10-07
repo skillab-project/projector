@@ -1,0 +1,123 @@
+name: skillab-projector-demo
+
+x-projector-environment: &projector-environment
+  TRACKER_API: http://mock-tracker:8001/api
+  TRACKER_USERNAME: demo
+  TRACKER_PASSWORD: demo
+  DATABASE_URL: postgresql://skillab:skillab@projector-db:5432/skillab_projector
+  TRACKER_CACHE_TTL_DAYS: "0"
+
+services:
+  projector-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: skillab_projector
+      POSTGRES_USER: skillab
+      POSTGRES_PASSWORD: skillab
+    ports:
+      - "5433:5432"
+    volumes:
+      - demo-projector-db-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillab -d skillab_projector"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  mock-tracker:
+    build:
+      context: .
+      dockerfile: demo/Dockerfile.tracker
+    image: skillab-mock-tracker:demo
+    environment:
+      DEMO_DATASET_PATH: /data/synthetic_jobs.json
+      DEMO_JOB_COUNT: ${DEMO_JOB_COUNT:-8000}
+      DEMO_RANDOM_SEED: ${DEMO_RANDOM_SEED:-20261007}
+      DEMO_END_DATE: ${DEMO_END_DATE:-2026-10-07}
+      DEMO_TRACKER_TOKEN: demo-tracker-token
+    ports:
+      - "8001:8001"
+    volumes:
+      - demo-tracker-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/health', timeout=5).read()\""]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  projector-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    image: skillab-projector:demo
+    depends_on:
+      projector-db:
+        condition: service_healthy
+      mock-tracker:
+        condition: service_healthy
+    environment: *projector-environment
+    ports:
+      - "8000:8000"
+    volumes:
+      - demo-projector-api-cache:/workspace/cache_data
+      - demo-projector-api-logs:/workspace/logs
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/projector/health', timeout=5).read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  projector-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    image: skillab-projector:demo
+    depends_on:
+      projector-api:
+        condition: service_healthy
+    environment:
+      PROJECTOR_API_BASE_URL: http://projector-api:8000/projector
+      PYTHONPATH: /workspace
+    command:
+      - streamlit
+      - run
+      - app/example_dashboard/demo_dashboard.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+    ports:
+      - "8501:8501"
+
+  projector-snapshot-refresh:
+    build:
+      context: .
+      dockerfile: Dockerfile.snapshot
+    image: skillab-projector-snapshot:demo
+    depends_on:
+      projector-db:
+        condition: service_healthy
+      mock-tracker:
+        condition: service_healthy
+    environment:
+      <<: *projector-environment
+      SNAPSHOT_INTERVAL_MONTHS: ${SNAPSHOT_INTERVAL_MONTHS:-3}
+      SNAPSHOT_CHECK_INTERVAL_DAYS: ${SNAPSHOT_CHECK_INTERVAL_DAYS:-1}
+      SNAPSHOT_START_YEAR: ${SNAPSHOT_START_YEAR:-2020}
+      SNAPSHOT_END_YEAR: ${SNAPSHOT_END_YEAR:-2026}
+      SNAPSHOT_RUN_IMMEDIATELY: "true"
+      SNAPSHOT_PAGE_SIZE: ${SNAPSHOT_PAGE_SIZE:-500}
+      SNAPSHOT_PAGE_CONCURRENCY: ${SNAPSHOT_PAGE_CONCURRENCY:-4}
+      SNAPSHOT_MAX_RETRIES: ${SNAPSHOT_MAX_RETRIES:-5}
+      SNAPSHOT_SCHEDULER_LOG_FILE: logs/demo_sector_snapshot_scheduler.log
+    volumes:
+      - demo-projector-snapshot-cache:/workspace/cache_data
+      - demo-projector-snapshot-logs:/workspace/logs
+    restart: unless-stopped
+
+volumes:
+  demo-projector-db-data:
+  demo-tracker-data:
+  demo-projector-api-cache:
+  demo-projector-api-logs:
+  demo-projector-snapshot-cache:
+  demo-projector-snapshot-logs:

@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+WORKDIR /workspace
+
+COPY demo/requirements.txt /tmp/demo-requirements.txt
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    pip install -r /tmp/demo-requirements.txt
+
+COPY demo ./demo
+
+ENV DEMO_DATASET_PATH=/data/synthetic_jobs.json
+ENV DEMO_JOB_COUNT=8000
+ENV DEMO_RANDOM_SEED=20261007
+ENV DEMO_END_DATE=2026-10-07
+
+EXPOSE 8001
+
+CMD ["/bin/sh", "-c", "python -m demo.generate_synthetic_jobs --output \"$DEMO_DATASET_PATH\" --count \"$DEMO_JOB_COUNT\" --seed \"$DEMO_RANDOM_SEED\" --end-date \"$DEMO_END_DATE\" --if-missing && exec uvicorn demo.mock_tracker_api:app --host 0.0.0.0 --port 8001"]
