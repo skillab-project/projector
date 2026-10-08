@@ -16,6 +16,7 @@ This document describes the maintained `app/` implementation.
 ```text
 app.main
  -> app.api.routes.projector
+ -> app.core.task_manager.TaskManager
  -> app.core.container.service
  -> app.services.projector_service.ProjectorService
     -> app.client.tracker_client.TrackerClient
@@ -30,6 +31,24 @@ app.main
 Shared runtime state lives in `app.core.state.ProjectorEngine`.
 
 Dependency wiring happens in `app.core.container`. Local ESCO loaders are not executed at startup for the current API-only sector workflow.
+
+## Asynchronous API Flow
+
+All analysis routes follow the same lifecycle:
+
+```text
+POST analysis form
+ -> synchronous input validation
+ -> TaskManager.submit()
+ -> HTTP 202 with task_id and status_url
+ -> bounded queue on a dedicated asyncio worker thread
+ -> background service coroutine (outside the HTTP event loop)
+ -> response-model validation
+ -> GET /projector/tasks/{task_id}
+    -> queued | running | completed(result) | failed(error)
+```
+
+The task registry and results are process-local and in memory. A process restart removes them. Tasks execute serially on the worker because the current service engine and cooperative stop flag are shared; pending work and retained terminal records have configurable bounds. Old terminal records are evicted when the retention limit is reached. Full task exceptions are logged with the task ID while API errors are sanitized. The maintained container starts one Uvicorn worker; a future multi-worker or horizontally scaled deployment needs a shared durable task backend, task-local cancellation and routing-independent polling.
 
 ## External Tracker Dependency
 
@@ -57,7 +76,7 @@ Projector latency and failure modes are determined mostly by Tracker availabilit
 8. Compute trends from the fetched in-memory job batch.
 9. Compute regional projections.
 10. If `include_sectoral=true`, build the observed sector-skill view from `job["sectors"]` and `job["skills"]`.
-11. Return the Pydantic-modeled response.
+11. Validate the completed result with the endpoint's Pydantic model and store it in the task record.
 
 ## Caching
 
@@ -82,7 +101,7 @@ This is cooperative interruption:
 
 - it does not kill the Python process
 - long-running code checks the flag at safe points
-- final endpoint status can become `stopped` if the running request observes the flag
+- final task `result.status` can become `stopped` if the running operation observes the flag
 
 ## Trend Strategy
 
@@ -143,8 +162,7 @@ This keeps long Tracker aggregation out of normal dashboard requests.
 
 ## Current Caveats
 
-- There is no standardized error response model.
-- Date ordering is not explicitly validated.
+- Task records are not durable, are local to one API process and may be evicted at the configured retention limit.
 - Cache invalidation is mostly manual.
 - Green and digital flags are currently false by default in runtime enrichment.
 - Sector counts are relationship-oriented when one job has many sectors.

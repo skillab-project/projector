@@ -2,6 +2,8 @@
 
 This folder contains the maintained documentation for the current `app/` implementation of SKILLAB Projector.
 
+The maintained API uses an asynchronous task contract for every analysis endpoint: `POST` returns `202` plus `task_id`, and `GET /projector/tasks/{task_id}` returns progress and the final result. The [API reference](api-reference.md#asynchronous-task-contract) is authoritative for this lifecycle.
+
 ## Reading Order
 
 1. [Quick start](quick-start.md) gives the short operational guide, intelligence design and final navigation.
@@ -92,7 +94,7 @@ repo-root/
 └── docs/
 ```
 
-The legacy root files (`main.py`, `schemas.py`, `demo_dashboard.py`, `main_sectoral.py`) are still present in the repository, but the maintained backend path is the package entrypoint:
+The legacy root files (`main.py`, `schemas.py`, `demo_dashboard.py`, `main_sectoral.py`) are still present in the repository, but they do not implement the asynchronous task contract. The maintained backend path is the package entrypoint:
 
 ```bash
 uvicorn app.main:app --reload

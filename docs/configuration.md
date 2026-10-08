@@ -140,6 +140,8 @@ It depends on a healthy database, stores resumable fetch data in
 | `TRACKER_PASSWORD` | yes for live Tracker data | none | API, scheduler | Tracker login password |
 | `DATABASE_URL` | yes for snapshot features | none | API, scheduler, scripts | PostgreSQL connection URL |
 | `TRACKER_CACHE_TTL_DAYS` | no | `30` | API, scheduler | Completed Tracker-cache lifetime in days; `0` disables expiry |
+| `PROJECTOR_TASK_MAX_PENDING` | no | `100` | API | Maximum queued plus running analysis tasks; further submissions return `503` |
+| `PROJECTOR_TASK_MAX_RECORDS` | no | `100` | API | Maximum retained task records; values below pending capacity are raised to that capacity |
 | `SKILLAB_USE_LOCAL_SECTOR_FILES` | no | `false` | API, scheduler | Accepts `1`, `true`, `yes`, or `on`; enables local sector support files |
 | `PROJECTOR_API_BASE_URL` | no | `http://127.0.0.1:8000/projector` | dashboard | API base URL; Compose overrides it with the internal service URL |
 | `CI` | no | unset | tests/tooling | Marks CI execution where checked |

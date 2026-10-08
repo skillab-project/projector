@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional, List, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from fastapi import Form
 
 from app.schemas.responses import (
@@ -17,10 +17,42 @@ from app.schemas.responses import (
     StatisticalComparisonResponse,
     StopResponse,
     TemporalProjectionsResponse,
+    TaskAcceptedResponse,
+    TaskStatusResponse,
 )
 from app.core.container import service
+from app.core.task_manager import TaskQueueFull, task_manager
 
 router = APIRouter(tags=["Projector"])
+ASYNC_RESPONSES = {
+    503: {"description": "The bounded analysis task queue is full."},
+}
+
+
+def submit_task(endpoint: str, operation, result_model, exclude_none: bool = False):
+    try:
+        record = task_manager.submit(
+            endpoint=endpoint,
+            operation=operation,
+            result_model=result_model,
+            exclude_none=exclude_none,
+        )
+    except TaskQueueFull as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=error_detail(
+                "task_queue_full",
+                "The task queue is full. Retry later.",
+            ),
+        ) from exc
+    return {
+        "task_id": record.task_id,
+        "status": "queued",
+        "status_url": f"/projector/tasks/{record.task_id}",
+        "created_at": record.created_at.isoformat(),
+    }
+
+
 def error_detail(code: str, message: str, field: Optional[str] = None):
     return {
         "error": {
@@ -121,7 +153,27 @@ async def readiness():
     }
 
 
-@router.post("/emerging-skills", response_model=EmergingSkillsResponse)
+@router.get(
+    "/tasks/{task_id}",
+    response_model=TaskStatusResponse,
+    response_model_exclude_none=True,
+)
+async def task_status(task_id: str):
+    record = task_manager.get(task_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=error_detail("task_not_found", f"Task '{task_id}' was not found."),
+        )
+    return record
+
+
+@router.post(
+    "/emerging-skills",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
                           keywords: Optional[List[str]] = Form(None)):
     """
@@ -149,11 +201,19 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
            Growth % = (B - A) / A * 100
        """
     validate_date_range(min_date, max_date, "min_date", "max_date")
-    return await service.emerging_skills(min_date, max_date,
-                                 keywords)
+    return submit_task(
+        "/projector/emerging-skills",
+        lambda: service.emerging_skills(min_date, max_date, keywords),
+        EmergingSkillsResponse,
+    )
 
 
-@router.post("/temporal-projections", response_model=TemporalProjectionsResponse)
+@router.post(
+    "/temporal-projections",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def temporal_projections(
         min_date: str = Form(...),
         max_date: str = Form(...),
@@ -188,18 +248,27 @@ async def temporal_projections(
                 "top_k",
             ),
         )
-    return await service.temporal_projections(
-        min_date=min_date,
-        max_date=max_date,
-        keywords=keywords,
-        locations=locations,
-        granularity=granularity,
-        forecast_periods=forecast_periods,
-        top_k=top_k,
+    return submit_task(
+        "/projector/temporal-projections",
+        lambda: service.temporal_projections(
+            min_date=min_date,
+            max_date=max_date,
+            keywords=keywords,
+            locations=locations,
+            granularity=granularity,
+            forecast_periods=forecast_periods,
+            top_k=top_k,
+        ),
+        TemporalProjectionsResponse,
     )
 
 
-@router.post("/compare-regions", response_model=RegionalComparisonResponse, response_model_exclude_none=True)
+@router.post(
+    "/compare-regions",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def compare_regions(
         region_a: str = Form(...),
         region_b: str = Form(...),
@@ -227,21 +296,37 @@ async def compare_regions(
     validate_date_range(min_date, max_date, "min_date", "max_date")
 
     try:
-        return await service.compare_regions(
-            region_a=region_a,
-            region_b=region_b,
-            min_date=min_date,
-            max_date=max_date,
-            keyword=keyword,
-        )
+        normalized_region_a = service._normalize_nuts_code(region_a)
+        normalized_region_b = service._normalize_nuts_code(region_b)
+        if normalized_region_a == normalized_region_b:
+            raise ValueError("region_a and region_b must be different NUTS regions")
+        if service._infer_nuts_level(normalized_region_a) != service._infer_nuts_level(normalized_region_b):
+            raise ValueError("region_a and region_b must use the same NUTS level")
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
             detail=error_detail("invalid_region_comparison", str(exc)),
         ) from exc
+    return submit_task(
+        "/projector/compare-regions",
+        lambda: service.compare_regions(
+            region_a=region_a,
+            region_b=region_b,
+            min_date=min_date,
+            max_date=max_date,
+            keyword=keyword,
+        ),
+        RegionalComparisonResponse,
+        exclude_none=True,
+    )
 
 
-@router.post("/regional-temporal", response_model=RegionalTemporalResponse, response_model_exclude_none=True)
+@router.post(
+    "/regional-temporal",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def regional_temporal(
         min_date: str = Form(...),
         max_date: str = Form(...),
@@ -277,19 +362,29 @@ async def regional_temporal(
                 "top_k_skills",
             ),
         )
-    return await service.regional_temporal(
-        min_date=min_date,
-        max_date=max_date,
-        keywords=keywords,
-        locations=locations,
-        granularity=granularity,
-        top_k_regions=top_k_regions,
-        top_k_skills=top_k_skills,
-        demo=demo,
+    return submit_task(
+        "/projector/regional-temporal",
+        lambda: service.regional_temporal(
+            min_date=min_date,
+            max_date=max_date,
+            keywords=keywords,
+            locations=locations,
+            granularity=granularity,
+            top_k_regions=top_k_regions,
+            top_k_skills=top_k_skills,
+            demo=demo,
+        ),
+        RegionalTemporalResponse,
+        exclude_none=True,
     )
 
 
-@router.post("/skill-explorer", response_model=SkillExplorerResponse, response_model_exclude_none=True)
+@router.post(
+    "/skill-explorer",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def skill_explorer(
         skill_id: Optional[str] = Form(None),
         skill_label: Optional[str] = Form(None),
@@ -352,22 +447,32 @@ async def skill_explorer(
     elif min_date or max_date:
         validate_date_range(min_date, max_date, "min_date", "max_date")
 
-    return await service.skill_explorer(
-        skill_id=skill_id,
-        skill_label=skill_label,
-        mode=mode,
-        year=year,
-        start_year=start_year,
-        end_year=end_year,
-        min_date=min_date,
-        max_date=max_date,
-        locations=locations,
-        granularity=granularity,
-        top_k=top_k,
+    return submit_task(
+        "/projector/skill-explorer",
+        lambda: service.skill_explorer(
+            skill_id=skill_id,
+            skill_label=skill_label,
+            mode=mode,
+            year=year,
+            start_year=start_year,
+            end_year=end_year,
+            min_date=min_date,
+            max_date=max_date,
+            locations=locations,
+            granularity=granularity,
+            top_k=top_k,
+        ),
+        SkillExplorerResponse,
+        exclude_none=True,
     )
 
 
-@router.post("/statistical-comparison", response_model=StatisticalComparisonResponse)
+@router.post(
+    "/statistical-comparison",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def statistical_comparison(
         comparison_type: Literal[
             "temporal",
@@ -411,19 +516,28 @@ async def statistical_comparison(
             status_code=422,
             detail=error_detail("invalid_alpha", "alpha must be greater than 0 and lower than 1", "alpha"),
         )
-    return service.statistical_comparison(
-        comparison_type=comparison_type,
-        group_a_label=group_a_label,
-        group_a_count=group_a_count,
-        group_a_total=group_a_total,
-        group_b_label=group_b_label,
-        group_b_count=group_b_count,
-        group_b_total=group_b_total,
-        alpha=alpha,
+    return submit_task(
+        "/projector/statistical-comparison",
+        lambda: service.statistical_comparison(
+            comparison_type=comparison_type,
+            group_a_label=group_a_label,
+            group_a_count=group_a_count,
+            group_a_total=group_a_total,
+            group_b_label=group_b_label,
+            group_b_count=group_b_count,
+            group_b_total=group_b_total,
+            alpha=alpha,
+        ),
+        StatisticalComparisonResponse,
     )
 
 
-@router.post("/analyze-skills", response_model=ProjectorResponse, response_model_exclude_none=True)
+@router.post(
+    "/analyze-skills",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
+)
 async def analyze_skills(
         keywords: Optional[List[str]] = Form(None),
         locations: Optional[List[str]] = Form(None),
@@ -489,30 +603,38 @@ async def analyze_skills(
     )
     if sectoral_snapshot_year is not None:
         validate_year(sectoral_snapshot_year, "sectoral_snapshot_year")
-    return await service.analyze_skills(keywords,
-                                 locations,
-                                 min_date,
-                                 max_date,
-                                 page,
-                                 page_size,
-                                 demo,
-                                 include_sectoral,
-                                 sector_system,
-                                 sector_level,
-                                 sectoral_time_mode,
-                                 sectoral_snapshot_year,
-                                 sectoral_compare_a_min_date,
-                                 sectoral_compare_a_max_date,
-                                 sectoral_compare_b_min_date,
-                                 sectoral_compare_b_max_date,
-                                 skill_group_level,
-                                 occupation_level)
+    return submit_task(
+        "/projector/analyze-skills",
+        lambda: service.analyze_skills(
+            keywords,
+            locations,
+            min_date,
+            max_date,
+            page,
+            page_size,
+            demo,
+            include_sectoral,
+            sector_system,
+            sector_level,
+            sectoral_time_mode,
+            sectoral_snapshot_year,
+            sectoral_compare_a_min_date,
+            sectoral_compare_a_max_date,
+            sectoral_compare_b_min_date,
+            sectoral_compare_b_max_date,
+            skill_group_level,
+            occupation_level,
+        ),
+        ProjectorResponse,
+        exclude_none=True,
+    )
 
 
 @router.post(
     "/sectoral-intelligence",
-    response_model=SectoralIntelligenceResponse,
-    response_model_exclude_none=True,
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
 )
 async def sectoral_intelligence(
         keywords: Optional[List[str]] = Form(None),
@@ -541,28 +663,34 @@ async def sectoral_intelligence(
     validate_date_range(compare_b_min_date, compare_b_max_date, "compare_b_min_date", "compare_b_max_date")
     if snapshot_year is not None:
         validate_year(snapshot_year, "snapshot_year")
-    return await service.sectoral_intelligence(
-        keywords=keywords,
-        locations=locations,
-        sectors=sectors,
-        data_source=data_source,
-        mode=mode,
-        min_date=min_date,
-        max_date=max_date,
-        snapshot_year=snapshot_year,
-        compare_a_min_date=compare_a_min_date,
-        compare_a_max_date=compare_a_max_date,
-        compare_b_min_date=compare_b_min_date,
-        compare_b_max_date=compare_b_max_date,
-        skill_group_level=skill_group_level,
-        occupation_level=occupation_level,
+    return submit_task(
+        "/projector/sectoral-intelligence",
+        lambda: service.sectoral_intelligence(
+            keywords=keywords,
+            locations=locations,
+            sectors=sectors,
+            data_source=data_source,
+            mode=mode,
+            min_date=min_date,
+            max_date=max_date,
+            snapshot_year=snapshot_year,
+            compare_a_min_date=compare_a_min_date,
+            compare_a_max_date=compare_a_max_date,
+            compare_b_min_date=compare_b_min_date,
+            compare_b_max_date=compare_b_max_date,
+            skill_group_level=skill_group_level,
+            occupation_level=occupation_level,
+        ),
+        SectoralIntelligenceResponse,
+        exclude_none=True,
     )
 
 
 @router.post(
     "/sectoral-snapshot",
-    response_model=SectoralSnapshotResponse,
-    response_model_exclude_none=True,
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
 )
 async def sectoral_snapshot(
         year: int = Form(...),
@@ -578,18 +706,24 @@ async def sectoral_snapshot(
     validate_year(year, "year")
     if reference_year is not None:
         validate_year(reference_year, "reference_year")
-    return await service.sectoral_snapshot(
-        year=year,
-        reference_year=reference_year,
-        locations=locations,
-        data_source="cache",
+    return submit_task(
+        "/projector/sectoral-snapshot",
+        lambda: service.sectoral_snapshot(
+            year=year,
+            reference_year=reference_year,
+            locations=locations,
+            data_source="cache",
+        ),
+        SectoralSnapshotResponse,
+        exclude_none=True,
     )
 
 
 @router.post(
     "/sector-skills-comparison",
-    response_model=SectorSkillsComparisonResponse,
-    response_model_exclude_none=True,
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
 )
 async def sector_skills_comparison(
         year: int = Form(...),
@@ -608,20 +742,26 @@ async def sector_skills_comparison(
     validate_year(year, "year")
     if reference_year is not None:
         validate_year(reference_year, "reference_year")
-    return await service.sector_skills_comparison(
-        year=year,
-        reference_year=reference_year,
-        locations=locations,
-        sectors=sectors,
-        skills=skills,
-        metric=metric,
+    return submit_task(
+        "/projector/sector-skills-comparison",
+        lambda: service.sector_skills_comparison(
+            year=year,
+            reference_year=reference_year,
+            locations=locations,
+            sectors=sectors,
+            skills=skills,
+            metric=metric,
+        ),
+        SectorSkillsComparisonResponse,
+        exclude_none=True,
     )
 
 
 @router.post(
     "/regional-sectoral",
-    response_model=RegionalSectoralResponse,
-    response_model_exclude_none=True,
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=ASYNC_RESPONSES,
 )
 async def regional_sectoral(
         year: int = Form(...),
@@ -661,16 +801,21 @@ async def regional_sectoral(
             status_code=422,
             detail=error_detail("invalid_top_k", "top_k must be between 1 and 100", "top_k"),
         )
-    return await service.regional_sectoral(
-        year=year,
-        reference_year=reference_year,
-        start_year=start_year,
-        end_year=end_year,
-        locations=locations,
-        level=level,
-        sectors=sectors,
-        metric=metric,
-        top_k=top_k,
+    return submit_task(
+        "/projector/regional-sectoral",
+        lambda: service.regional_sectoral(
+            year=year,
+            reference_year=reference_year,
+            start_year=start_year,
+            end_year=end_year,
+            locations=locations,
+            level=level,
+            sectors=sectors,
+            metric=metric,
+            top_k=top_k,
+        ),
+        RegionalSectoralResponse,
+        exclude_none=True,
     )
 
 

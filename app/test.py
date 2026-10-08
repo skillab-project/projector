@@ -4,6 +4,7 @@ import os
 import json
 import sys
 import tempfile
+import time
 from contextlib import contextmanager
 from collections import defaultdict, Counter
 from datetime import date, datetime, timedelta, timezone
@@ -33,7 +34,42 @@ from scripts.schedule_sectoral_snapshot_refresh import due_targets
 from dotenv import load_dotenv
 load_dotenv()
 
-client = TestClient(app)
+class _ResultResolvingClient:
+    """Keep completed-result assertions while exercising the async HTTP contract."""
+
+    @staticmethod
+    def get(path, **kwargs):
+        with TestClient(app) as test_client:
+            return test_client.get(path, **kwargs)
+
+    @staticmethod
+    def post(path, **kwargs):
+        with TestClient(app) as test_client:
+            submitted = test_client.post(path, **kwargs)
+            if submitted.status_code != 202:
+                return submitted
+
+            accepted = submitted.json()
+            for _ in range(1000):
+                task_response = test_client.get(accepted["status_url"])
+                task_payload = task_response.json()
+                if task_payload["status"] == "completed":
+                    return httpx.Response(
+                        status_code=200,
+                        json=task_payload["result"],
+                        request=submitted.request,
+                    )
+                if task_payload["status"] == "failed":
+                    return httpx.Response(
+                        status_code=500,
+                        json=task_payload,
+                        request=submitted.request,
+                    )
+                time.sleep(0.001)
+            raise AssertionError(f"Task {accepted['task_id']} did not complete during the test")
+
+
+client = _ResultResolvingClient()
 
 
 class _FakeServiceEngine:
@@ -2849,6 +2885,95 @@ async def test_fetch_occupation_labels_2():
 # ==========================================
 # 2. TEST DI INTEGRAZIONE (Endpoints)
 # ==========================================
+
+ANALYSIS_ENDPOINTS = {
+    "/projector/analyze-skills",
+    "/projector/emerging-skills",
+    "/projector/temporal-projections",
+    "/projector/compare-regions",
+    "/projector/regional-temporal",
+    "/projector/skill-explorer",
+    "/projector/statistical-comparison",
+    "/projector/sectoral-intelligence",
+    "/projector/sectoral-snapshot",
+    "/projector/sector-skills-comparison",
+    "/projector/regional-sectoral",
+}
+
+
+def _wait_for_task(test_client, status_url):
+    for _ in range(1000):
+        response = test_client.get(status_url)
+        assert response.status_code == 200
+        payload = response.json()
+        if payload["status"] in {"completed", "failed"}:
+            return payload
+        time.sleep(0.001)
+    raise AssertionError(f"Task at {status_url} did not finish during the test")
+
+
+def test_openapi_marks_all_analysis_endpoints_as_async():
+    with TestClient(app) as test_client:
+        paths = test_client.get("/openapi.json").json()["paths"]
+
+    assert ANALYSIS_ENDPOINTS.issubset(paths)
+    for path in ANALYSIS_ENDPOINTS:
+        operation = paths[path]["post"]
+        assert "202" in operation["responses"]
+        assert "503" in operation["responses"]
+        assert "200" not in operation["responses"]
+
+
+def test_async_task_submission_status_and_result_contract():
+    form_data = {
+        "group_a_label": "A",
+        "group_a_count": "4",
+        "group_a_total": "10",
+        "group_b_label": "B",
+        "group_b_count": "7",
+        "group_b_total": "10",
+    }
+    with TestClient(app) as test_client:
+        first = test_client.post("/projector/statistical-comparison", data=form_data)
+        second = test_client.post("/projector/statistical-comparison", data=form_data)
+        assert first.status_code == second.status_code == 202
+        accepted = first.json()
+        assert accepted["status"] == "queued"
+        assert accepted["task_id"] != second.json()["task_id"]
+        assert accepted["status_url"] == f"/projector/tasks/{accepted['task_id']}"
+
+        completed = _wait_for_task(test_client, accepted["status_url"])
+
+    assert completed["status"] == "completed"
+    assert completed["endpoint"] == "/projector/statistical-comparison"
+    assert completed["started_at"]
+    assert completed["completed_at"]
+    assert completed["result"]["status"] == "completed"
+    assert completed["result"]["method"] == "chi_square_2x2"
+    assert "error" not in completed
+
+
+def test_async_task_failure_and_unknown_id_contract():
+    with patch.object(service, "emerging_skills", new_callable=AsyncMock) as operation:
+        operation.side_effect = RuntimeError("tracker unavailable")
+        with TestClient(app) as test_client:
+            submitted = test_client.post(
+                "/projector/emerging-skills",
+                data={"min_date": "2024-01-01", "max_date": "2024-01-31"},
+            )
+            assert submitted.status_code == 202
+            failed = _wait_for_task(test_client, submitted.json()["status_url"])
+            missing = test_client.get("/projector/tasks/does-not-exist")
+
+    assert failed["status"] == "failed"
+    assert failed["completed_at"]
+    assert failed["error"] == {
+        "type": "TaskExecutionError",
+        "message": "Task execution failed. Contact support with the task_id for details.",
+    }
+    assert "result" not in failed
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["error"]["code"] == "task_not_found"
 
 @pytest.mark.integration
 def test_endpoint_analyze_skills_consistency():

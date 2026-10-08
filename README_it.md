@@ -30,6 +30,8 @@ La documentazione interattiva è disponibile su:
 http://127.0.0.1:8000/docs
 ```
 
+Gli endpoint di analisi sono asincroni: ogni `POST` restituisce subito `HTTP 202` con un `task_id`. Interroga `GET /projector/tasks/{task_id}` finché lo stato diventa `completed` (con `result`) oppure `failed` (con `error`). Health, readiness, stop e documentazione restano sincroni; la dashboard esegue automaticamente il polling.
+
 ## Configurazione
 
 La guida completa a servizi, porte, file di ambiente e flag Docker Compose è in
@@ -63,12 +65,24 @@ app/schemas/responses.py
 app/example_dashboard/demo_dashboard.py
 ```
 
-I file root storici (`main.py`, `schemas.py`, `demo_dashboard.py`, `main_sectoral.py`) sono ancora presenti, ma il percorso mantenuto è quello nel package `app/`.
+I file root storici (`main.py`, `schemas.py`, `demo_dashboard.py`, `main_sectoral.py`) sono ancora presenti ma non implementano il contratto asincrono; il percorso mantenuto è quello nel package `app/`.
 
 ## Endpoint
 
 - `POST /projector/analyze-skills`
 - `POST /projector/emerging-skills`
+- `POST /projector/compare-regions`
+- `POST /projector/temporal-projections`
+- `POST /projector/regional-temporal`
+- `POST /projector/skill-explorer`
+- `POST /projector/statistical-comparison`
+- `POST /projector/sectoral-intelligence`
+- `POST /projector/sectoral-snapshot`
+- `POST /projector/sector-skills-comparison`
+- `POST /projector/regional-sectoral`
+- `GET /projector/tasks/{task_id}`
+- `GET /projector/health`
+- `GET /projector/readiness`
 - `POST /projector/stop`
 
 Il contratto completo è in [docs/api-reference.md](docs/api-reference.md).

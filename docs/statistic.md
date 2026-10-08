@@ -2,6 +2,8 @@
 
 Concise formulas for current API-only metrics.
 
+These metrics appear inside the `result` of a completed asynchronous task. Analysis `POST` calls themselves return only the task acknowledgement.
+
 Related issues: #3, #7, #8, #33, #47, #48, #52, #88, #89, #90, #94, #96.
 
 ## Core Source

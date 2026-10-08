@@ -20,6 +20,11 @@ def _int_env(name: str, default: int) -> int:
 
 
 TRACKER_CACHE_TTL_DAYS = _int_env("TRACKER_CACHE_TTL_DAYS", 30)
+PROJECTOR_TASK_MAX_PENDING = max(_int_env("PROJECTOR_TASK_MAX_PENDING", 100), 1)
+PROJECTOR_TASK_MAX_RECORDS = max(
+    _int_env("PROJECTOR_TASK_MAX_RECORDS", 100),
+    PROJECTOR_TASK_MAX_PENDING,
+)
 USE_LOCAL_SECTOR_FILES = os.getenv("SKILLAB_USE_LOCAL_SECTOR_FILES", "false").strip().lower() in {
     "1",
     "true",

@@ -1,5 +1,29 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union, Literal
+from typing import Any, List, Optional, Union, Literal
+from datetime import datetime
+
+
+class TaskAcceptedResponse(BaseModel):
+    task_id: str = Field(..., description="Unique identifier assigned to the submitted task.")
+    status: Literal["queued"] = Field(..., description="Initial task state.")
+    status_url: str = Field(..., description="Canonical URL used to retrieve task status and result.")
+    created_at: datetime = Field(..., description="UTC timestamp at which the task was accepted.")
+
+
+class TaskError(BaseModel):
+    type: str = Field(..., description="Exception or failure category.")
+    message: str = Field(..., description="Human-readable failure message.")
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str = Field(..., description="Unique task identifier.")
+    endpoint: str = Field(..., description="Analysis endpoint that created the task.")
+    status: Literal["queued", "running", "completed", "failed"]
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    result: Optional[Any] = Field(None, description="Endpoint result, present after successful completion.")
+    error: Optional[TaskError] = Field(None, description="Failure details, present when status is failed.")
 
 
 # -----------------------------

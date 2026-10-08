@@ -4,6 +4,8 @@ SKILLAB Projector is a FastAPI analytics layer on top of the SKILLAB Tracker.
 
 The Tracker returns job postings. The Projector turns those jobs into aggregated intelligence for dashboards, analysts, and integration clients.
 
+Analyses run as asynchronous tasks: clients submit a form, receive a unique task ID, and poll the task endpoint for progress and the final result. Service endpoints such as health and readiness remain synchronous.
+
 ## What It Answers
 
 - which skills are most requested in a selected market slice

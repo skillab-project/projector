@@ -8,6 +8,8 @@ import plotly.express as px
 import requests
 import streamlit as st
 
+from app.example_dashboard.api_client import TaskFailedError, post_task
+
 
 COPY = {
     "IT": {
@@ -93,10 +95,8 @@ def render_region_comparison(api_base_url, timeout, language):
         else:
             with st.spinner(text["loading"]):
                 try:
-                    response = requests.post(f"{api_base_url.rstrip('/')}/compare-regions", data=payload, timeout=timeout)
-                    response.raise_for_status()
-                    result = response.json()
-                except (requests.RequestException, ValueError):
+                    result = post_task(api_base_url, "compare-regions", payload, timeout)
+                except (requests.RequestException, TaskFailedError, ValueError):
                     st.error(text["error"])
                 else:
                     st.session_state.region_comparison_result = (payload.copy(), result)
