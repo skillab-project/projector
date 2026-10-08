@@ -32,6 +32,10 @@ class TaskStatusResponse(BaseModel):
 class CountItem(BaseModel):
     name: str = Field(..., description="Display label shown in rankings or aggregates.")
     count: int = Field(..., description="Absolute number of occurrences in the analyzed batch.")
+    share: float = Field(
+        0.0,
+        description="Count divided by the number of analyzed postings, expressed as a fraction between 0 and 1.",
+    )
 
 
 class GeoBreakdownItem(BaseModel):
@@ -45,6 +49,10 @@ class GeoBreakdownItem(BaseModel):
 class SkillRankingItem(BaseModel):
     name: str = Field(..., description="Human-readable skill label.")
     frequency: int = Field(..., description="Absolute number of times this skill appears in the analyzed postings.")
+    share: float = Field(
+        0.0,
+        description="Jobs containing the skill divided by analyzed postings, expressed as a fraction between 0 and 1.",
+    )
     skill_id: str = Field(..., description="Original skill identifier/URI returned by the Tracker.")
     is_green: bool = Field(..., description="Heuristic Twin Transition flag for green/sustainability-related skills.")
     is_digital: bool = Field(..., description="Heuristic Twin Transition flag for digital/ICT-related skills.")
@@ -73,6 +81,10 @@ class TrendItem(BaseModel):
     primary_sector: str = Field(..., description="Most frequent sector associated with the skill in the newer period.")
     is_green: bool = Field(..., description="Heuristic Twin Transition flag for green/sustainability-related skills.")
     is_digital: bool = Field(..., description="Heuristic Twin Transition flag for digital/ICT-related skills.")
+    previous_count: int = Field(0, description="Jobs containing the skill in period A.")
+    current_count: int = Field(0, description="Jobs containing the skill in period B.")
+    delta: int = Field(0, description="Current count minus previous count.")
+    is_new_entry: bool = Field(False, description="True when the skill is absent in period A and present in period B.")
 
 
 class TrendsContainer(BaseModel):
@@ -204,8 +216,10 @@ class SkillExplorerSector(BaseModel):
 class SkillExplorerRegion(BaseModel):
     code: str
     count: int
-    share: float
-    specialization: Optional[float] = None
+    share: float = Field(..., description="Skill count divided by jobs in the region, as a 0..1 fraction.")
+    baseline_share: float = Field(0.0, description="Global skill count divided by all jobs, as a 0..1 fraction.")
+    specialization: float = Field(0.0, description="Regional share divided by the global baseline share.")
+    rank: Optional[int] = Field(None, description="Regional rank by skill count in the returned result.")
 
 
 class SkillExplorerTimePoint(BaseModel):
@@ -218,6 +232,7 @@ class SkillExplorerResponse(BaseModel):
     status: str
     mode: Literal["snapshot", "live"]
     data_source: Literal["postgres", "cache", "live"]
+    region_level: Literal["raw", "nuts1", "nuts2", "nuts3"] = "raw"
     skill: Optional[SkillExplorerSkill] = None
     total_mentions: int
     sectors: List[SkillExplorerSector]
@@ -303,6 +318,8 @@ class StatisticalComparisonResponse(BaseModel):
 class RegionalSkill(BaseModel):
     skill: str = Field(..., description="Human-readable skill label.")
     count: int = Field(..., description="Number of occurrences of the skill inside the specific geographic area.")
+    share: float = Field(0.0, description="Skill count divided by jobs in the geographic area, as a 0..1 fraction.")
+    baseline_share: float = Field(0.0, description="Global skill count divided by all analyzed jobs, as a 0..1 fraction.")
     specialization: float = Field(..., description="Location Quotient-like specialization score. Values above 1 generally indicate above-average local concentration.")
 
 
@@ -325,6 +342,7 @@ class RegionalComparisonSkillMetric(BaseModel):
     name: str
     count: int
     share: float = Field(..., description="Skill mentions divided by postings in the region, expressed as a percentage.")
+    baseline_share: float = Field(0.0, description="Combined-region skill share, expressed as a 0..1 fraction.")
     specialization: float = Field(..., description="Location-quotient-like concentration versus the combined two-region comparison set.")
     is_green: bool
     is_digital: bool
@@ -349,6 +367,7 @@ class RegionalComparisonSkillDelta(BaseModel):
     count_difference: int = Field(..., description="Region B count minus Region A count.")
     region_a_share: float
     region_b_share: float
+    baseline_share: float = Field(0.0, description="Combined-region baseline skill share, as a 0..1 fraction.")
     share_difference_percentage_points: float = Field(..., description="Region B share minus Region A share, in percentage points.")
     region_a_specialization: float
     region_b_specialization: float
@@ -447,12 +466,17 @@ class DimensionSummary(BaseModel):
 class SkillEntry(BaseModel):
     skill_id: str
     count: int
+    snapshot_count: Optional[int] = Field(
+        None,
+        description="Jobs containing the skill in the full snapshot scope, deduplicated across sectors.",
+    )
     frequency: float
     label: Optional[str] = None
     is_green: Optional[bool] = None
     is_digital: Optional[bool] = None
     share_in_sector: Optional[float] = None
     rank: Optional[int] = None
+    rank_score: Optional[float] = None
     growth_vs_reference_year: Optional[Union[float, Literal["new_entry"]]] = None
     growth_value: Optional[float] = None
     sector_breadth: Optional[int] = None
@@ -551,6 +575,7 @@ class SectoralIntelligenceResponse(BaseModel):
 class SectorSnapshotTitle(BaseModel):
     name: str
     count: int
+    share: float = Field(0.0, description="Title count divided by jobs in the sector, as a 0..1 fraction.")
 
 
 class SectorEvolutionSkill(BaseModel):

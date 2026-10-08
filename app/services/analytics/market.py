@@ -96,13 +96,17 @@ class MarketAnalytics:
             # 1. Use Tracker job sectors only.
             job_sector_names = self.occupations.get_sector_keys_from_job(job, level="nace_section")
 
-            sector_names = job_sector_names or ["Sector not specified"]
+            sector_names = list(dict.fromkeys(job_sector_names)) or ["Sector not specified"]
 
             for sector_name in sector_names:
                 sec_cnt[sector_name] += 1
 
-            for s_uri in job.get("skills", []):
-                s_uri = str(s_uri).strip()
+            skill_ids = list(dict.fromkeys(
+                str(s_uri).strip()
+                for s_uri in (job.get("skills", []) or [])
+                if str(s_uri).strip()
+            ))
+            for s_uri in skill_ids:
                 s_cnt[s_uri] += 1
                 if s_uri not in skill_sector_map:
                     skill_sector_map[s_uri] = Counter()
@@ -118,6 +122,7 @@ class MarketAnalytics:
         await self.tracker.fetch_skill_names(list(s_cnt.keys()))
 
         # 5. Output con Intelligence
+        total_jobs = len(raw_jobs)
         enriched_ranking = []
         for k, v in s_cnt.most_common():
             skill_info = self.engine.skill_map.get(k, {"label": k.split('/')[-1], "is_green": False, "is_digital": False})
@@ -128,6 +133,7 @@ class MarketAnalytics:
             enriched_ranking.append({
                 "name": skill_info["label"],
                 "frequency": v,
+                "share": round(v / total_jobs, 6) if total_jobs else 0.0,
                 "skill_id": k,
                 "is_green": skill_info["is_green"],
                 "is_digital": skill_info["is_digital"],
@@ -136,12 +142,21 @@ class MarketAnalytics:
             })
 
         return {
-            "total_jobs": len(raw_jobs),
+            "total_jobs": total_jobs,
             "rankings": {
                 "skills": enriched_ranking,
-                "employers": [{"name": k, "count": v} for k, v in e_cnt.most_common(10)],
-                "job_titles": [{"name": k, "count": v} for k, v in t_cnt.most_common(10)],
-                "sectors": [{"name": k, "count": v} for k, v in sec_cnt.most_common(10)]  # NUOVO
+                "employers": [
+                    {"name": k, "count": v, "share": round(v / total_jobs, 6) if total_jobs else 0.0}
+                    for k, v in e_cnt.most_common(10)
+                ],
+                "job_titles": [
+                    {"name": k, "count": v, "share": round(v / total_jobs, 6) if total_jobs else 0.0}
+                    for k, v in t_cnt.most_common(10)
+                ],
+                "sectors": [
+                    {"name": k, "count": v, "share": round(v / total_jobs, 6) if total_jobs else 0.0}
+                    for k, v in sec_cnt.most_common(10)
+                ]
             },
             "geo": [{"location": k, "job_count": v} for k, v in l_cnt.most_common()]
         }

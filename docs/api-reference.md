@@ -133,6 +133,7 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
       {
         "name": "Python",
         "frequency": 120,
+        "share": 0.096,
         "skill_id": "http://data.europa.eu/esco/skill/...",
         "is_green": false,
         "is_digital": false,
@@ -286,6 +287,7 @@ curl -X POST "http://127.0.0.1:8000/projector/compare-regions" \
         "count_difference": -20,
         "region_a_share": 40.0,
         "region_b_share": 20.0,
+        "baseline_share": 0.3,
         "share_difference_percentage_points": -20.0,
         "region_a_specialization": 1.33,
         "region_b_specialization": 0.67,
@@ -302,7 +304,7 @@ curl -X POST "http://127.0.0.1:8000/projector/compare-regions" \
 
 `scope` is `general` when no keyword is supplied and `keyword` when the comparison is keyword-filtered.
 
-Regional skill `share` is the skill count divided by the number of postings in that region, expressed as a percentage. `specialization` is a location-quotient-like concentration comparing the regional skill share with the combined two-region comparison set.
+Regional skill `share` is the skill count divided by the number of postings in that region, expressed as a percentage. `baseline_share` is the same skill's share in the combined two-region set, expressed as a `0..1` fraction. `specialization` is a location-quotient-like concentration comparing the regional skill share with that baseline.
 
 All comparison deltas use **Region B minus Region A**. This applies to `total_jobs_difference`, skill `count_difference`, `share_difference_percentage_points`, and count deltas for sectors, job titles, and employers. `total_jobs_difference_percentage` is the Region B job-count difference relative to Region A; it is returned as `"new_entry"` when Region A has zero jobs and Region B has jobs.
 
@@ -410,6 +412,7 @@ Use snapshot mode for annual sector intelligence. Use live mode for current date
 | `max_date` | string | live only | none | Live end date, `YYYY-MM-DD` |
 | `locations` | list of strings | no | `null` | Optional Tracker location code |
 | `granularity` | enum | no | `monthly` | Live time bucket: `monthly`, `quarterly`, or `yearly` |
+| `region_level` | enum | no | `raw` | Regional aggregation: `raw`, `nuts1`, `nuts2`, or `nuts3` |
 | `top_k` | integer | no | `20` | Max sectors/regions returned |
 
 Either `skill_id` or `skill_label` is required.
@@ -433,6 +436,7 @@ curl -X POST "http://127.0.0.1:8000/projector/skill-explorer" \
   "status": "completed",
   "mode": "snapshot",
   "data_source": "postgres",
+  "region_level": "nuts2",
   "skill": {
     "skill_id": "skill-python",
     "label": "Python",
@@ -449,9 +453,12 @@ curl -X POST "http://127.0.0.1:8000/projector/skill-explorer" \
   ],
   "regions": [
     {
-      "code": "IT",
+      "code": "ITC4",
       "count": 50,
-      "share": 1.0
+      "share": 0.25,
+      "baseline_share": 0.2,
+      "specialization": 1.25,
+      "rank": 1
     }
   ],
   "time_series": [
@@ -936,15 +943,19 @@ Current validation covers:
 
 ## POST `/projector/emerging-skills`
 
-Computes trend intelligence only. It splits the requested time window into two internal periods and compares skill frequencies.
+Computes trend intelligence only. Use either the legacy date range, which is split into two disjoint internal periods, or all four explicit A/B period fields. Mixed, incomplete, invalid, or overlapping configurations return `422`.
 
 ### Request Fields
 
 | Field | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `min_date` | string | yes | none | Start date, `YYYY-MM-DD` |
-| `max_date` | string | yes | none | End date, `YYYY-MM-DD` |
+| `min_date` | string | legacy mode | none | Start date, `YYYY-MM-DD` |
+| `max_date` | string | legacy mode | none | End date, `YYYY-MM-DD` |
 | `keywords` | list of strings | no | `null` | Optional search terms |
+| `period_a_min_date` | string | explicit mode | none | Period A start, `YYYY-MM-DD` |
+| `period_a_max_date` | string | explicit mode | none | Period A end, `YYYY-MM-DD` |
+| `period_b_min_date` | string | explicit mode | none | Period B start, `YYYY-MM-DD` |
+| `period_b_max_date` | string | explicit mode | none | Period B end, `YYYY-MM-DD`; must follow period A |
 
 ### Example Request
 
@@ -973,7 +984,11 @@ curl -X POST "http://127.0.0.1:8000/projector/emerging-skills" \
         "trend_type": "emerging",
         "primary_sector": "Software developers",
         "is_green": false,
-        "is_digital": false
+        "is_digital": false,
+        "previous_count": 100,
+        "current_count": 120,
+        "delta": 20,
+        "is_new_entry": false
       }
     ]
   }

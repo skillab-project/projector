@@ -20,9 +20,12 @@ class TrendAnalytics:
 
     # --- METODO 2: STANDALONE (CON FETCH) ---
     async def calculate_smart_trends(self, base_filters: dict, min_date: str, max_date: str):
-        mid = self._get_midpoint(min_date, max_date)
-        f_a = {**base_filters, "min_upload_date": min_date, "max_upload_date": mid}
-        f_b = {**base_filters, "min_upload_date": mid, "max_upload_date": max_date}  # Semplificato per brevità
+        period_a, period_b = self._split_periods(min_date, max_date)
+        return await self.calculate_smart_trends_for_periods(base_filters, period_a, period_b)
+
+    async def calculate_smart_trends_for_periods(self, base_filters: dict, period_a: tuple[str, str], period_b: tuple[str, str]):
+        f_a = {**base_filters, "min_upload_date": period_a[0], "max_upload_date": period_a[1]}
+        f_b = {**base_filters, "min_upload_date": period_b[0], "max_upload_date": period_b[1]}
 
         res_a = await self.market.analyze_market_data(await self.tracker.fetch_all_jobs(f_a))
         if self.engine.stop_requested: return self._stop_trend_res()
@@ -49,10 +52,12 @@ class TrendAnalytics:
             if period not in period_jobs:
                 continue
             period_jobs[period] += 1
-            for skill_id in job.get("skills", []):
-                skill_key = str(skill_id).strip()
-                if not skill_key:
-                    continue
+            skill_ids = dict.fromkeys(
+                str(skill_id).strip()
+                for skill_id in (job.get("skills", []) or [])
+                if str(skill_id).strip()
+            )
+            for skill_key in skill_ids:
                 period_skill_counts[period][skill_key] += 1
                 total_skill_counts[skill_key] += 1
 
@@ -127,6 +132,12 @@ class TrendAnalytics:
     def _get_midpoint(self, d1, d2):
         dt1, dt2 = datetime.strptime(d1, "%Y-%m-%d"), datetime.strptime(d2, "%Y-%m-%d")
         return (dt1 + timedelta(days=(dt2 - dt1).days // 2)).strftime("%Y-%m-%d")
+
+    def _split_periods(self, min_date: str, max_date: str):
+        start = date.fromisoformat(min_date)
+        end = date.fromisoformat(max_date)
+        midpoint = date.fromisoformat(self._get_midpoint(min_date, max_date))
+        return (start.isoformat(), midpoint.isoformat()), ((midpoint + timedelta(days=1)).isoformat(), end.isoformat())
 
     def _build_period_buckets(self, min_date: str, max_date: str, granularity: str):
         start = date.fromisoformat(min_date)
@@ -252,7 +263,11 @@ class TrendAnalytics:
                 "trend_type": t_type,
                 "primary_sector": primary_sector,
                 "is_green": info_b.get("is_green", False),
-                "is_digital": info_b.get("is_digital", False)
+                "is_digital": info_b.get("is_digital", False),
+                "previous_count": v_a,
+                "current_count": v_b,
+                "delta": v_b - v_a,
+                "is_new_entry": v_a == 0 and v_b > 0,
             })
 
         trends.sort(key=lambda x: float('inf') if x["growth"] == "new_entry" else x["growth"], reverse=True)
@@ -265,4 +280,14 @@ class TrendAnalytics:
                 "volume_growth_percentage": vol_growth
             },
             "trends": trends
+        }
+
+    @staticmethod
+    def _stop_trend_res():
+        return {
+            "market_health": {
+                "status": "stable",
+                "volume_growth_percentage": 0.0,
+            },
+            "trends": [],
         }

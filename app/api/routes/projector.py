@@ -174,8 +174,15 @@ async def task_status(task_id: str):
     status_code=status.HTTP_202_ACCEPTED,
     responses=ASYNC_RESPONSES,
 )
-async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
-                          keywords: Optional[List[str]] = Form(None)):
+async def emerging_skills(
+        min_date: Optional[str] = Form(None),
+        max_date: Optional[str] = Form(None),
+        keywords: Optional[List[str]] = Form(None),
+        period_a_min_date: Optional[str] = Form(None),
+        period_a_max_date: Optional[str] = Form(None),
+        period_b_min_date: Optional[str] = Form(None),
+        period_b_max_date: Optional[str] = Form(None),
+):
     """
        Computes emerging and declining skill trends over a time period.
 
@@ -200,10 +207,69 @@ async def emerging_skills(min_date: str = Form(...), max_date: str = Form(...),
        Key Metric:
            Growth % = (B - A) / A * 100
        """
-    validate_date_range(min_date, max_date, "min_date", "max_date")
+    legacy_values = (min_date, max_date)
+    explicit_values = (period_a_min_date, period_a_max_date, period_b_min_date, period_b_max_date)
+    has_legacy = any(value not in (None, "") for value in legacy_values)
+    has_explicit = any(value not in (None, "") for value in explicit_values)
+    if has_legacy and has_explicit:
+        raise HTTPException(
+            status_code=422,
+            detail=error_detail(
+                "mixed_trend_periods",
+                "Use either min_date/max_date or the four explicit period A/B fields, not both.",
+            ),
+        )
+    if has_explicit:
+        if not all(value not in (None, "") for value in explicit_values):
+            raise HTTPException(
+                status_code=422,
+                detail=error_detail(
+                    "incomplete_trend_periods",
+                    "All four explicit period A/B date fields are required.",
+                ),
+            )
+        validate_date_range(period_a_min_date, period_a_max_date, "period_a_min_date", "period_a_max_date")
+        validate_date_range(period_b_min_date, period_b_max_date, "period_b_min_date", "period_b_max_date")
+        if date.fromisoformat(period_a_max_date) >= date.fromisoformat(period_b_min_date):
+            raise HTTPException(
+                status_code=422,
+                detail=error_detail(
+                    "overlapping_trend_periods",
+                    "Period A must end before period B starts.",
+                    "period_b_min_date",
+                ),
+            )
+    else:
+        if not all(value not in (None, "") for value in legacy_values):
+            raise HTTPException(
+                status_code=422,
+                detail=error_detail(
+                    "missing_date_range",
+                    "min_date and max_date are required when explicit period A/B fields are omitted.",
+                    "min_date",
+                ),
+            )
+        validate_date_range(min_date, max_date, "min_date", "max_date")
+        if date.fromisoformat(min_date) == date.fromisoformat(max_date):
+            raise HTTPException(
+                status_code=422,
+                detail=error_detail(
+                    "trend_window_too_short",
+                    "The legacy trend window must contain at least two distinct days.",
+                    "max_date",
+                ),
+            )
     return submit_task(
         "/projector/emerging-skills",
-        lambda: service.emerging_skills(min_date, max_date, keywords),
+        lambda: service.emerging_skills(
+            min_date=min_date,
+            max_date=max_date,
+            keywords=keywords,
+            period_a_min_date=period_a_min_date,
+            period_a_max_date=period_a_max_date,
+            period_b_min_date=period_b_min_date,
+            period_b_max_date=period_b_max_date,
+        ),
         EmergingSkillsResponse,
     )
 
@@ -396,6 +462,7 @@ async def skill_explorer(
         max_date: Optional[str] = Form(None),
         locations: Optional[List[str]] = Form(None),
         granularity: Literal["monthly", "quarterly", "yearly"] = Form("monthly"),
+        region_level: Literal["raw", "nuts1", "nuts2", "nuts3"] = Form("raw"),
         top_k: int = Form(20),
 ):
     """
@@ -460,6 +527,7 @@ async def skill_explorer(
             max_date=max_date,
             locations=locations,
             granularity=granularity,
+            region_level=region_level,
             top_k=top_k,
         ),
         SkillExplorerResponse,

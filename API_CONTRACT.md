@@ -8,6 +8,7 @@ Canonical docs:
 - [API reference](docs/api-reference.md)
 - [Data model](docs/data-model.md)
 - [Statistics](docs/statistic.md)
+- [D3.3 code compliance matrix](docs/d33-code-compliance-matrix.md)
 
 Related issues: #1, #8, #44, #52, #54.
 

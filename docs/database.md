@@ -71,6 +71,8 @@ One row per sector in a completed run.
 | `all_skills` | `JSONB` | full skill list |
 | `top_job_titles` | `JSONB` | top titles |
 
+New snapshots store `snapshot_count` inside each skill JSON item so Skill Explorer can deduplicate the same job across multiple sector rows. `rank_score` and job-title `share` are derived at read time, so existing PostgreSQL rows require no migration.
+
 Primary key:
 
 ```text

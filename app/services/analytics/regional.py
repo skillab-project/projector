@@ -98,7 +98,12 @@ class RegionalAnalytics:
                     nuts_map[level][code]["count"] += 1
 
             # 3. AGGREGAZIONE SKILLS
-            for s_uri in job.get("skills", []):
+            skill_ids = dict.fromkeys(
+                str(s_uri).strip()
+                for s_uri in (job.get("skills", []) or [])
+                if str(s_uri).strip()
+            )
+            for s_uri in skill_ids:
                 label = self.engine.skill_map.get(s_uri, {}).get("label", s_uri)
 
                 # Update globale per LQ
@@ -120,10 +125,14 @@ class RegionalAnalytics:
                 skills_list = []
                 for s_name, count in data["skills"].items():
                     # Calcolo Location Quotient (Specializzazione)
-                    lq = (count / data["count"]) / (global_counts[s_name] / total_jobs)
+                    share = count / data["count"] if data["count"] else 0.0
+                    baseline_share = global_counts[s_name] / total_jobs if total_jobs else 0.0
+                    lq = share / baseline_share if baseline_share else 0.0
                     skills_list.append({
                         "skill": s_name,
                         "count": count,
+                        "share": round(share, 6),
+                        "baseline_share": round(baseline_share, 6),
                         "specialization": round(lq, 2)
                     })
                 formatted.append({

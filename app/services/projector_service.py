@@ -144,10 +144,26 @@ class ProjectorService:
             }
         }
 
-    async def emerging_skills(self, min_date: str = Form(...), max_date: str = Form(...),
-                          keywords: Optional[List[str]] = Form(None)):
+    async def emerging_skills(
+            self,
+            min_date: Optional[str] = None,
+            max_date: Optional[str] = None,
+            keywords: Optional[List[str]] = None,
+            period_a_min_date: Optional[str] = None,
+            period_a_max_date: Optional[str] = None,
+            period_b_min_date: Optional[str] = None,
+            period_b_max_date: Optional[str] = None,
+    ):
         self.engine.stop_requested = False
-        res = await self.trends.calculate_smart_trends({"keywords": keywords} if keywords else {}, min_date, max_date)
+        filters = {"keywords": keywords} if keywords else {}
+        if all((period_a_min_date, period_a_max_date, period_b_min_date, period_b_max_date)):
+            res = await self.trends.calculate_smart_trends_for_periods(
+                filters,
+                (period_a_min_date, period_a_max_date),
+                (period_b_min_date, period_b_max_date),
+            )
+        else:
+            res = await self.trends.calculate_smart_trends(filters, min_date, max_date)
         return {"status": "completed" if not self.engine.stop_requested else "stopped", "insights": res}
 
     async def temporal_projections(
@@ -245,20 +261,31 @@ class ProjectorService:
             rankings = analysis["rankings"]
             for key, field in (("employers", "organization_name"), ("job_titles", "title")):
                 counts = Counter(job.get(field) or "N/D" for job in region_jobs)
-                rankings[key] = [{"name": name, "count": count} for name, count in counts.most_common()]
+                rankings[key] = [
+                    {
+                        "name": name,
+                        "count": count,
+                        "share": round(count / len(region_jobs), 6) if region_jobs else 0.0,
+                    }
+                    for name, count in counts.most_common()
+                ]
             sectors = Counter(
                 sector for job in region_jobs
                 for sector in (self.occupations.get_sector_keys_from_job(job, level="nace_section")
                                or ["Sector not specified"])
             )
-            rankings["sectors"] = [{"name": name, "count": count} for name, count in sectors.most_common()]
+            rankings["sectors"] = [
+                {
+                    "name": name,
+                    "count": count,
+                    "share": round(count / len(region_jobs), 6) if region_jobs else 0.0,
+                }
+                for name, count in sectors.most_common()
+            ]
 
-        combined_skill_counts = Counter(
-            str(skill_id).strip()
-            for job in combined_jobs
-            for skill_id in (job.get("skills") or [])
-            if str(skill_id).strip()
-        )
+        combined_skill_counts = Counter()
+        for job in combined_jobs:
+            combined_skill_counts.update(self._unique_job_skill_ids(job))
         combined_total_jobs = len(combined_jobs)
 
         region_payload_a = self._build_region_comparison_region(
@@ -342,6 +369,7 @@ class ProjectorService:
                 "name": item.get("name") or self._skill_meta(skill_id)["label"],
                 "count": count,
                 "share": round(local_share * 100, 2),
+                "baseline_share": round(combined_share, 6),
                 "specialization": round(specialization, 2),
                 "is_green": bool(item.get("is_green", False)),
                 "is_digital": bool(item.get("is_digital", False)),
@@ -393,8 +421,8 @@ class ProjectorService:
         for skill_id in skill_ids:
             rank_a, item_a = skills_a.get(skill_id, (None, None))
             rank_b, item_b = skills_b.get(skill_id, (None, None))
-            item_a = item_a or {"count": 0, "share": 0.0, "specialization": 0.0, "name": None}
-            item_b = item_b or {"count": 0, "share": 0.0, "specialization": 0.0, "name": None}
+            item_a = item_a or {"count": 0, "share": 0.0, "baseline_share": 0.0, "specialization": 0.0, "name": None}
+            item_b = item_b or {"count": 0, "share": 0.0, "baseline_share": 0.0, "specialization": 0.0, "name": None}
             skill_rows.append({
                 "skill_id": skill_id,
                 "name": item_a.get("name") or item_b.get("name") or skill_id,
@@ -403,6 +431,9 @@ class ProjectorService:
                 "count_difference": int(item_b.get("count", 0) or 0) - int(item_a.get("count", 0) or 0),
                 "region_a_share": float(item_a.get("share", 0.0) or 0.0),
                 "region_b_share": float(item_b.get("share", 0.0) or 0.0),
+                "baseline_share": float(
+                    item_a.get("baseline_share", item_b.get("baseline_share", 0.0)) or 0.0
+                ),
                 "share_difference_percentage_points": round(
                     float(item_b.get("share", 0.0) or 0.0) - float(item_a.get("share", 0.0) or 0.0),
                     2,
@@ -479,6 +510,7 @@ class ProjectorService:
             max_date: Optional[str] = None,
             locations: Optional[List[str]] = None,
             granularity: Literal["monthly", "quarterly", "yearly"] = "monthly",
+            region_level: Literal["raw", "nuts1", "nuts2", "nuts3"] = "raw",
             top_k: int = 20,
     ):
         normalized_mode = str(mode or "snapshot").strip().lower()
@@ -490,6 +522,7 @@ class ProjectorService:
                 max_date=max_date,
                 locations=locations,
                 granularity=granularity,
+                region_level=region_level,
                 top_k=top_k,
             )
         return self._skill_explorer_snapshot(
@@ -499,6 +532,7 @@ class ProjectorService:
             start_year=start_year,
             end_year=end_year,
             locations=locations,
+            region_level=region_level,
             top_k=top_k,
         )
 
@@ -937,6 +971,7 @@ class ProjectorService:
             start_year: Optional[int],
             end_year: Optional[int],
             locations: Optional[List[str]],
+            region_level: str,
             top_k: int,
     ):
         target_start, target_end = self._resolve_skill_explorer_years(year, start_year, end_year)
@@ -947,24 +982,35 @@ class ProjectorService:
                 data_source="postgres" if self._sector_snapshot_store_enabled() else "cache",
                 skill_id=skill_id,
                 skill_label=skill_label,
+                region_level=region_level,
                 status="not_available",
                 message="No static sector snapshot store is available for Skill Explorer.",
             )
         try:
-            payload = self.sector_snapshot_store.read_skill_distribution(
-                skill_id=str(skill_id).strip() if skill_id else None,
-                skill_label=str(skill_label).strip() if skill_label else None,
-                start_year=target_start,
-                end_year=target_end,
-                location_code=location_code,
-                top_k=top_k,
-            )
+            read_kwargs = {
+                "skill_id": str(skill_id).strip() if skill_id else None,
+                "skill_label": str(skill_label).strip() if skill_label else None,
+                "start_year": target_start,
+                "end_year": target_end,
+                "location_code": location_code,
+                "top_k": top_k,
+            }
+            try:
+                payload = self.sector_snapshot_store.read_skill_distribution(
+                    **read_kwargs,
+                    region_level=region_level,
+                )
+            except TypeError as exc:
+                if "region_level" not in str(exc):
+                    raise
+                payload = self.sector_snapshot_store.read_skill_distribution(**read_kwargs)
         except Exception as exc:
             return self._empty_skill_explorer_response(
                 mode="snapshot",
                 data_source="postgres",
                 skill_id=skill_id,
                 skill_label=skill_label,
+                region_level=region_level,
                 status="not_available",
                 message=f"Skill Explorer snapshot store is unreachable: {exc}",
             )
@@ -974,6 +1020,7 @@ class ProjectorService:
                 data_source="postgres",
                 skill_id=skill_id,
                 skill_label=skill_label,
+                region_level=region_level,
                 status="not_available",
                 message=f"No static skill snapshot data available for {target_start}-{target_end}.",
             )
@@ -984,6 +1031,7 @@ class ProjectorService:
             "status": status,
             "mode": "snapshot",
             "data_source": "postgres",
+            "region_level": region_level,
             "skill": payload.get("skill"),
             "total_mentions": total_mentions,
             "sectors": payload.get("sectors", []),
@@ -1001,6 +1049,7 @@ class ProjectorService:
             max_date: Optional[str],
             locations: Optional[List[str]],
             granularity: str,
+            region_level: str,
             top_k: int,
     ):
         payload = {
@@ -1019,32 +1068,33 @@ class ProjectorService:
                 data_source="live",
                 skill_id=skill_id,
                 skill_label=skill_label,
+                region_level=region_level,
                 status="not_found",
                 message="Skill not found in fetched Tracker jobs.",
             )
 
         sector_counts = Counter()
         region_counts = Counter()
+        region_job_counts = Counter()
         time_counts = Counter()
         total_mentions = 0
         buckets = self.trends._build_period_buckets(min_date, max_date, granularity)
         bucket_keys = {bucket["period"] for bucket in buckets}
 
-        for job in jobs:
-            skills = [
-                str(raw_skill).strip()
-                for raw_skill in job.get("skills", []) or []
-                if str(raw_skill).strip()
-            ]
-            match_count = sum(1 for raw_skill in skills if raw_skill in wanted_ids)
+        for idx, job in enumerate(jobs):
+            region_code = self.regional._resolve_region_codes(job, idx, demo=False).get(region_level)
+            if region_code:
+                region_job_counts[region_code] += 1
+            skills = self._unique_job_skill_ids(job)
+            match_count = int(bool(set(skills) & wanted_ids))
             if not match_count:
                 continue
             total_mentions += match_count
             sectors = list(dict.fromkeys(self._job_sector_labels(job))) or ["Sector not specified"]
             for sector in sectors:
                 sector_counts[sector] += match_count
-            region_code = str(job.get("location_code") or "EU").strip() or "EU"
-            region_counts[region_code] += match_count
+            if region_code:
+                region_counts[region_code] += match_count
             period = self.trends._period_label(job.get("upload_date"), granularity)
             if period in bucket_keys:
                 time_counts[period] += match_count
@@ -1058,8 +1108,11 @@ class ProjectorService:
             sector_counts=sector_counts,
             sector_labels={sector: sector for sector in sector_counts},
             region_counts=region_counts,
+            region_job_counts=region_job_counts,
+            baseline_share=round(total_mentions / len(jobs), 6) if jobs else 0.0,
             time_counts=time_counts,
             periods=[bucket["period"] for bucket in buckets],
+            region_level=region_level,
             top_k=top_k,
         )
         if not total_mentions:
@@ -1113,12 +1166,14 @@ class ProjectorService:
             sector_counts: Counter,
             sector_labels: dict,
             region_counts: Counter,
+            region_job_counts: Counter,
+            baseline_share: float,
             time_counts: Counter,
             periods: List[str],
+            region_level: str,
             top_k: int,
     ):
         sector_total = sum(sector_counts.values())
-        region_total = sum(region_counts.values())
         sectors = [
             {
                 "sector": sector,
@@ -1128,14 +1183,21 @@ class ProjectorService:
             }
             for sector, count in sector_counts.most_common(max(int(top_k or 20), 1))
         ]
-        regions = [
-            {
+        regions = []
+        for rank, (code, count) in enumerate(
+                region_counts.most_common(max(int(top_k or 20), 1)),
+                start=1,
+        ):
+            regional_jobs = int(region_job_counts.get(code, 0) or 0)
+            share = count / regional_jobs if regional_jobs else 0.0
+            regions.append({
                 "code": code,
                 "count": count,
-                "share": round(count / region_total, 6) if region_total else 0.0,
-            }
-            for code, count in region_counts.most_common(max(int(top_k or 20), 1))
-        ]
+                "share": round(share, 6),
+                "baseline_share": round(baseline_share, 6),
+                "specialization": round(share / baseline_share, 6) if baseline_share else 0.0,
+                "rank": rank,
+            })
         time_series = []
         previous = None
         for period in periods:
@@ -1151,6 +1213,7 @@ class ProjectorService:
             "status": "completed",
             "mode": mode,
             "data_source": data_source,
+            "region_level": region_level,
             "skill": skill,
             "total_mentions": int(total_mentions),
             "sectors": sectors,
@@ -1165,6 +1228,7 @@ class ProjectorService:
             data_source: str,
             skill_id: Optional[str],
             skill_label: Optional[str],
+            region_level: str,
             status: str,
             message: str,
     ):
@@ -1179,6 +1243,7 @@ class ProjectorService:
             "status": status,
             "mode": mode,
             "data_source": data_source,
+            "region_level": region_level,
             "skill": skill,
             "total_mentions": 0,
             "sectors": [],
@@ -1213,11 +1278,7 @@ class ProjectorService:
             period = self.trends._period_label(job.get("upload_date"), granularity)
             if period not in bucket_keys:
                 continue
-            skills = [
-                str(skill_id).strip()
-                for skill_id in job.get("skills", []) or []
-                if str(skill_id).strip()
-            ]
+            skills = self._unique_job_skill_ids(job)
             for skill_id in skills:
                 global_skill_counts[skill_id] += 1
 
@@ -1380,11 +1441,21 @@ class ProjectorService:
                     "share_in_sector": share,
                     "frequency": skill.get("frequency", share),
                     "rank": rank,
+                    "rank_score": round(1 / rank, 6),
                     "growth_vs_reference_year": growth,
                     "growth_value": growth_value,
                     "sector_breadth": sector_breadth.get(key, 0),
                 })
 
+            sector_job_count = int(sector.get("job_count", 0) or 0)
+            enriched_titles = [
+                {
+                    **title,
+                    "share": round(int(title.get("count", 0) or 0) / sector_job_count, 6)
+                    if sector_job_count else 0.0,
+                }
+                for title in (sector.get("top_job_titles", []) or [])
+            ]
             enriched_sectors.append({
                 **sector,
                 "evolution": self._build_sector_evolution(
@@ -1396,6 +1467,7 @@ class ProjectorService:
                 ),
                 "top_skills": enriched_skills[:10],
                 "all_skills": enriched_skills,
+                "top_job_titles": enriched_titles,
             })
         return enriched_sectors
 
@@ -1667,13 +1739,24 @@ class ProjectorService:
                 labels.append(value)
         return labels
 
+    @staticmethod
+    def _unique_job_skill_ids(job: dict):
+        return list(dict.fromkeys(
+            str(skill_id).strip()
+            for skill_id in (job.get("skills", []) or [])
+            if str(skill_id).strip()
+        ))
+
     def _filter_jobs_by_sector(self, jobs: List[dict], sectors: List[str]):
         if not sectors:
             return jobs
         wanted = {sector.lower() for sector in sectors}
         return [
             job for job in jobs
-            if any(label.lower() in wanted for label in self._job_sector_labels(job))
+            if any(
+                label.lower() in wanted
+                for label in (self._job_sector_labels(job) or ["Sector not specified"])
+            )
         ]
 
     def _skill_meta(self, skill_id: str):
@@ -1688,20 +1771,18 @@ class ProjectorService:
         sector_jobs = Counter()
         sector_skills = defaultdict(Counter)
         sector_titles = defaultdict(Counter)
+        snapshot_skill_counts = Counter()
         wanted = {sector.lower() for sector in (sector_filter or [])}
 
         for job in jobs:
-            labels = list(dict.fromkeys(self._job_sector_labels(job)))
+            labels = list(dict.fromkeys(self._job_sector_labels(job))) or ["Sector not specified"]
             if wanted:
                 labels = [label for label in labels if label.lower() in wanted]
             if not labels:
                 continue
 
-            skills = [
-                str(skill_id).strip()
-                for skill_id in dict.fromkeys(job.get("skills", []) or [])
-                if str(skill_id).strip()
-            ]
+            skills = self._unique_job_skill_ids(job)
+            snapshot_skill_counts.update(skills)
             title = str(job.get("title") or "").strip()
 
             for sector in labels:
@@ -1717,13 +1798,16 @@ class ProjectorService:
             skill_counts = sector_skills[sector]
             total_skill_mentions = sum(skill_counts.values())
             all_skills = []
-            for skill_id, count in skill_counts.most_common():
+            for rank, (skill_id, count) in enumerate(skill_counts.most_common(), start=1):
                 meta = self._skill_meta(skill_id)
                 all_skills.append({
                     "skill_id": skill_id,
                     "label": meta["label"],
                     "count": count,
+                    "snapshot_count": int(snapshot_skill_counts.get(skill_id, 0)),
                     "frequency": round(count / total_skill_mentions, 4) if total_skill_mentions else 0.0,
+                    "rank": rank,
+                    "rank_score": round(1 / rank, 6),
                     "is_green": meta["is_green"],
                     "is_digital": meta["is_digital"],
                 })
@@ -1739,7 +1823,11 @@ class ProjectorService:
                 "top_skills": top_skills,
                 "all_skills": all_skills,
                 "top_job_titles": [
-                    {"name": title, "count": count}
+                    {
+                        "name": title,
+                        "count": count,
+                        "share": round(count / job_count, 6) if job_count else 0.0,
+                    }
                     for title, count in sector_titles[sector].most_common(5)
                 ],
             })

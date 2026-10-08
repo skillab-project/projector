@@ -18,6 +18,14 @@ class SectoralAnalytics:
         sector_names = self.occupations.get_sector_keys_from_job(job, level=sector_level)
         return sector_names or ["Sector not specified"]
 
+    @staticmethod
+    def _unique_skill_ids(job: dict):
+        return list(dict.fromkeys(
+            str(skill_id).strip()
+            for skill_id in (job.get("skills", []) or [])
+            if str(skill_id).strip()
+        ))
+
 
 
     def build_observed_occupation_skill_matrix(self, jobs: List[dict], reset: bool = True):
@@ -45,7 +53,7 @@ class SectoralAnalytics:
                 continue
 
             for occ_id in occ_ids:
-                for skill_id in job.get("skills", []):
+                for skill_id in self._unique_skill_ids(job):
                     skill_id = str(skill_id).strip()
                     if not skill_id:
                         continue
@@ -257,7 +265,7 @@ class SectoralAnalytics:
             if str(sector_level).startswith("nace"):
                 sector_names = self._get_nace_sector_keys_for_job(job, sector_level)
                 for sector_name in sector_names:
-                    for skill_id in job.get("skills", []):
+                    for skill_id in self._unique_skill_ids(job):
                         skill_id = str(skill_id).strip()
                         if not skill_id:
                             continue
@@ -271,7 +279,7 @@ class SectoralAnalytics:
             for occ_id in occ_ids:
                 sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
                 for sector_name in sector_names:
-                    for skill_id in job.get("skills", []):
+                    for skill_id in self._unique_skill_ids(job):
                         skill_id = str(skill_id).strip()
                         if not skill_id:
                             continue
@@ -1034,7 +1042,7 @@ class SectoralAnalytics:
             if str(sector_level).startswith("nace"):
                 sector_names = self._get_nace_sector_keys_for_job(job, sector_level)
                 for sector_name in sector_names:
-                    for skill_id in job.get("skills", []):
+                    for skill_id in self._unique_skill_ids(job):
                         skill_id = str(skill_id).strip()
                         if not skill_id:
                             continue
@@ -1050,7 +1058,7 @@ class SectoralAnalytics:
             for occ_id in occ_ids:
                 sector_names = self._get_sector_keys_for_job_occupation(job, occ_id, sector_level)
                 for sector_name in sector_names:
-                    for skill_id in job.get("skills", []):
+                    for skill_id in self._unique_skill_ids(job):
                         skill_id = str(skill_id).strip()
                         if not skill_id:
                             continue

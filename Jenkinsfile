@@ -88,7 +88,7 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c '
-                            pytest app/test.py app/test_region_comparison.py -v \
+                            pytest app/test.py app/test_d33_compliance.py app/test_async_endpoints.py app/test_region_comparison.py app/test_task_manager.py -v \
                                 --tb=short \
                                 --junitxml=test-results.xml \
                                 --cov=app \
@@ -114,7 +114,7 @@ pipeline {
                         -w /workspace \
                         ${CI_IMAGE} \
                         sh -c "
-                            pytest app/test.py app/test_region_comparison.py -v \
+                            pytest app/test.py app/test_d33_compliance.py app/test_async_endpoints.py app/test_region_comparison.py app/test_task_manager.py -v \
                                 -m 'integration' \
                                 --tb=short \
                                 --junitxml=integration-test-results.xml

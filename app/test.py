@@ -334,7 +334,14 @@ def test_sector_snapshot_store_read_skill_distribution_matches_label_case_insens
     assert payload["total_mentions"] == 10
     assert payload["sectors"][0]["sector"] == "ICT"
     assert payload["sectors"][0]["share"] == 1.0
-    assert payload["regions"][0] == {"code": "IT", "count": 3, "share": 1.0}
+    assert payload["regions"][0] == {
+        "code": "IT",
+        "count": 3,
+        "share": 1.0,
+        "baseline_share": 1.0,
+        "specialization": 1.0,
+        "rank": 1,
+    }
     assert payload["time_series"] == [
         {"period": "2023", "count": 4, "growth_vs_previous": None},
         {"period": "2024", "count": 6, "growth_vs_previous": 50.0},
@@ -2545,7 +2552,7 @@ async def test_projector_service_sectoral_snapshot_aggregates_year():
     assert sector["evolution"]["total_jobs_reference"] == 0
     assert sector["evolution"]["job_growth_percentage"] == "new_entry"
     assert sector["evolution"]["new_skill_count"] == 2
-    assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2}]
+    assert sector["top_job_titles"] == [{"name": "Data Scientist", "count": 2, "share": 1.0}]
 
 
 @pytest.mark.asyncio
@@ -4159,7 +4166,14 @@ def test_endpoint_skill_explorer_live_exact_skill_and_multi_sector_job():
     assert payload["mode"] == "live"
     assert payload["total_mentions"] == 1
     assert {item["sector"]: item["count"] for item in payload["sectors"]} == {"ICT": 1, "Education": 1}
-    assert payload["regions"] == [{"code": "IT", "count": 1, "share": 1.0}]
+    assert payload["regions"] == [{
+        "code": "IT",
+        "count": 1,
+        "share": 1.0,
+        "baseline_share": 0.5,
+        "specialization": 2.0,
+        "rank": 1,
+    }]
     assert payload["time_series"][0]["period"] == "2024-01"
     assert payload["time_series"][0]["count"] == 1
     m_fetch.assert_awaited_once_with({
@@ -7719,7 +7733,7 @@ def test_endpoint_sectoral_snapshot_contract():
         assert data["sectors"][0]["top_skills"][0]["sector_breadth"] == 1
         assert data["sectors"][0]["all_skills"][0]["label"] == "Docker"
         assert data["sectors"][0]["top_job_titles"] == [
-            {"name": "Backend Developer", "count": 1}
+            {"name": "Backend Developer", "count": 1, "share": 1.0}
         ]
 
 

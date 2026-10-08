@@ -285,6 +285,7 @@ class SectorSnapshotStore:
             start_year: Optional[int] = None,
             end_year: Optional[int] = None,
             location_code: Optional[str] = None,
+            region_level: str = "raw",
             top_k: int = 20,
     ):
         if not self.enabled:
@@ -295,6 +296,9 @@ class SectorSnapshotStore:
         location_filter = str(location_code or "").strip()
         target_skill_id = str(skill_id or "").strip()
         target_label = str(skill_label or "").strip().lower()
+        normalized_region_level = str(region_level or "raw").strip().lower()
+        if normalized_region_level not in {"raw", "nuts1", "nuts2", "nuts3"}:
+            normalized_region_level = "raw"
         top_k = max(int(top_k or 20), 1)
 
         with self._connect() as conn:
@@ -302,16 +306,18 @@ class SectorSnapshotStore:
                 """
                 WITH latest_runs AS (
                     SELECT DISTINCT ON (year, COALESCE(location_code, ''))
-                        id, year, location_code
+                        id, year, location_code, total_jobs
                     FROM sector_snapshot_runs
                     WHERE year BETWEEN %s AND %s
                       AND status = 'completed'
-                      AND (%s = '' OR COALESCE(location_code, '') = %s)
+                      AND (%s = '' OR COALESCE(location_code, '') IN ('', %s))
                     ORDER BY year, COALESCE(location_code, ''), completed_at DESC NULLS LAST, id DESC
                 )
                 SELECT
                     latest_runs.year,
+                    latest_runs.id AS run_id,
                     latest_runs.location_code,
+                    latest_runs.total_jobs,
                     snapshots.sector,
                     snapshots.sector_label,
                     snapshots.top_skills,
@@ -345,41 +351,109 @@ class SectorSnapshotStore:
                         "skill_id": current_id,
                         "label": current_label,
                         "count": int(skill.get("count", 0) or 0),
+                        "snapshot_count": (
+                            int(skill.get("snapshot_count", 0) or 0)
+                            if skill.get("snapshot_count") is not None
+                            else None
+                        ),
                     })
             return matches
+
+        def row_run_id(row):
+            return row.get("run_id", (row.get("year"), row.get("location_code")))
+
+        def row_total_jobs(row):
+            explicit_total = int(row.get("total_jobs", 0) or 0)
+            if explicit_total:
+                return explicit_total
+            skills = decode_skills(row.get("all_skills")) or decode_skills(row.get("top_skills"))
+            return max((int(skill.get("count", 0) or 0) for skill in skills), default=0)
 
         matched_skill = None
         sector_counts = Counter()
         sector_labels = {}
         region_counts = Counter()
+        region_job_totals = Counter()
         time_counts = Counter()
         warnings = []
         base_rows = [row for row in rows if location_filter or row["location_code"] is None]
+        if location_filter:
+            base_rows = [row for row in rows if row["location_code"] is None]
         if not base_rows:
             base_rows = rows
             warnings.append("No global snapshot rows available; using regional rows as fallback.")
 
+        global_snapshot_counts = {}
+        global_fallback_counts = Counter()
+        global_run_years = {}
         for row in base_rows:
             for skill in matching_skills(row):
                 matched_skill = matched_skill or skill
                 sector_counts[row["sector"]] += skill["count"]
                 sector_labels[row["sector"]] = row["sector_label"] or row["sector"]
-                time_counts[int(row["year"])] += skill["count"]
+                run_id = row_run_id(row)
+                global_run_years[run_id] = int(row["year"])
+                if skill["snapshot_count"] is not None:
+                    global_snapshot_counts[run_id] = max(
+                        global_snapshot_counts.get(run_id, 0),
+                        skill["snapshot_count"],
+                    )
+                else:
+                    global_fallback_counts[run_id] += skill["count"]
+
+        for run_id, year in global_run_years.items():
+            time_counts[year] += global_snapshot_counts.get(run_id, global_fallback_counts.get(run_id, 0))
+
+        global_run_jobs = {
+            row_run_id(row): row_total_jobs(row)
+            for row in base_rows
+        }
+        global_total_jobs = sum(global_run_jobs.values())
+
+        def level_code(raw_code):
+            code = str(raw_code or "").strip()
+            if normalized_region_level == "nuts1":
+                return code[:3] if len(code) >= 3 else None
+            if normalized_region_level == "nuts2":
+                return code[:4] if len(code) >= 4 else None
+            if normalized_region_level == "nuts3":
+                return code[:5] if len(code) >= 5 else None
+            return code or None
 
         regional_rows = [row for row in rows if row["location_code"] is not None]
         if location_filter:
             regional_rows = [row for row in rows if row["location_code"] == location_filter]
+        seen_region_runs = set()
+        regional_snapshot_counts = {}
+        regional_fallback_counts = Counter()
         for row in regional_rows:
-            region_code = str(row["location_code"] or "").strip()
+            region_code = level_code(row["location_code"])
             if not region_code:
                 continue
+            run_key = (region_code, row_run_id(row))
+            if run_key not in seen_region_runs:
+                region_job_totals[region_code] += row_total_jobs(row)
+                seen_region_runs.add(run_key)
             for skill in matching_skills(row):
                 matched_skill = matched_skill or skill
-                region_counts[region_code] += skill["count"]
+                skill_run_key = (region_code, row_run_id(row))
+                if skill["snapshot_count"] is not None:
+                    regional_snapshot_counts[skill_run_key] = max(
+                        regional_snapshot_counts.get(skill_run_key, 0),
+                        skill["snapshot_count"],
+                    )
+                else:
+                    regional_fallback_counts[skill_run_key] += skill["count"]
+
+        for (region_code, run_id), count in regional_fallback_counts.items():
+            region_counts[region_code] += regional_snapshot_counts.get((region_code, run_id), count)
+        for (region_code, run_id), count in regional_snapshot_counts.items():
+            if (region_code, run_id) not in regional_fallback_counts:
+                region_counts[region_code] += count
 
         total_mentions = sum(time_counts.values())
         sector_total = sum(sector_counts.values())
-        region_total = sum(region_counts.values())
+        baseline_share = total_mentions / global_total_jobs if global_total_jobs else 0.0
         previous = None
         time_series = []
         for year in range(start_year, end_year + 1):
@@ -413,9 +487,15 @@ class SectorSnapshotStore:
                 {
                     "code": code,
                     "count": count,
-                    "share": round(count / region_total, 6) if region_total else 0.0,
+                    "share": round(count / region_job_totals[code], 6) if region_job_totals[code] else 0.0,
+                    "baseline_share": round(baseline_share, 6),
+                    "specialization": round(
+                        (count / region_job_totals[code]) / baseline_share,
+                        6,
+                    ) if region_job_totals[code] and baseline_share else 0.0,
+                    "rank": rank,
                 }
-                for code, count in region_counts.most_common(top_k)
+                for rank, (code, count) in enumerate(region_counts.most_common(top_k), start=1)
             ],
             "time_series": time_series,
             "warnings": warnings,

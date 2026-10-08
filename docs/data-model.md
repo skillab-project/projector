@@ -234,6 +234,7 @@ Regional temporal skill:
   "status": "completed",
   "mode": "snapshot",
   "data_source": "postgres",
+  "region_level": "raw",
   "skill": {
     "skill_id": "skill-python",
     "label": "Python",
@@ -264,7 +265,10 @@ Region row:
 {
   "code": "IT",
   "count": 50,
-  "share": 1.0
+  "share": 0.25,
+  "baseline_share": 0.2,
+  "specialization": 1.25,
+  "rank": 1
 }
 ```
 
@@ -336,7 +340,8 @@ Used by sectors, job titles and employers:
 ```json
 {
   "name": "Example",
-  "count": 10
+  "count": 10,
+  "share": 0.2
 }
 ```
 
@@ -385,9 +390,11 @@ Used by sectors, job titles and employers:
   "skill_id": "skill-python",
   "label": "Python",
   "count": 188,
+  "snapshot_count": 240,
   "frequency": 0.1492,
   "share_in_sector": 0.1492,
   "rank": 1,
+  "rank_score": 1.0,
   "growth_vs_reference_year": 0.24,
   "growth_value": 0.24,
   "sector_breadth": 4,
@@ -397,6 +404,18 @@ Used by sectors, job titles and employers:
 ```
 
 Used in `top_skills` and `all_skills`.
+
+## Sector Snapshot Title
+
+```json
+{
+  "name": "Software developer",
+  "count": 84,
+  "share": 0.2
+}
+```
+
+`share` is `count / sector.job_count`, with `0.0` when the sector job count is zero.
 
 ## Sector Evolution
 
