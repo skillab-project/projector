@@ -45,7 +45,9 @@ The API is available at:
 - ReDoc: `http://127.0.0.1:8000/redoc`
 - Projector base path: `http://127.0.0.1:8000/projector`
 
-`uvicorn main:app --reload` still exists as a legacy root entrypoint, but `app.main:app` is the package entrypoint aligned with the current code layout.
+Analysis endpoints use an asynchronous job contract: every analysis `POST` returns `202 Accepted` with a unique `task_id`; poll `GET /projector/tasks/{task_id}` until it returns `completed` with `result` or `failed` with `error`. Health, readiness, stop and documentation endpoints remain synchronous. The Streamlit dashboard performs this polling automatically.
+
+`uvicorn main:app --reload` still exists as a historical root entrypoint, but it does not implement the asynchronous task contract. `app.main:app` is the only maintained package entrypoint.
 
 ## Self-Contained Synthetic Demo
 
@@ -218,18 +220,28 @@ app.main
 The current public endpoints are:
 
 - `POST /projector/analyze-skills`
+- `POST /projector/compare-regions`
+- `POST /projector/temporal-projections`
+- `POST /projector/regional-temporal`
+- `POST /projector/skill-explorer`
+- `POST /projector/statistical-comparison`
 - `POST /projector/sectoral-snapshot`
 - `POST /projector/sector-skills-comparison`
 - `POST /projector/regional-sectoral`
 - `POST /projector/sectoral-intelligence`
 - `POST /projector/emerging-skills`
+- `GET /projector/tasks/{task_id}`
+- `GET /projector/health`
+- `GET /projector/readiness`
 - `POST /projector/stop`
 
-All endpoints currently accept `application/x-www-form-urlencoded` form data.
+Analysis `POST` endpoints accept `application/x-www-form-urlencoded` form data and return a task acknowledgement. See [API reference](docs/api-reference.md) for the task lifecycle and final result envelopes.
 
 ### Main Analysis
 
 `POST /projector/analyze-skills` fetches jobs from Tracker, enriches skill labels, computes rankings, trends, regional projections and optional sectoral intelligence.
+
+The direct response is a task acknowledgement. The analysis structure described below is available under `result` after polling the returned `status_url`.
 
 Common fields:
 - `keywords`: optional list of search keywords

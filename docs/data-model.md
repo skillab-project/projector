@@ -1,5 +1,7 @@
 # Data Model
 
+The structures below are analysis-result models. Analysis `POST` endpoints return `HTTP 202`; retrieve these structures from the `result` field of `GET /projector/tasks/{task_id}` after the task reaches `completed`. See [API reference](api-reference.md#asynchronous-task-contract).
+
 Current response fields. Metric formulas live in [Statistics](statistic.md).
 
 Related issues: #3, #4, #7, #8, #33, #44, #47, #48, #52, #54, #74, #88, #89, #90.

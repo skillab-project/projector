@@ -184,11 +184,11 @@ class TrackerClient:
                 "error": "Tracker API, username or password is not configured.",
             }
         try:
-            resp = await self.client.post(
-                f"{self.api_url}/login",
-                json={"username": self.username, "password": self.password},
-                timeout=10,
-            )
+            async with httpx.AsyncClient(timeout=10) as readiness_client:
+                resp = await readiness_client.post(
+                    f"{self.api_url}/login",
+                    json={"username": self.username, "password": self.password},
+                )
         except Exception as exc:
             return {
                 "configured": True,

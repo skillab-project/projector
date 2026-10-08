@@ -16,6 +16,62 @@ All public endpoints are exposed under:
 Content-Type: application/x-www-form-urlencoded
 ```
 
+## Asynchronous Task Contract
+
+All analysis endpoints documented below are asynchronous. After synchronous form and business-input validation, each `POST` returns `HTTP 202 Accepted` instead of the analysis result:
+
+```json
+{
+  "task_id": "4dd9955b-a23e-4db7-aa16-ff749b576f0a",
+  "status": "queued",
+  "status_url": "/projector/tasks/4dd9955b-a23e-4db7-aa16-ff749b576f0a",
+  "created_at": "2026-10-08T10:00:00Z"
+}
+```
+
+Poll the returned `status_url`:
+
+```bash
+curl "http://127.0.0.1:8000/projector/tasks/4dd9955b-a23e-4db7-aa16-ff749b576f0a"
+```
+
+While work is pending, `status` is `queued` or `running`. On success it is `completed` and `result` contains the endpoint-specific response shape shown in each section:
+
+```json
+{
+  "task_id": "4dd9955b-a23e-4db7-aa16-ff749b576f0a",
+  "endpoint": "/projector/analyze-skills",
+  "status": "completed",
+  "created_at": "2026-10-08T10:00:00Z",
+  "started_at": "2026-10-08T10:00:00Z",
+  "completed_at": "2026-10-08T10:00:04Z",
+  "result": {"status": "completed", "dimension_summary": {}, "insights": {}}
+}
+```
+
+On failure it is `failed` and includes `error` instead of `result`:
+
+```json
+{
+  "task_id": "4dd9955b-a23e-4db7-aa16-ff749b576f0a",
+  "endpoint": "/projector/analyze-skills",
+  "status": "failed",
+  "created_at": "2026-10-08T10:00:00Z",
+  "started_at": "2026-10-08T10:00:00Z",
+  "completed_at": "2026-10-08T10:00:01Z",
+  "error": {
+    "type": "TaskExecutionError",
+    "message": "Task execution failed. Contact support with the task_id for details."
+  }
+}
+```
+
+Invalid input returns `HTTP 422` immediately and no task is created. If the bounded worker queue is full, submission returns `HTTP 503` with error code `task_queue_full`. An unknown or evicted task ID returns `HTTP 404` with error code `task_not_found`. Health, readiness, stop, OpenAPI and documentation endpoints are synchronous.
+
+Task metadata and results are stored in memory in the API process. They do not survive a restart and, in a multi-worker deployment, polling must be routed to the worker that accepted the task. The maintained deployment currently uses one Uvicorn worker. Tasks execute one at a time because the service engine and cooperative stop flag are shared. Pending-queue and retained-record limits are configured with `PROJECTOR_TASK_MAX_PENDING` and `PROJECTOR_TASK_MAX_RECORDS`.
+
+In the endpoint sections below, every **Response Shape** is the value returned in the completed task's `result` field, not the direct `POST` response.
+
 ## POST `/projector/analyze-skills`
 
 Runs Job Demand Overview: a composition analysis of the selected job-market slice.
@@ -784,6 +840,35 @@ For `mode=comparison`, the response also includes:
     "period_a": {},
     "period_b": {},
     "sectors": []
+  }
+}
+```
+
+## GET `/projector/tasks/{task_id}`
+
+Returns the lifecycle state for one analysis task. This endpoint is synchronous and returns `HTTP 200` for every known task, including failed tasks.
+
+| Field | Present | Meaning |
+| --- | --- | --- |
+| `task_id` | always | UUID returned by the analysis `POST` |
+| `endpoint` | always | Canonical analysis endpoint that created the task |
+| `status` | always | `queued`, `running`, `completed`, or `failed` |
+| `created_at` | always | UTC acceptance time |
+| `started_at` | after execution starts | UTC execution start time |
+| `completed_at` | terminal states | UTC completion/failure time |
+| `result` | `completed` | Validated endpoint-specific payload |
+| `error` | `failed` | Sanitized failure type and message; details remain in server logs |
+
+An unknown ID returns `HTTP 404`:
+
+```json
+{
+  "detail": {
+    "error": {
+      "code": "task_not_found",
+      "message": "Task 'unknown' was not found.",
+      "field": null
+    }
   }
 }
 ```

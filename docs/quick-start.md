@@ -236,6 +236,15 @@ python scripts/schedule_sectoral_snapshot_refresh.py --interval-months 3
 
 ## API Smoke Tests
 
+Every command below submits a task and returns `HTTP 202`. Copy `status_url` from the response and poll it to obtain the final result:
+
+```bash
+TASK_ID="replace-with-the-returned-task-id"
+curl "http://127.0.0.1:8000/projector/tasks/${TASK_ID}"
+```
+
+The terminal response has `status="completed"` with `result`, or `status="failed"` with `error`.
+
 ```bash
 curl -X POST http://127.0.0.1:8000/projector/sectoral-snapshot \
   -H "Content-Type: application/x-www-form-urlencoded" \

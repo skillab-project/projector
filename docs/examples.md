@@ -1,5 +1,7 @@
 # Examples and Integration Patterns
 
+Every analysis request below returns a task acknowledgement, not the analysis body. Poll the returned `status_url`; the field guidance in these examples applies to the completed task's `result` object. See [API reference](api-reference.md#asynchronous-task-contract).
+
 ## Example 1: Full Dashboard Snapshot
 
 Use this when the interface needs a complete market summary.
@@ -16,7 +18,7 @@ curl -X POST "http://127.0.0.1:8000/projector/analyze-skills" \
   -d "demo=false"
 ```
 
-Use the response like this:
+Use the completed task's `result` like this:
 
 - `dimension_summary.jobs_analyzed`: KPI tile
 - `insights.ranking`: top-skills chart

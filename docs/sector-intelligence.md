@@ -2,6 +2,8 @@
 
 Sector intelligence is Tracker API only.
 
+Sector analysis endpoints follow the shared asynchronous contract: submit with `POST`, then read `GET /projector/tasks/{task_id}` and use `result` after completion.
+
 Related issues: #44, #47, #48, #49, #52, #54.
 
 ## Source

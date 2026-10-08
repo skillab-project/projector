@@ -4,6 +4,8 @@ This page is the quick integration view for consumers of the Projector API.
 
 For full field details, see [API reference](api-reference.md) and [Data model](data-model.md).
 
+All analysis `POST` calls return `HTTP 202` with `task_id`, `status="queued"` and `status_url`. Poll `GET /projector/tasks/{task_id}`; the payloads shown under “What It Returns” are found in `result` when the task reaches `completed`. A failed task returns `error`. Input validation remains synchronous.
+
 ## Quick Map
 
 | Endpoint | Use it when you need | Returns in one sentence |
@@ -19,6 +21,7 @@ For full field details, see [API reference](api-reference.md) and [Data model](d
 | `POST /projector/emerging-skills` | Only trend information | Market volume trend plus emerging, declining, stable and new-entry skills |
 | `POST /projector/temporal-projections` | Temporal Analysis | Monthly, quarterly or yearly evolution of the selected job-market slice |
 | `POST /projector/statistical-comparison` | Inferential evidence layer | 2x2 chi-square evidence with p-value, effect size, observed/expected tables, ratios and warnings |
+| `GET /projector/tasks/{task_id}` | Retrieve async work | Current state plus `result` on completion or `error` on failure |
 | `POST /projector/stop` | To interrupt a long analysis | Acknowledgement that a cooperative stop signal was sent |
 
 ## `POST /projector/analyze-skills`

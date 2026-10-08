@@ -7,6 +7,7 @@ import os
 import json
 from collections import Counter
 from requests import RequestException
+from app.example_dashboard.api_client import post_task
 from app.example_dashboard.region_comparison import render_region_comparison
 
 # 1. Configurazione Pagina
@@ -845,166 +846,59 @@ def check_backend(api_base_url: str, timeout_seconds: int):
     return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:300]}"}
 
 
-def get_analysis_data(api_base_url: str, payload: dict, timeout_seconds: int):
+def request_analysis_task(api_base_url: str, endpoint: str, payload: dict, timeout_seconds: int):
     try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/analyze-skills",
-            data=payload,
-            timeout=timeout_seconds
+        return post_task(
+            normalize_api_base_url(api_base_url),
+            endpoint,
+            payload,
+            timeout_seconds,
         )
     except requests.Timeout as exc:
         return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
+    except (RequestException, RuntimeError, ValueError) as exc:
         return {"_error": f"{T['server_error']} ({exc})"}
 
-    if res.status_code == 200:
-        return res.json()
 
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+def get_analysis_data(api_base_url: str, payload: dict, timeout_seconds: int):
+    return request_analysis_task(api_base_url, "analyze-skills", payload, timeout_seconds)
 
 
 def get_sectoral_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/sectoral-intelligence",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "sectoral-intelligence", payload, timeout_seconds)
 
 
 def get_sectoral_snapshot_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/sectoral-snapshot",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "sectoral-snapshot", payload, timeout_seconds)
 
 
 def get_sector_skills_comparison_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/sector-skills-comparison",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "sector-skills-comparison", payload, timeout_seconds)
 
 
 def get_regional_sectoral_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/regional-sectoral",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "regional-sectoral", payload, timeout_seconds)
 
 
 def get_temporal_projection_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/temporal-projections",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "temporal-projections", payload, timeout_seconds)
 
 
 def get_regional_temporal_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/regional-temporal",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "regional-temporal", payload, timeout_seconds)
 
 
 def get_skill_explorer_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/skill-explorer",
-            data=payload,
-            timeout=timeout_seconds
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(api_base_url, "skill-explorer", payload, timeout_seconds)
 
 
 def get_statistical_comparison_data(api_base_url: str, payload: dict, timeout_seconds: int):
-    try:
-        res = requests.post(
-            f"{normalize_api_base_url(api_base_url)}/statistical-comparison",
-            data=payload,
-            timeout=min(int(timeout_seconds), 60)
-        )
-    except requests.Timeout as exc:
-        return {"_error": f"{T['server_timeout']} ({exc})"}
-    except RequestException as exc:
-        return {"_error": f"{T['server_error']} ({exc})"}
-
-    if res.status_code == 200:
-        return res.json()
-
-    return {"_error": f"{T['server_http_error']} [HTTP {res.status_code}] {res.text[:500]}"}
+    return request_analysis_task(
+        api_base_url,
+        "statistical-comparison",
+        payload,
+        min(int(timeout_seconds), 60),
+    )
 
 
 STAT_TEXT_IT = {

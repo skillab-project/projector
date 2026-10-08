@@ -1,4 +1,5 @@
 from datetime import date
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +8,16 @@ from unittest.mock import AsyncMock
 from app.schemas.responses import RegionalComparisonResponse
 from app.services.analytics.market import MarketAnalytics
 from app.services.projector_service import ProjectorService
+
+
+def _wait_for_task(client, status_url):
+    for _ in range(1000):
+        response = client.get(status_url)
+        payload = response.json()
+        if payload["status"] in {"completed", "failed"}:
+            return payload
+        time.sleep(0.001)
+    raise AssertionError(f"Task at {status_url} did not finish during the test")
 
 
 class _Engine:
@@ -215,22 +226,24 @@ def test_compare_regions_endpoint_full_flow(monkeypatch):
     monkeypatch.setattr(tracker, "fetch_all_jobs", fetch)
     monkeypatch.setattr(tracker, "fetch_skill_names", AsyncMock())
     monkeypatch.setattr(engine, "skill_map", _Engine().skill_map)
-    client = TestClient(app)
-    for path in ("/projector/compare-regions", "/compare-regions"):
-        response = client.post(path, data={"region_a": " dk03 ", "region_b": "itf4",
-                                          "min_date": "2024-01-01", "max_date": "2024-12-31", "keyword": "teacher"})
-        assert response.status_code == 200
-        data = response.json()
-        RegionalComparisonResponse.model_validate(data)
-        assert data["region_a"]["code"] == "DK03"
-        assert data["region_a"]["total_jobs"] == data["region_b"]["total_jobs"] == 1
-        assert data["comparison"]["total_jobs_difference"] == 0
-        python = next(row for row in data["comparison"]["skills"] if row["skill_id"] == "s1")
-        assert python["share_difference_percentage_points"] == -100
-        assert python["region_a_specialization"] == 2
-        assert data["comparison"]["sectors"][0]["name"] == "Education"
+    with TestClient(app) as client:
+        for path in ("/projector/compare-regions", "/compare-regions"):
+            response = client.post(path, data={"region_a": " dk03 ", "region_b": "itf4",
+                                              "min_date": "2024-01-01", "max_date": "2024-12-31", "keyword": "teacher"})
+            assert response.status_code == 202
+            task = _wait_for_task(client, response.json()["status_url"])
+            assert task["status"] == "completed"
+            data = task["result"]
+            RegionalComparisonResponse.model_validate(data)
+            assert data["region_a"]["code"] == "DK03"
+            assert data["region_a"]["total_jobs"] == data["region_b"]["total_jobs"] == 1
+            assert data["comparison"]["total_jobs_difference"] == 0
+            python = next(row for row in data["comparison"]["skills"] if row["skill_id"] == "s1")
+            assert python["share_difference_percentage_points"] == -100
+            assert python["region_a_specialization"] == 2
+            assert data["comparison"]["sectors"][0]["name"] == "Education"
+        assert "/projector/compare-regions" in client.get("/openapi.json").json()["paths"]
     assert fetch.call_args.args[0]["keywords"] == ["teacher"]
-    assert "/projector/compare-regions" in client.get("/openapi.json").json()["paths"]
 
 
 @pytest.mark.asyncio

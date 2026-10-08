@@ -15,6 +15,8 @@ Each view includes:
 - collapsible inferential evidence boxes where the view compares two groups
 - Italian and English labels
 
+The dashboard uses the same asynchronous protocol as external clients. Its shared API helper submits each analysis, polls the returned `status_url`, unwraps `result` on completion and surfaces task failures or timeouts as UI errors. This keeps existing charts and tables independent of the transport lifecycle.
+
 ## Navigation
 
 | View | Question answered | Endpoint | Data source |
